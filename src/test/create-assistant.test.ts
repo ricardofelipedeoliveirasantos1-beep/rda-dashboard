@@ -35,6 +35,7 @@ function baseDeps(overrides: Partial<Deps> = {}): Deps {
             : { data: { role: "visitor" }, error: null },
       ),
     ),
+    countUsersByRole: vi.fn().mockResolvedValue({ count: 0, error: null }),
     createUser: vi.fn((_p) =>
       Promise.resolve({ data: { user: { id: "new-user-1" } }, error: null }),
     ),
