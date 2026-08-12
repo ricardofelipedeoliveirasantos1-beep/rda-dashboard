@@ -1,0 +1,30 @@
+# ============================================================================
+# supabase/config.toml — projeto FutCRM (RDA)
+#
+# ATENÇÃO: este arquivo é versionável e NÃO deve conter valores de secret.
+# Os secrets são definidos em runtime (Dashboard ou `supabase secrets set`).
+# O project_id deve ser ajustado com o ID real do projeto Supabase (project ref)
+# antes do primeiro `supabase functions deploy`. NÃO definir agora.
+#
+# Não executar deploy até o usuário fornecer o project ref e autorizar.
+# ============================================================================
+
+project_id = "bdpocxppyoavqbpcmfdb"
+
+[functions.create-assistant]
+verify_jwt = true
+# verify_jwt = true  -> exige Authorization válido; a própria função também
+#                       revalida admin via auth.getUser() + profiles.role
+
+[functions.create-assistant.secrets]
+# SECRETS NUNCA vêm daqui (config.toml é versionável).
+# Definir via:
+#   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<valor>   (server-side apenas)
+# A anon key / url costumam ser injetadas automaticamente pelo runtime;
+# podem ser sobrescritas com secrets se necessário.
+
+[api]
+# se necessário, limites de corpus/verificação podem ser definidos aqui.
+
+[auth]
+# sem alterações de SQL/RLS nesta etapa; apenas estrutura da function.
