@@ -35,6 +35,7 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
   
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [showMonthSelect, setShowMonthSelect] = useState(false);
+  const [showYearSelect, setShowYearSelect] = useState(false);
   
   const [players, setPlayers] = useState<Player[]>([]);
   const [payments, setPayments] = useState<MonthlyPayment[]>([]);
@@ -286,78 +287,131 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
         </div>
       )}
 
-      {/* SELETOR DE MÊS DROPDOWN */}
-      <div style={{ position: 'relative', width: '200px' }}>
-        <button 
-          onClick={() => setShowMonthSelect(!showMonthSelect)}
-          style={{ 
-            width: '100%',
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between', 
-            backgroundColor: '#171717', 
-            padding: '12px 16px', 
-            borderRadius: '12px',
-            border: '1.5px solid rgba(255,255,255,0.08)',
-            color: '#fff',
-            fontWeight: 700,
-            cursor: 'pointer'
-          }}
-        >
-          <span>{MONTHS_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
-          <ChevronDown size={18} style={{ transform: showMonthSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-        </button>
-        
-        {showMonthSelect && (
-          <div style={{
-            position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
-            backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
-            maxHeight: '240px', overflowY: 'auto', zIndex: 10,
-            boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
-          }}>
-            {MONTHS_NAMES.map((m, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  setCurrentDate(new Date(currentDate.getFullYear(), i, 1));
-                  setShowMonthSelect(false);
-                }}
-                style={{
-                  width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none',
-                  border: 'none', color: '#fff', fontSize: '0.9rem', cursor: 'pointer',
-                  borderBottom: '1px solid rgba(255,255,255,0.03)',
-                  backgroundColor: currentDate.getMonth() === i ? 'rgba(255,255,255,0.05)' : 'transparent'
-                }}
-              >
-                {m} {currentDate.getFullYear()}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* SELETOR DE MÊS E ANO DROPDOWN */}
+      <div style={{ display: 'flex', gap: '8px' }}>
+        {/* Dropdown Mês */}
+        <div style={{ position: 'relative', flex: 1 }}>
+          <button 
+            onClick={() => { setShowMonthSelect(!showMonthSelect); setShowYearSelect(false); }}
+            style={{ 
+              width: '100%',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              backgroundColor: '#171717', 
+              padding: '12px 16px', 
+              borderRadius: '12px',
+              border: '1.5px solid rgba(255,255,255,0.08)',
+              color: '#fff',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            <span>{MONTHS_NAMES[currentDate.getMonth()]}</span>
+            <ChevronDown size={18} style={{ transform: showMonthSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+          </button>
+          
+          {showMonthSelect && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
+              backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
+              maxHeight: '240px', overflowY: 'auto', zIndex: 10,
+              boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+            }}>
+              {MONTHS_NAMES.map((m, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setCurrentDate(new Date(currentDate.getFullYear(), i, 1));
+                    setShowMonthSelect(false);
+                  }}
+                  style={{
+                    width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none',
+                    border: 'none', color: '#fff', fontSize: '0.9rem', cursor: 'pointer',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    backgroundColor: currentDate.getMonth() === i ? 'rgba(255,255,255,0.05)' : 'transparent'
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Dropdown Ano */}
+        <div style={{ position: 'relative', width: '120px' }}>
+          <button 
+            onClick={() => { setShowYearSelect(!showYearSelect); setShowMonthSelect(false); }}
+            style={{ 
+              width: '100%',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              backgroundColor: '#171717', 
+              padding: '12px 16px', 
+              borderRadius: '12px',
+              border: '1.5px solid rgba(255,255,255,0.08)',
+              color: '#fff',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            <span>{currentDate.getFullYear()}</span>
+            <ChevronDown size={18} style={{ transform: showYearSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+          </button>
+          
+          {showYearSelect && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
+              backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
+              maxHeight: '240px', overflowY: 'auto', zIndex: 10,
+              boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+            }}>
+              {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map((year) => (
+                <button
+                  key={year}
+                  onClick={() => {
+                    setCurrentDate(new Date(year, currentDate.getMonth(), 1));
+                    setShowYearSelect(false);
+                  }}
+                  style={{
+                    width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none',
+                    border: 'none', color: '#fff', fontSize: '0.9rem', cursor: 'pointer',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    backgroundColor: currentDate.getFullYear() === year ? 'rgba(255,255,255,0.05)' : 'transparent'
+                  }}
+                >
+                  {year}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* DOIS CARDS PRINCIPAIS */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
         {/* Card 1 — Pagos */}
         <div style={{
-          padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(34, 197, 94, 0.05)',
-          border: '1px solid rgba(34, 197, 94, 0.15)', display: 'flex', flexDirection: 'column', gap: '4px',
-          alignItems: 'flex-start'
+          padding: '16px 12px', borderRadius: '12px', backgroundColor: 'rgba(34, 197, 94, 0.05)',
+          border: '1px solid rgba(34, 197, 94, 0.15)', display: 'flex', flexDirection: 'column', gap: '6px',
+          alignItems: 'center', justifyContent: 'center', textAlign: 'center'
         }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#22c55e' }}>PAGO</span>
+          <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#22c55e', letterSpacing: '0.5px' }}>PAGO</span>
           <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{paidMensalistas.length} jogadores</span>
-          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff' }}>R$ {recebidosVal.toFixed(2)}</span>
+          <span style={{ fontSize: '1.35rem', fontWeight: 900, color: '#fff' }}>R$ {recebidosVal.toFixed(2)}</span>
         </div>
 
         {/* Card 2 — Pendentes */}
         <div style={{
-          padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(239, 68, 68, 0.05)',
-          border: '1px solid rgba(239, 68, 68, 0.15)', display: 'flex', flexDirection: 'column', gap: '4px',
-          alignItems: 'flex-start'
+          padding: '16px 12px', borderRadius: '12px', backgroundColor: 'rgba(239, 68, 68, 0.05)',
+          border: '1px solid rgba(239, 68, 68, 0.15)', display: 'flex', flexDirection: 'column', gap: '6px',
+          alignItems: 'center', justifyContent: 'center', textAlign: 'center'
         }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#ef4444' }}>PENDENTE</span>
+          <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#ef4444', letterSpacing: '0.5px' }}>PENDENTE</span>
           <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{pendingMensalistas.length} jogadores</span>
-          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff' }}>R$ {pendentesVal.toFixed(2)}</span>
+          <span style={{ fontSize: '1.35rem', fontWeight: 900, color: '#fff' }}>R$ {pendentesVal.toFixed(2)}</span>
         </div>
       </div>
 
@@ -391,9 +445,9 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', padding: '4px 0' }}>
-          <button onClick={() => setStatusFilter('all')} style={{ padding: '8px 10px', backgroundColor: statusFilter === 'all' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.01)', border: '1px solid', borderColor: statusFilter === 'all' ? '#38bdf8' : 'rgba(255,255,255,0.08)', borderRadius: '8px', color: statusFilter === 'all' ? '#38bdf8' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>Todos {totalMensalistasCount}</button>
-          <button onClick={() => setStatusFilter('paid')} style={{ padding: '8px 10px', backgroundColor: statusFilter === 'paid' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255,255,255,0.01)', border: '1px solid', borderColor: statusFilter === 'paid' ? '#22c55e' : 'rgba(255,255,255,0.08)', borderRadius: '8px', color: statusFilter === 'paid' ? '#22c55e' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>Pagos {paidMensalistas.length}</button>
-          <button onClick={() => setStatusFilter('pending')} style={{ padding: '8px 10px', backgroundColor: statusFilter === 'pending' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.01)', border: '1px solid', borderColor: statusFilter === 'pending' ? '#ef4444' : 'rgba(255,255,255,0.08)', borderRadius: '8px', color: statusFilter === 'pending' ? '#ef4444' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>Pendentes {pendingMensalistas.length}</button>
+          <button onClick={() => setStatusFilter('all')} style={{ padding: '12px 10px', backgroundColor: statusFilter === 'all' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.01)', border: '1px solid', borderColor: statusFilter === 'all' ? '#38bdf8' : 'rgba(255,255,255,0.08)', borderRadius: '10px', color: statusFilter === 'all' ? '#38bdf8' : 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}>Todos {totalMensalistasCount}</button>
+          <button onClick={() => setStatusFilter('paid')} style={{ padding: '12px 10px', backgroundColor: statusFilter === 'paid' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255,255,255,0.01)', border: '1px solid', borderColor: statusFilter === 'paid' ? '#22c55e' : 'rgba(255,255,255,0.08)', borderRadius: '10px', color: statusFilter === 'paid' ? '#22c55e' : 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}>Pagos {paidMensalistas.length}</button>
+          <button onClick={() => setStatusFilter('pending')} style={{ padding: '12px 10px', backgroundColor: statusFilter === 'pending' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.01)', border: '1px solid', borderColor: statusFilter === 'pending' ? '#ef4444' : 'rgba(255,255,255,0.08)', borderRadius: '10px', color: statusFilter === 'pending' ? '#ef4444' : 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}>Pendentes {pendingMensalistas.length}</button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
@@ -416,11 +470,11 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
                     <img 
                       src={player.photo_url} 
                       alt={player.name} 
-                      style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                      style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, aspectRatio: '1/1' }}
                     />
                   ) : (
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#262626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <User size={16} style={{ color: 'var(--text-muted)' }} />
+                    <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#262626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, aspectRatio: '1/1' }}>
+                      <User size={20} style={{ color: 'var(--text-muted)' }} />
                     </div>
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -432,16 +486,16 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{
-                    fontSize: '0.65rem',
+                    fontSize: '0.72rem',
                     fontWeight: 800,
-                    padding: '3px 8px',
+                    padding: '5px 9px',
                     borderRadius: '6px',
-                    backgroundColor: player.payment_status === 'paid' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    backgroundColor: player.payment_status === 'paid' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                     color: player.payment_status === 'paid' ? '#22c55e' : '#ef4444',
                     border: '1.5px solid',
-                    borderColor: player.payment_status === 'paid' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'
+                    borderColor: player.payment_status === 'paid' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'
                   }}>
                     {player.payment_status === 'paid' ? 'PAGO' : 'PENDENTE'}
                   </span>
@@ -449,12 +503,12 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
                   <button
                     onClick={() => handleTogglePayment(player.id, player.payment_status)}
                     style={{
-                      padding: '6px 12px',
+                      padding: '8px 14px',
                       borderRadius: '8px',
                       backgroundColor: player.payment_status === 'paid' ? 'rgba(255,255,255,0.03)' : '#22c55e',
                       border: player.payment_status === 'paid' ? '1px solid rgba(255,255,255,0.08)' : 'none',
                       color: player.payment_status === 'paid' ? 'var(--text-primary)' : '#ffffff',
-                      fontSize: '0.72rem',
+                      fontSize: '0.75rem',
                       fontWeight: 700,
                       cursor: 'pointer',
                       transition: 'var(--transition)'
