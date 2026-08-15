@@ -6,6 +6,7 @@ import Financeiro from './components/Financeiro';
 import Avisos from './components/Avisos';
 import Ranking from './components/Ranking';
 import Relatorios from './components/Relatorios';
+import Mensalidades from './components/Mensalidades';
 import { supabase } from './lib/supabase';
 import { 
   Users, 
@@ -31,7 +32,8 @@ import {
   Loader2,
   Shield,
   LogOut,
-  Edit
+  Edit,
+  Wallet
 } from 'lucide-react';
 
 
@@ -61,7 +63,7 @@ export interface AssistantPermissions {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'inicio' | 'jogadores' | 'ranking' | 'partidas' | 'historico' | 'financeiro' | 'relatorios' | 'avisos' | 'configuracoes'>('inicio');
+  const [activeTab, setActiveTab] = useState<'inicio' | 'jogadores' | 'ranking' | 'partidas' | 'historico' | 'mensalidades' | 'financeiro' | 'relatorios' | 'avisos' | 'configuracoes'>('inicio');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [dashboardNotices, setDashboardNotices] = useState<Notice[]>([]);
   
@@ -302,7 +304,7 @@ export default function App() {
   // REDIRECT VISITANTE DE ABAS PROIBIDAS
   useEffect(() => {
     if (currentUserRole === 'visitor') {
-      if (['financeiro', 'avisos', 'configuracoes', 'relatorios'].includes(activeTab)) {
+      if (['financeiro', 'mensalidades', 'avisos', 'configuracoes', 'relatorios'].includes(activeTab)) {
         setActiveTab('inicio');
       }
     }
@@ -966,6 +968,14 @@ export default function App() {
             <>
               <a 
                 href="#" 
+                className={`sidebar-item ${activeTab === 'mensalidades' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setActiveTab('mensalidades'); setIsSidebarOpen(false); }}
+              >
+                <Wallet size={20} />
+                <span>Mensalidades</span>
+              </a>
+              <a 
+                href="#" 
                 className={`sidebar-item ${activeTab === 'financeiro' ? 'active' : ''}`}
                 onClick={(e) => { e.preventDefault(); setActiveTab('financeiro'); setIsSidebarOpen(false); }}
               >
@@ -1545,6 +1555,8 @@ export default function App() {
           <Partidas mode="partidas" userRole={currentUserRole!} can={can} />
         ) : activeTab === 'historico' ? (
           <Partidas mode="historico" userRole={currentUserRole!} can={can} />
+        ) : activeTab === 'mensalidades' ? (
+          <Mensalidades userRole={currentUserRole!} can={can} />
         ) : activeTab === 'financeiro' ? (
           <Financeiro userRole={currentUserRole!} can={can} />
         ) : activeTab === 'relatorios' ? (
