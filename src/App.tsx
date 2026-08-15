@@ -33,7 +33,10 @@ import {
   Shield,
   LogOut,
   Edit,
-  Wallet
+  Wallet,
+  CalendarDays,
+  Goal,
+  Sparkles
 } from 'lucide-react';
 
 
@@ -1111,52 +1114,60 @@ export default function App() {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div style={{
-                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.3)',
-                      borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'
+                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.35)',
+                      borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '2px',
+                      position: 'relative', overflow: 'hidden'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#3b82f6', marginBottom: '2px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#3b82f6', marginBottom: '2px', position: 'relative', zIndex: 1 }}>
                         <Users size={16} />
                       </div>
-                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{totalPlayers}</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Jogadores</span>
-                      <div style={{ display: 'flex', gap: '4px', fontSize: '0.65rem', fontWeight: 700, marginTop: '2px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1 }}>{totalPlayers}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', position: 'relative', zIndex: 1 }}>Jogadores</span>
+                      <div style={{ display: 'flex', gap: '4px', fontSize: '0.65rem', fontWeight: 700, marginTop: '2px', flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
                         <span style={{ color: '#22c55e' }}>{totalMensalistas} Mensalistas</span>
                         <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
                         <span style={{ color: '#f87171' }}>{totalDiaristas} Diaristas</span>
                       </div>
+                      <Users size={36} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.15, color: '#3b82f6', zIndex: 0 }} />
                     </div>
                     
                     <div style={{
-                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(249,115,22,0.3)',
-                      borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'
+                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(249,115,22,0.35)',
+                      borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '2px',
+                      position: 'relative', overflow: 'hidden'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#f97316', marginBottom: '2px' }}>
-                        <Calendar size={16} />
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#f97316', marginBottom: '2px', position: 'relative', zIndex: 1 }}>
+                        <CalendarDays size={16} />
                       </div>
-                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{totalMatches}</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Partidas</span>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1 }}>{totalMatches}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', position: 'relative', zIndex: 1 }}>Partidas</span>
+                      <Trophy size={36} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.15, color: '#f97316', zIndex: 0 }} />
                     </div>
 
                     <div style={{
-                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(34,197,94,0.3)',
-                      borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'
+                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(34,197,94,0.35)',
+                      borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '2px',
+                      position: 'relative', overflow: 'hidden'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#22c55e', marginBottom: '2px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#22c55e', marginBottom: '2px', position: 'relative', zIndex: 1 }}>
                         <Flame size={16} />
                       </div>
-                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{totalGoals}</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Gols</span>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1 }}>{totalGoals}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', position: 'relative', zIndex: 1 }}>Gols</span>
+                      <Goal size={36} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.15, color: '#22c55e', zIndex: 0 }} />
                     </div>
 
                     <div style={{
-                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(168,85,247,0.3)',
-                      borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'
+                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(168,85,247,0.35)',
+                      borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '2px',
+                      position: 'relative', overflow: 'hidden'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#a855f7', marginBottom: '2px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#a855f7', marginBottom: '2px', position: 'relative', zIndex: 1 }}>
                         <Star size={16} />
                       </div>
-                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{totalAssists}</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Assistências</span>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1 }}>{totalAssists}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', position: 'relative', zIndex: 1 }}>Assistências</span>
+                      <Sparkles size={36} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.15, color: '#a855f7', zIndex: 0 }} />
                     </div>
                   </div>
                 </div>
