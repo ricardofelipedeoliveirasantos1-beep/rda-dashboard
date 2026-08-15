@@ -299,6 +299,15 @@ export default function App() {
     }
   }, [activeTab]);
 
+  // REDIRECT VISITANTE DE ABAS PROIBIDAS
+  useEffect(() => {
+    if (currentUserRole === 'visitor') {
+      if (['financeiro', 'avisos', 'configuracoes', 'relatorios'].includes(activeTab)) {
+        setActiveTab('inicio');
+      }
+    }
+  }, [currentUserRole, activeTab]);
+
   const handleSaveLastMatchEdits = async () => {
     if (!editingLastMatch) return;
     setSavingLastMatch(true);
@@ -953,39 +962,41 @@ export default function App() {
             <Clock size={20} />
             <span>Histórico</span>
           </a>
-          <a 
-            href="#" 
-            className={`sidebar-item ${activeTab === 'financeiro' ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); setActiveTab('financeiro'); setIsSidebarOpen(false); }}
-          >
-            <DollarSign size={20} />
-            <span>Financeiro</span>
-          </a>
-          <a 
-            href="#" 
-            className={`sidebar-item ${activeTab === 'relatorios' ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); setActiveTab('relatorios'); setIsSidebarOpen(false); }}
-          >
-            <FileText size={20} />
-            <span>Relatórios</span>
-          </a>
-          <a 
-            href="#" 
-            className={`sidebar-item ${activeTab === 'avisos' ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); setActiveTab('avisos'); setIsSidebarOpen(false); }}
-          >
-            <MessageSquare size={20} />
-            <span>Avisos</span>
-          </a>
           {currentUserRole !== 'visitor' && (
-            <a 
-              href="#" 
-              className={`sidebar-item ${activeTab === 'configuracoes' ? 'active' : ''}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); setIsSidebarOpen(false); }}
-            >
-              <Settings size={20} />
-              <span>Configuração</span>
-            </a>
+            <>
+              <a 
+                href="#" 
+                className={`sidebar-item ${activeTab === 'financeiro' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setActiveTab('financeiro'); setIsSidebarOpen(false); }}
+              >
+                <DollarSign size={20} />
+                <span>Financeiro</span>
+              </a>
+              <a 
+                href="#" 
+                className={`sidebar-item ${activeTab === 'relatorios' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setActiveTab('relatorios'); setIsSidebarOpen(false); }}
+              >
+                <FileText size={20} />
+                <span>Relatórios</span>
+              </a>
+              <a 
+                href="#" 
+                className={`sidebar-item ${activeTab === 'avisos' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setActiveTab('avisos'); setIsSidebarOpen(false); }}
+              >
+                <MessageSquare size={20} />
+                <span>Avisos</span>
+              </a>
+              <a 
+                href="#" 
+                className={`sidebar-item ${activeTab === 'configuracoes' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); setIsSidebarOpen(false); }}
+              >
+                <Settings size={20} />
+                <span>Configuração</span>
+              </a>
+            </>
           )}
         </nav>
       </aside>
@@ -1585,23 +1596,25 @@ export default function App() {
           <Trophy size={20} />
           <span>Partidas</span>
         </a>
-        <a 
-          href="#" 
-          className={`nav-item ${activeTab === 'avisos' ? 'active' : ''}`}
-          onClick={(e) => { e.preventDefault(); setActiveTab('avisos'); }}
-        >
-          <MessageSquare size={20} />
-          <span>Avisos</span>
-        </a>
         {currentUserRole !== 'visitor' && (
-          <a 
-            href="#" 
-            className={`nav-item ${activeTab === 'configuracoes' ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); }}
-          >
-            <Settings size={20} />
-            <span>Configuração</span>
-          </a>
+          <>
+            <a 
+              href="#" 
+              className={`nav-item ${activeTab === 'avisos' ? 'active' : ''}`}
+              onClick={(e) => { e.preventDefault(); setActiveTab('avisos'); }}
+            >
+              <MessageSquare size={20} />
+              <span>Avisos</span>
+            </a>
+            <a 
+              href="#" 
+              className={`nav-item ${activeTab === 'configuracoes' ? 'active' : ''}`}
+              onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); }}
+            >
+              <Settings size={20} />
+              <span>Configuração</span>
+            </a>
+          </>
         )}
       </nav>
       {/* EDIT LAST MATCH MODAL */}

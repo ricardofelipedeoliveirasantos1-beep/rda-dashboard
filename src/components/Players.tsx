@@ -675,15 +675,16 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
 
                 {/* BOTÕES DE STATUS E MENUS */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>                  {/* Botão Power circular e maior */}
-                  <button 
-                    onClick={() => toggleCategoryStatus(player)}
-                    disabled={updatingPlayerId === player.id}
+                  <div 
+                    onClick={() => {
+                      if (_userRole !== 'visitor') toggleCategoryStatus(player);
+                    }}
                     aria-label={`Alterar ${player.name} para ${player.category === 'Mensalista' ? 'Diarista' : 'Mensalista'}`}
-                    title={`Mudar para ${player.category === 'Mensalista' ? 'Diarista' : 'Mensalista'}`}
+                    title={_userRole === 'visitor' ? 'Somente Leitura' : `Mudar para ${player.category === 'Mensalista' ? 'Diarista' : 'Mensalista'}`}
                     style={{
                       border: `2.5px solid ${player.category === 'Mensalista' ? '#22c55e' : '#ef4444'}`,
                       background: 'none',
-                      cursor: updatingPlayerId === player.id ? 'not-allowed' : 'pointer',
+                      cursor: _userRole === 'visitor' ? 'default' : (updatingPlayerId === player.id ? 'not-allowed' : 'pointer'),
                       width: '42px',
                       height: '42px',
                       borderRadius: '50%',
@@ -702,7 +703,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
                     ) : (
                       <Power size={20} />
                     )}
-                  </button>
+                  </div>
                   {/* Menu de 3 Pontos (Apenas o botão gatilho) */}
                   {_userRole !== 'visitor' && (
                     <div className="menu-trigger">
