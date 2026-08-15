@@ -587,18 +587,39 @@ export default function App() {
       });
       const monthDailyFees = currentMonthMatches.reduce((acc, m) => acc + Number(m.daily_total || 0), 0);
 
-      // Mensalidades
+      // Mensalidades - Arrecadação (baseado em todos os pagamentos reais)
       payments.forEach(p => {
         if (p.status === 'paid') {
           allTimeRevenue += Number(p.amount);
           if (p.payment_month === currentMonthStr) {
             monthRevenue += Number(p.amount);
-            monthPaidCount++;
           }
-        } else if (p.status === 'pending') {
-          if (p.payment_month === currentMonthStr) {
-            monthPending += Number(p.amount);
+        }
+      });
+
+      // Mensalidades - Pendências e Contadores (Sincronizado com a tela Mensalidades)
+      const defMonthlyFee = settings.monthly_fee ? Number(settings.monthly_fee) : 60;
+      const currentMonthPayments = payments.filter(p => p.payment_month === currentMonthStr);
+      
+      activePlayers.forEach(player => {
+        const record = currentMonthPayments.find(p => p.player_id === player.id);
+        
+        if (player.category === 'Mensalista') {
+          if (record) {
+            if (record.status === 'paid') {
+              monthPaidCount++;
+            } else {
+              monthPending += Number(record.amount);
+              monthPendingCount++;
+            }
+          } else {
+            monthPending += defMonthlyFee;
             monthPendingCount++;
+          }
+        } else {
+          // Diarista: entra na contagem apenas se tiver pago pelo módulo de Mensalidades
+          if (record && record.status === 'paid') {
+            monthPaidCount++;
           }
         }
       });
