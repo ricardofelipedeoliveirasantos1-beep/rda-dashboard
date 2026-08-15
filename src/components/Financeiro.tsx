@@ -39,6 +39,8 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [showMonthSelect, setShowMonthSelect] = useState(false);
+  const [showYearSelect, setShowYearSelect] = useState(false);
+  const YEARS_LIST = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
   
   const [payments, setPayments] = useState<MonthlyPayment[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -162,18 +164,6 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, background: 'linear-gradient(135deg, #ffffff, #a3a3a3)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Financeiro</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>Balanço geral de arrecadação e gastos.</p>
         </div>
-        {(_userRole === 'admin' || _userRole === 'treasurer' || (_userRole === 'assistant' && _can('manage_expenses'))) && (
-          <button 
-            onClick={() => setShowExpenseModal(true)}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', 
-              backgroundColor: '#f43f5e', color: '#fff', border: 'none', borderRadius: '8px', 
-              fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(244, 63, 94, 0.4)'
-            }}
-          >
-            + Adicionar gasto
-          </button>
-        )}
       </div>
 
       {error && (
@@ -183,73 +173,131 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         </div>
       )}
 
-      {/* SELETOR DE MÊS DROPDOWN */}
-      <div style={{ position: 'relative', width: '200px' }}>
-        <button 
-          onClick={() => setShowMonthSelect(!showMonthSelect)}
-          style={{ 
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-            backgroundColor: '#171717', padding: '12px 16px', borderRadius: '12px',
-            border: '1.5px solid rgba(255,255,255,0.08)', color: '#fff', fontWeight: 700, cursor: 'pointer'
-          }}
-        >
-          <span>{MONTHS_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
-          <ChevronDown size={18} style={{ transform: showMonthSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-        </button>
-        
-        {showMonthSelect && (
-          <div style={{
-            position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
-            backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
-            maxHeight: '240px', overflowY: 'auto', zIndex: 10, boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
-          }}>
-            {MONTHS_NAMES.map((m, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  setCurrentDate(new Date(currentDate.getFullYear(), i, 1));
-                  setShowMonthSelect(false);
-                }}
-                style={{
-                  width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none',
-                  border: 'none', color: '#fff', fontSize: '0.9rem', cursor: 'pointer',
-                  borderBottom: '1px solid rgba(255,255,255,0.03)',
-                  backgroundColor: currentDate.getMonth() === i ? 'rgba(255,255,255,0.05)' : 'transparent'
-                }}
-              >
-                {m} {currentDate.getFullYear()}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* SELETORES DE MÊS E ANO */}
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ position: 'relative', width: '140px' }}>
+          <button 
+            onClick={() => setShowMonthSelect(!showMonthSelect)}
+            style={{ 
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+              backgroundColor: '#171717', padding: '12px 16px', borderRadius: '12px',
+              border: '1.5px solid rgba(255,255,255,0.08)', color: '#fff', fontWeight: 700, cursor: 'pointer'
+            }}
+          >
+            <span>{MONTHS_NAMES[currentDate.getMonth()]}</span>
+            <ChevronDown size={18} style={{ transform: showMonthSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+          </button>
+          
+          {showMonthSelect && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
+              backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
+              maxHeight: '240px', overflowY: 'auto', zIndex: 10, boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+            }}>
+              {MONTHS_NAMES.map((m, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setCurrentDate(new Date(currentDate.getFullYear(), i, 1));
+                    setShowMonthSelect(false);
+                  }}
+                  style={{
+                    width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none',
+                    border: 'none', color: '#fff', fontSize: '0.9rem', cursor: 'pointer',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    backgroundColor: currentDate.getMonth() === i ? 'rgba(255,255,255,0.05)' : 'transparent'
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ position: 'relative', width: '100px' }}>
+          <button 
+            onClick={() => setShowYearSelect(!showYearSelect)}
+            style={{ 
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+              backgroundColor: '#171717', padding: '12px 16px', borderRadius: '12px',
+              border: '1.5px solid rgba(255,255,255,0.08)', color: '#fff', fontWeight: 700, cursor: 'pointer'
+            }}
+          >
+            <span>{currentDate.getFullYear()}</span>
+            <ChevronDown size={18} style={{ transform: showYearSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+          </button>
+          
+          {showYearSelect && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
+              backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
+              maxHeight: '240px', overflowY: 'auto', zIndex: 10, boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+            }}>
+              {YEARS_LIST.map((y, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setCurrentDate(new Date(y, currentDate.getMonth(), 1));
+                    setShowYearSelect(false);
+                  }}
+                  style={{
+                    width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none',
+                    border: 'none', color: '#fff', fontSize: '0.9rem', cursor: 'pointer',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    backgroundColor: currentDate.getFullYear() === y ? 'rgba(255,255,255,0.05)' : 'transparent'
+                  }}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* CARDS DO FINANCEIRO */}
-      <div className="finance-grid-topo">
-        <div className="finance-mini-card card-recebidas">
-          <span className="finance-mini-card-title">Mensalidades Recebidas</span>
-          <span className="finance-mini-card-value">R$ {recebidosVal.toFixed(2)}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(34, 197, 94, 0.05)', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Mensalidades Recebidas</span>
+          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#22c55e' }}>R$ {recebidosVal.toFixed(2)}</span>
         </div>
 
-        <div className="finance-mini-card card-diarias">
-          <span className="finance-mini-card-title">Diaristas Arrecadados</span>
-          <span className="finance-mini-card-value">R$ {diaristasTotalVal.toFixed(2)}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(234, 179, 8, 0.05)', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Diaristas Arrecadados</span>
+          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#eab308' }}>R$ {diaristasTotalVal.toFixed(2)}</span>
         </div>
 
-        <div className="finance-mini-card card-entradas">
-          <span className="finance-mini-card-title">Total de Entradas</span>
-          <span className="finance-mini-card-value">R$ {totalEntradasVal.toFixed(2)}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(168, 85, 247, 0.05)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Total de Entradas</span>
+          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#a855f7' }}>R$ {totalEntradasVal.toFixed(2)}</span>
         </div>
 
-        <div className="finance-mini-card card-despesas">
-          <span className="finance-mini-card-title">Despesas</span>
-          <span className="finance-mini-card-value">R$ {totalDespesasVal.toFixed(2)}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Despesas</span>
+          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#ef4444' }}>R$ {totalDespesasVal.toFixed(2)}</span>
         </div>
 
-        <div className="finance-mini-card card-saldo">
-          <span className="finance-mini-card-title">Saldo Líquido</span>
-          <span className="finance-mini-card-value">R$ {saldoFinalVal.toFixed(2)}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(34, 197, 94, 0.05)', border: '1px solid rgba(34, 197, 94, 0.2)', justifyContent: 'center' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Saldo Líquido</span>
+          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: saldoFinalVal >= 0 ? '#22c55e' : '#ef4444' }}>R$ {saldoFinalVal.toFixed(2)}</span>
         </div>
+
+        {(_userRole === 'admin' || _userRole === 'treasurer' || (_userRole === 'assistant' && _can('manage_expenses'))) ? (
+          <button 
+            onClick={() => setShowExpenseModal(true)}
+            style={{ 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', 
+              backgroundColor: '#f43f5e', color: '#fff', border: 'none', borderRadius: '16px', 
+              fontSize: '1rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.3)',
+              width: '100%', height: '100%'
+            }}
+          >
+            + Adicionar gasto
+          </button>
+        ) : (
+          <div style={{ width: '100%', height: '100%' }}></div>
+        )}
       </div>
 
       {feedback && (
@@ -262,7 +310,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       {/* RELATÓRIO DE GASTOS */}
       <section className="dashboard-card" style={{ gap: '12px' }}>
         <div className="card-header" style={{ marginBottom: '2px' }}>
-          <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800 }}>
+          <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 900, fontSize: '1.15rem', color: '#fff' }}>
             RELATÓRIO DE GASTOS DO MÊS
           </span>
         </div>
@@ -278,11 +326,10 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                   <div key={expense.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       <select value={editExpenseData.category} onChange={e => setEditExpenseData({...editExpenseData, category: e.target.value})} style={{ width: '100%', padding: '6px', borderRadius: '6px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.8rem' }}>
-                        <option value="Arena / Campo">Arena / Campo</option>
-                        <option value="Material esportivo">Material esportivo</option>
-                        <option value="Água / Bebidas">Água / Bebidas</option>
-                        <option value="Premiação">Premiação</option>
-                        <option value="Manutenção">Manutenção</option>
+                        <option value="Campo">Campo</option>
+                        <option value="Árbitro">Árbitro</option>
+                        <option value="Goleiro">Goleiro</option>
+                        <option value="Material">Material</option>
                         <option value="Outros">Outros</option>
                       </select>
                       <input type="number" step="0.01" placeholder="Valor" value={editExpenseData.amount} onChange={e => setEditExpenseData({...editExpenseData, amount: e.target.value})} style={{ width: '100%', padding: '6px', borderRadius: '6px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.8rem' }} />
@@ -322,20 +369,20 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
               }
 
               return (
-                <div key={expense.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{expense.category}</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{formattedDate} {expense.description ? `• ${expense.description}` : ''}</span>
+                <div key={expense.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-primary)' }}>{expense.category}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{formattedDate} {expense.description ? `• ${expense.description}` : ''}</span>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f43f5e' }}>- R$ {Number(expense.amount).toFixed(2)}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#f43f5e' }}>- R$ {Number(expense.amount).toFixed(2)}</span>
                     {(_userRole === 'admin' || _userRole === 'treasurer' || (_userRole === 'assistant' && _can('delete_expense'))) && (
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '12px' }}>
                         <button onClick={() => {
                             setEditExpenseData({ category: expense.category, amount: String(expense.amount), description: expense.description || '', date: expense.expense_date });
                             setEditingExpenseId(expense.id);
-                          }} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.65rem', cursor: 'pointer', fontWeight: 600 }}>Editar</button>
+                          }} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 700, padding: '4px 8px', margin: '-4px -8px' }}>Editar</button>
                         <button onClick={async () => {
                             if (confirm('Tem certeza que deseja remover esta despesa?')) {
                               try {
@@ -350,7 +397,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                                 setFeedback({ type: 'error', message: 'Erro ao remover despesa.' });
                               }
                             }
-                          }} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.65rem', cursor: 'pointer', fontWeight: 600 }}>Excluir</button>
+                          }} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 700, padding: '4px 8px', margin: '-4px -8px' }}>Excluir</button>
                       </div>
                     )}
                   </div>
@@ -365,9 +412,9 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         </div>
         
         {expenses.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '10px', marginTop: '4px', fontSize: '0.82rem' }}>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Total gasto no mês:</span>
-            <strong style={{ color: '#f43f5e', fontWeight: 800 }}>R$ {totalDespesasVal.toFixed(2)}</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px', marginTop: '8px' }}>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '1rem' }}>Total gasto no mês:</span>
+            <strong style={{ color: '#f43f5e', fontWeight: 900, fontSize: '1.3rem' }}>R$ {totalDespesasVal.toFixed(2)}</strong>
           </div>
         )}
       </section>
@@ -381,11 +428,10 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Categoria</label>
               <select value={newExpense.category} onChange={e => setNewExpense({...newExpense, category: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}>
-                <option value="Arena / Campo">Arena / Campo</option>
-                <option value="Material esportivo">Material esportivo</option>
-                <option value="Água / Bebidas">Água / Bebidas</option>
-                <option value="Premiação">Premiação</option>
-                <option value="Manutenção">Manutenção</option>
+                <option value="Campo">Campo</option>
+                <option value="Árbitro">Árbitro</option>
+                <option value="Goleiro">Goleiro</option>
+                <option value="Material">Material</option>
                 <option value="Outros">Outros</option>
               </select>
             </div>
