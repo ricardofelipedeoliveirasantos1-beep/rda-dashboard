@@ -360,29 +360,45 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
       {/* FILTER TABS */}
       <div style={{ padding: '0 16px 16px 16px' }}>
         <div style={{ 
-          display: 'flex', gap: '4px', overflowX: 'auto', padding: '4px', scrollbarWidth: 'none', 
+          display: 'flex', gap: '8px', overflowX: 'auto', padding: '6px', scrollbarWidth: 'none', 
           backgroundColor: '#111', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' 
         }}>
-          {(['Geral', 'Gols', 'Assistências', 'Campeões', 'Vices', 'Ralabosta', 'Cartões'] as FilterType[]).map(f => (
-            <button 
-              key={f}
-              onClick={() => setFilter(f)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: filter === f ? '#5865F2' : 'transparent',
-                color: filter === f ? '#fff' : '#9ca3af',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              {f}
-            </button>
-          ))}
+          {(['Geral', 'Gols', 'Assistências', 'Campeões', 'Vices', 'Ralabosta', 'Cartões'] as FilterType[]).map(f => {
+            const isSelected = filter === f;
+            let bgColor = 'rgba(255,255,255,0.03)';
+            if (isSelected) {
+              if (f === 'Geral') bgColor = '#a855f7'; // Roxo
+              else if (f === 'Gols') bgColor = '#22c55e'; // Verde
+              else if (f === 'Assistências') bgColor = '#3b82f6'; // Azul
+              else if (f === 'Campeões') bgColor = '#eab308'; // Amarelo Ouro
+              else if (f === 'Vices') bgColor = '#9ca3af'; // Cinza/Prata
+              else if (f === 'Ralabosta') bgColor = '#ef4444'; // Vermelho
+              else if (f === 'Cartões') bgColor = '#facc15'; // Amarelo
+            }
+            return (
+              <button 
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  border: isSelected ? '1px solid transparent' : '1px solid rgba(255,255,255,0.05)',
+                  backgroundColor: bgColor,
+                  color: isSelected ? '#fff' : '#9ca3af',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {f}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -476,17 +492,17 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
             
             {/* Headers */}
             {filter === 'Geral' ? (
-              <div style={{ display: 'flex', alignItems: 'center', fontSize: '0.6rem', fontWeight: 700, color: '#9ca3af', padding: '16px 12px 12px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', fontSize: '0.65rem', fontWeight: 800, color: '#9ca3af', padding: '16px 12px 12px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ width: '20px', textAlign: 'center' }}>#</div>
-                <div style={{ flex: 1, marginLeft: '8px' }}>JOGADOR</div>
-                <div style={{ display: 'flex', gap: '6px', textAlign: 'center', paddingRight: '8px' }}>
-                  <div style={{ width: '16px' }}>J</div>
-                  <div style={{ width: '16px' }}>G</div>
-                  <div style={{ width: '32px' }}>ASSIS</div>
-                  <div style={{ width: '32px' }}>CAMP</div>
-                  <div style={{ width: '28px' }}>VICE</div>
-                  <div style={{ width: '32px' }}>RALA</div>
-                  <div style={{ width: '32px' }}>PTS</div>
+                <div style={{ flex: 1, marginLeft: '8px', color: '#fff' }}>JD</div>
+                <div style={{ display: 'flex', gap: '4px', textAlign: 'center', paddingRight: '8px' }}>
+                  <div style={{ width: '24px', color: '#fff' }}>JG</div>
+                  <div style={{ width: '24px', color: '#22c55e' }}>GO</div>
+                  <div style={{ width: '24px', color: '#3b82f6' }}>AS</div>
+                  <div style={{ width: '24px', color: '#eab308' }}>CP</div>
+                  <div style={{ width: '24px', color: '#9ca3af' }}>VC</div>
+                  <div style={{ width: '24px', color: '#ef4444' }}>RB</div>
+                  <div style={{ width: '28px', color: '#eab308' }}>PT</div>
                 </div>
               </div>
             ) : (
@@ -516,10 +532,10 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
                     
                     <div style={{ marginLeft: '8px' }}>
                       {player.photo_url ? (
-                        <img src={player.photo_url} alt={player.name} style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
+                        <img src={player.photo_url} alt={player.name} style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover' }} />
                       ) : (
-                        <div style={{ width: 34, height: 34, borderRadius: '50%', backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <User size={16} style={{ color: '#666' }} />
+                        <div style={{ width: 42, height: 42, borderRadius: '50%', backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <User size={20} style={{ color: '#666' }} />
                         </div>
                       )}
                     </div>
@@ -529,14 +545,14 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
                     </div>
                     
                     {filter === 'Geral' ? (
-                      <div style={{ display: 'flex', gap: '6px', textAlign: 'center', fontSize: '0.75rem', fontWeight: 700, paddingRight: '8px' }}>
-                        <div style={{ width: '16px', color: '#a855f7' }}>{player.games}</div>
-                        <div style={{ width: '16px', color: '#a855f7' }}>{player.goals}</div>
-                        <div style={{ width: '32px', color: '#38bdf8' }}>{player.assists}</div>
-                        <div style={{ width: '32px', color: '#4ade80' }}>{player.champion}</div>
-                        <div style={{ width: '28px', color: '#60a5fa' }}>{player.vice}</div>
-                        <div style={{ width: '32px', color: '#f87171' }}>{player.ralabosta}</div>
-                        <div style={{ width: '32px', color: '#fbbf24', fontWeight: 900 }}>{player.points}</div>
+                      <div style={{ display: 'flex', gap: '4px', textAlign: 'center', fontSize: '0.8rem', fontWeight: 700, paddingRight: '8px', alignItems: 'center' }}>
+                        <div style={{ width: '24px', color: '#fff' }}>{player.games}</div>
+                        <div style={{ width: '24px', color: '#22c55e' }}>{player.goals}</div>
+                        <div style={{ width: '24px', color: '#3b82f6' }}>{player.assists}</div>
+                        <div style={{ width: '24px', color: '#eab308' }}>{player.champion}</div>
+                        <div style={{ width: '24px', color: '#9ca3af' }}>{player.vice}</div>
+                        <div style={{ width: '24px', color: '#ef4444' }}>{player.ralabosta}</div>
+                        <div style={{ width: '28px', color: '#eab308', fontWeight: 900, fontSize: '0.95rem' }}>{player.points}</div>
                       </div>
                     ) : (
                       <div style={{ fontSize: '0.9rem', fontWeight: 800, color: filter === 'Ralabosta' ? '#ef4444' : '#fff' }}>
