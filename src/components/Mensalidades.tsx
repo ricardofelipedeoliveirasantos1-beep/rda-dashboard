@@ -207,13 +207,25 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
   const getDisplayedPlayers = () => {
     const isPastMonth = currentDate < new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     
-    const playersWithPayment = new Set(payments.map(p => p.player_id));
+    const paymentStatusMap = new Map<string, string>();
+    payments.forEach(p => paymentStatusMap.set(p.player_id, p.status));
     
     return players.filter(p => {
+      const pStatus = paymentStatusMap.get(p.id);
+      
       if (isPastMonth) {
-        return playersWithPayment.has(p.id);
+        // Para meses passados: mostra todos que têm algum registro de pagamento (pago ou pendente)
+        // Isso preserva o histórico de quem era mensalista na época.
+        return pStatus !== undefined;
       } else {
-        return p.category === 'Mensalista' || playersWithPayment.has(p.id);
+        // Para o mês atual:
+        if (p.category === 'Mensalista') {
+          return true; // Mensalistas sempre aparecem (se não tem registro, ficam como pendentes)
+        } else {
+          // Diaristas SÓ aparecem se já tiverem pago algo neste mês
+          // Se tiverem registro 'pending' antigo, ignoramos (retira da lista e dos totais)
+          return pStatus === 'paid';
+        }
       }
     });
   };
