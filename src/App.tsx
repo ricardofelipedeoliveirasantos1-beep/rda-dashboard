@@ -622,23 +622,19 @@ export default function App() {
         </button>
 
         <div className="header-center">
-          {appLogoUrl ? (
-            <img 
-              src={appLogoUrl} 
-              alt="Logo RDA" 
-              style={{ 
-                height: '40px', 
-                width: '40px',
-                objectFit: 'cover', 
-                display: 'block',
-                borderRadius: '50%',
-                border: '2px solid rgba(255,255,255,0.12)',
-                boxShadow: '0 0 12px rgba(99,102,241,0.3)'
-              }} 
-            />
-          ) : (
-            <span className="header-logo-text">RDA</span>
-          )}
+          <img 
+            src={appLogoUrl || "/logo.jpg"} 
+            alt="Logo RDA" 
+            style={{ 
+              height: '40px', 
+              width: '40px',
+              objectFit: 'cover', 
+              display: 'block',
+              borderRadius: '50%',
+              border: '2px solid rgba(255,255,255,0.12)',
+              boxShadow: '0 0 12px rgba(99,102,241,0.3)'
+            }} 
+          />
         </div>
 
         <div style={{ position: 'relative', justifySelf: 'end' }}>

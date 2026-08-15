@@ -808,17 +808,11 @@ export default function Configuracoes({
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {appLogoUrl ? (
-            <img 
-              src={appLogoUrl} 
-              alt="Logo RDA" 
-              style={{ maxWidth: '120px', maxHeight: '50px', borderRadius: '8px', objectFit: 'contain', border: '1px solid rgba(255,255,255,0.08)' }} 
-            />
-          ) : (
-            <div style={{ padding: '8px 12px', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Nenhuma logo personalizada
-            </div>
-          )}
+          <img 
+            src={appLogoUrl || "/logo.jpg"} 
+            alt="Logo RDA" 
+            style={{ maxWidth: '120px', maxHeight: '50px', borderRadius: '8px', objectFit: 'contain', border: '1px solid rgba(255,255,255,0.08)' }} 
+          />
 
           <label 
             style={{
