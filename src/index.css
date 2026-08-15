@@ -142,16 +142,15 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 56px;
-  background-color: rgba(23, 23, 23, 0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid #262626;
+  height: 70px;
+  background-color: #000000;
+  border-top: 1px solid #1a1a1a;
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 100;
   padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-top: 4px;
 }
 
 .nav-item {

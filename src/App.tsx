@@ -1665,7 +1665,15 @@ export default function App() {
           }}
           onClick={(e) => { e.preventDefault(); setActiveTab('inicio'); }}
         >
-          <Home size={22} style={{ filter: activeTab === 'inicio' ? 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))' : 'none', marginBottom: '2px' }} />
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '40px', height: '40px', borderRadius: '50%',
+            backgroundColor: activeTab === 'inicio' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+            marginBottom: '4px',
+            transition: '0.2s ease-in-out'
+          }}>
+            <Home size={22} style={{ filter: activeTab === 'inicio' ? 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))' : 'none' }} />
+          </div>
           <span>Início</span>
         </a>
         <a 
@@ -1679,7 +1687,15 @@ export default function App() {
           }}
           onClick={(e) => { e.preventDefault(); setActiveTab('jogadores'); }}
         >
-          <Users size={22} style={{ filter: activeTab === 'jogadores' ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))' : 'none', marginBottom: '2px' }} />
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '40px', height: '40px', borderRadius: '50%',
+            backgroundColor: activeTab === 'jogadores' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+            marginBottom: '4px',
+            transition: '0.2s ease-in-out'
+          }}>
+            <Users size={22} style={{ filter: activeTab === 'jogadores' ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))' : 'none' }} />
+          </div>
           <span>Jogadores</span>
         </a>
         <a 
@@ -1693,7 +1709,15 @@ export default function App() {
           }}
           onClick={(e) => { e.preventDefault(); setActiveTab('partidas'); }}
         >
-          <Trophy size={22} style={{ filter: activeTab === 'partidas' ? 'drop-shadow(0 0 4px rgba(249, 115, 22, 0.5))' : 'none', marginBottom: '2px' }} />
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '40px', height: '40px', borderRadius: '50%',
+            backgroundColor: activeTab === 'partidas' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+            marginBottom: '4px',
+            transition: '0.2s ease-in-out'
+          }}>
+            <Trophy size={22} style={{ filter: activeTab === 'partidas' ? 'drop-shadow(0 0 4px rgba(249, 115, 22, 0.5))' : 'none' }} />
+          </div>
           <span>Partidas</span>
         </a>
         <a 
@@ -1707,7 +1731,15 @@ export default function App() {
           }}
           onClick={(e) => { e.preventDefault(); setActiveTab('ranking'); }}
         >
-          <Award size={22} style={{ filter: activeTab === 'ranking' ? 'drop-shadow(0 0 4px rgba(234, 179, 8, 0.5))' : 'none', marginBottom: '2px' }} />
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '40px', height: '40px', borderRadius: '50%',
+            backgroundColor: activeTab === 'ranking' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+            marginBottom: '4px',
+            transition: '0.2s ease-in-out'
+          }}>
+            <Award size={22} style={{ filter: activeTab === 'ranking' ? 'drop-shadow(0 0 4px rgba(234, 179, 8, 0.5))' : 'none' }} />
+          </div>
           <span>Ranking</span>
         </a>
         {currentUserRole !== 'visitor' && (
@@ -1722,7 +1754,15 @@ export default function App() {
             }}
             onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); }}
           >
-            <Settings size={22} style={{ filter: activeTab === 'configuracoes' ? 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.5))' : 'none', marginBottom: '2px' }} />
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '40px', height: '40px', borderRadius: '50%',
+              backgroundColor: activeTab === 'configuracoes' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+              marginBottom: '4px',
+              transition: '0.2s ease-in-out'
+            }}>
+              <Settings size={22} style={{ filter: activeTab === 'configuracoes' ? 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.5))' : 'none' }} />
+            </div>
             <span>Configuração</span>
           </a>
         )}
