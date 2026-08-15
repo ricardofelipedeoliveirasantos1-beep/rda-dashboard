@@ -36,7 +36,9 @@ import {
   Wallet,
   CalendarDays,
   Goal,
-  Sparkles
+  Sparkles,
+  CircleCheck,
+  CircleAlert
 } from 'lucide-react';
 
 
@@ -1375,25 +1377,37 @@ export default function App() {
                                       </div>
                                     </div>
                                   </div>
-                  {/* CARD 08 — RESUMO FINANCEIRO */}
-                                  <div className="dashboard-card">
-                                    <div className="card-header">
+                  {/* CARD 08 — RESUMO MENSAL */}
+                                  <div className="dashboard-card" style={{ padding: '16px' }}>
+                                    <div className="card-header" style={{ marginBottom: '16px' }}>
                                       <span className="card-title">
                                         <FileText size={18} /> Resumo Mensal (Atual)
                                       </span>
                                     </div>
-                                    <div className="finance-grid">
-                                      <div className="finance-item">
-                                        <span className="finance-label">Mensalistas pagos</span>
-                                        <span className="finance-value positive">{totalMonthlyPaid}</span>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                                      {/* Pagos */}
+                                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
+                                        <div style={{ color: '#22c55e', marginBottom: '2px' }}><CircleCheck size={26} strokeWidth={1.5} /></div>
+                                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#22c55e', lineHeight: 1 }}>{totalMonthlyPaid}</span>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pagos</span>
                                       </div>
-                                      <div className="finance-item">
-                                        <span className="finance-label">Mensalistas pendentes</span>
-                                        <span className="finance-value negative">{totalMonthlyPending}</span>
+                                      
+                                      <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
+                
+                                      {/* Pendentes */}
+                                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
+                                        <div style={{ color: '#ef4444', marginBottom: '2px' }}><CircleAlert size={26} strokeWidth={1.5} /></div>
+                                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#ef4444', lineHeight: 1 }}>{totalMonthlyPending}</span>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pendentes</span>
                                       </div>
-                                      <div className="finance-item">
-                                        <span className="finance-label">Diaristas (Últ. Partida)</span>
-                                        <span className="finance-value positive">{lastMatchDiarists}</span>
+                
+                                      <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
+                
+                                      {/* Diaristas */}
+                                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
+                                        <div style={{ color: '#f97316', marginBottom: '2px' }}><Users size={26} strokeWidth={1.5} /></div>
+                                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#f97316', lineHeight: 1 }}>{lastMatchDiarists}</span>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Diaristas<br/>(Últ. Partida)</span>
                                       </div>
                                     </div>
                                   </div>
