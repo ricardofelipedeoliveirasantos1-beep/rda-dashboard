@@ -926,84 +926,154 @@ export default function App() {
         <nav className="sidebar-nav">
           <a 
             href="#" 
-            className={`sidebar-item ${activeTab === 'inicio' ? 'active' : ''}`}
+            className="sidebar-item"
+            style={{
+              color: '#3b82f6',
+              opacity: activeTab === 'inicio' ? 1 : 0.65,
+              backgroundColor: activeTab === 'inicio' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+              textShadow: activeTab === 'inicio' ? '0 0 8px rgba(59, 130, 246, 0.4)' : 'none',
+              fontWeight: activeTab === 'inicio' ? 600 : 500,
+            }}
             onClick={(e) => { e.preventDefault(); setActiveTab('inicio'); setIsSidebarOpen(false); }}
           >
-            <Home size={20} />
-            <span>Dashboard</span>
+            <Home size={20} style={{ filter: activeTab === 'inicio' ? 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))' : 'none' }} />
+            <span>Início</span>
           </a>
           <a 
             href="#" 
-            className={`sidebar-item ${activeTab === 'jogadores' ? 'active' : ''}`}
+            className="sidebar-item"
+            style={{
+              color: '#22c55e',
+              opacity: activeTab === 'jogadores' ? 1 : 0.65,
+              backgroundColor: activeTab === 'jogadores' ? 'rgba(34, 197, 94, 0.15)' : 'transparent',
+              textShadow: activeTab === 'jogadores' ? '0 0 8px rgba(34, 197, 94, 0.4)' : 'none',
+              fontWeight: activeTab === 'jogadores' ? 600 : 500,
+            }}
             onClick={(e) => { e.preventDefault(); setActiveTab('jogadores'); setIsSidebarOpen(false); }}
           >
-            <Users size={20} />
+            <Users size={20} style={{ filter: activeTab === 'jogadores' ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))' : 'none' }} />
             <span>Jogadores</span>
           </a>
           <a 
             href="#" 
-            className={`sidebar-item ${activeTab === 'ranking' ? 'active' : ''}`}
+            className="sidebar-item"
+            style={{
+              color: '#eab308',
+              opacity: activeTab === 'ranking' ? 1 : 0.65,
+              backgroundColor: activeTab === 'ranking' ? 'rgba(234, 179, 8, 0.15)' : 'transparent',
+              textShadow: activeTab === 'ranking' ? '0 0 8px rgba(234, 179, 8, 0.4)' : 'none',
+              fontWeight: activeTab === 'ranking' ? 600 : 500,
+            }}
             onClick={(e) => { e.preventDefault(); setActiveTab('ranking'); setIsSidebarOpen(false); }}
           >
-            <Award size={20} />
+            <Award size={20} style={{ filter: activeTab === 'ranking' ? 'drop-shadow(0 0 4px rgba(234, 179, 8, 0.5))' : 'none' }} />
             <span>Ranking</span>
           </a>
           <a 
             href="#" 
-            className={`sidebar-item ${activeTab === 'partidas' ? 'active' : ''}`}
+            className="sidebar-item"
+            style={{
+              color: '#f97316',
+              opacity: activeTab === 'partidas' ? 1 : 0.65,
+              backgroundColor: activeTab === 'partidas' ? 'rgba(249, 115, 22, 0.15)' : 'transparent',
+              textShadow: activeTab === 'partidas' ? '0 0 8px rgba(249, 115, 22, 0.4)' : 'none',
+              fontWeight: activeTab === 'partidas' ? 600 : 500,
+            }}
             onClick={(e) => { e.preventDefault(); setActiveTab('partidas'); setIsSidebarOpen(false); }}
           >
-            <Trophy size={20} />
+            <Trophy size={20} style={{ filter: activeTab === 'partidas' ? 'drop-shadow(0 0 4px rgba(249, 115, 22, 0.5))' : 'none' }} />
             <span>Partidas</span>
           </a>
           <a 
             href="#" 
-            className={`sidebar-item ${activeTab === 'historico' ? 'active' : ''}`}
+            className="sidebar-item"
+            style={{
+              color: '#06b6d4',
+              opacity: activeTab === 'historico' ? 1 : 0.65,
+              backgroundColor: activeTab === 'historico' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+              textShadow: activeTab === 'historico' ? '0 0 8px rgba(6, 182, 212, 0.4)' : 'none',
+              fontWeight: activeTab === 'historico' ? 600 : 500,
+            }}
             onClick={(e) => { e.preventDefault(); setActiveTab('historico'); setIsSidebarOpen(false); }}
           >
-            <Clock size={20} />
+            <Clock size={20} style={{ filter: activeTab === 'historico' ? 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.5))' : 'none' }} />
             <span>Histórico</span>
           </a>
           {currentUserRole !== 'visitor' && (
             <>
               <a 
                 href="#" 
-                className={`sidebar-item ${activeTab === 'mensalidades' ? 'active' : ''}`}
+                className="sidebar-item"
+                style={{
+                  color: '#10b981',
+                  opacity: activeTab === 'mensalidades' ? 1 : 0.65,
+                  backgroundColor: activeTab === 'mensalidades' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                  textShadow: activeTab === 'mensalidades' ? '0 0 8px rgba(16, 185, 129, 0.4)' : 'none',
+                  fontWeight: activeTab === 'mensalidades' ? 600 : 500,
+                }}
                 onClick={(e) => { e.preventDefault(); setActiveTab('mensalidades'); setIsSidebarOpen(false); }}
               >
-                <Wallet size={20} />
+                <Wallet size={20} style={{ filter: activeTab === 'mensalidades' ? 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.5))' : 'none' }} />
                 <span>Mensalidades</span>
               </a>
               <a 
                 href="#" 
-                className={`sidebar-item ${activeTab === 'financeiro' ? 'active' : ''}`}
+                className="sidebar-item"
+                style={{
+                  color: '#14b8a6',
+                  opacity: activeTab === 'financeiro' ? 1 : 0.65,
+                  backgroundColor: activeTab === 'financeiro' ? 'rgba(20, 184, 166, 0.15)' : 'transparent',
+                  textShadow: activeTab === 'financeiro' ? '0 0 8px rgba(20, 184, 166, 0.4)' : 'none',
+                  fontWeight: activeTab === 'financeiro' ? 600 : 500,
+                }}
                 onClick={(e) => { e.preventDefault(); setActiveTab('financeiro'); setIsSidebarOpen(false); }}
               >
-                <DollarSign size={20} />
+                <DollarSign size={20} style={{ filter: activeTab === 'financeiro' ? 'drop-shadow(0 0 4px rgba(20, 184, 166, 0.5))' : 'none' }} />
                 <span>Financeiro</span>
               </a>
               <a 
                 href="#" 
-                className={`sidebar-item ${activeTab === 'relatorios' ? 'active' : ''}`}
+                className="sidebar-item"
+                style={{
+                  color: '#38bdf8',
+                  opacity: activeTab === 'relatorios' ? 1 : 0.65,
+                  backgroundColor: activeTab === 'relatorios' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                  textShadow: activeTab === 'relatorios' ? '0 0 8px rgba(56, 189, 248, 0.4)' : 'none',
+                  fontWeight: activeTab === 'relatorios' ? 600 : 500,
+                }}
                 onClick={(e) => { e.preventDefault(); setActiveTab('relatorios'); setIsSidebarOpen(false); }}
               >
-                <FileText size={20} />
+                <FileText size={20} style={{ filter: activeTab === 'relatorios' ? 'drop-shadow(0 0 4px rgba(56, 189, 248, 0.5))' : 'none' }} />
                 <span>Relatórios</span>
               </a>
               <a 
                 href="#" 
-                className={`sidebar-item ${activeTab === 'avisos' ? 'active' : ''}`}
+                className="sidebar-item"
+                style={{
+                  color: '#fb7185',
+                  opacity: activeTab === 'avisos' ? 1 : 0.65,
+                  backgroundColor: activeTab === 'avisos' ? 'rgba(251, 113, 133, 0.15)' : 'transparent',
+                  textShadow: activeTab === 'avisos' ? '0 0 8px rgba(251, 113, 133, 0.4)' : 'none',
+                  fontWeight: activeTab === 'avisos' ? 600 : 500,
+                }}
                 onClick={(e) => { e.preventDefault(); setActiveTab('avisos'); setIsSidebarOpen(false); }}
               >
-                <MessageSquare size={20} />
+                <MessageSquare size={20} style={{ filter: activeTab === 'avisos' ? 'drop-shadow(0 0 4px rgba(251, 113, 133, 0.5))' : 'none' }} />
                 <span>Avisos</span>
               </a>
               <a 
                 href="#" 
-                className={`sidebar-item ${activeTab === 'configuracoes' ? 'active' : ''}`}
+                className="sidebar-item"
+                style={{
+                  color: '#a855f7',
+                  opacity: activeTab === 'configuracoes' ? 1 : 0.65,
+                  backgroundColor: activeTab === 'configuracoes' ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
+                  textShadow: activeTab === 'configuracoes' ? '0 0 8px rgba(168, 85, 247, 0.4)' : 'none',
+                  fontWeight: activeTab === 'configuracoes' ? 600 : 500,
+                }}
                 onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); setIsSidebarOpen(false); }}
               >
-                <Settings size={20} />
+                <Settings size={20} style={{ filter: activeTab === 'configuracoes' ? 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.5))' : 'none' }} />
                 <span>Configuração</span>
               </a>
             </>
@@ -1586,47 +1656,75 @@ export default function App() {
       <nav className="nav-bar">
         <a 
           href="#" 
-          className={`nav-item ${activeTab === 'inicio' ? 'active' : ''}`}
+          className="nav-item"
+          style={{
+            color: '#3b82f6',
+            opacity: activeTab === 'inicio' ? 1 : 0.65,
+            textShadow: activeTab === 'inicio' ? '0 0 8px rgba(59, 130, 246, 0.5)' : 'none',
+            fontWeight: activeTab === 'inicio' ? 700 : 500,
+          }}
           onClick={(e) => { e.preventDefault(); setActiveTab('inicio'); }}
         >
-          <Home size={20} />
+          <Home size={22} style={{ filter: activeTab === 'inicio' ? 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))' : 'none', marginBottom: '2px' }} />
           <span>Início</span>
         </a>
         <a 
           href="#" 
-          className={`nav-item ${activeTab === 'jogadores' ? 'active' : ''}`}
+          className="nav-item"
+          style={{
+            color: '#22c55e',
+            opacity: activeTab === 'jogadores' ? 1 : 0.65,
+            textShadow: activeTab === 'jogadores' ? '0 0 8px rgba(34, 197, 94, 0.5)' : 'none',
+            fontWeight: activeTab === 'jogadores' ? 700 : 500,
+          }}
           onClick={(e) => { e.preventDefault(); setActiveTab('jogadores'); }}
         >
-          <Users size={20} />
+          <Users size={22} style={{ filter: activeTab === 'jogadores' ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))' : 'none', marginBottom: '2px' }} />
           <span>Jogadores</span>
         </a>
         <a 
           href="#" 
-          className={`nav-item ${activeTab === 'partidas' ? 'active' : ''}`}
+          className="nav-item"
+          style={{
+            color: '#f97316',
+            opacity: activeTab === 'partidas' ? 1 : 0.65,
+            textShadow: activeTab === 'partidas' ? '0 0 8px rgba(249, 115, 22, 0.5)' : 'none',
+            fontWeight: activeTab === 'partidas' ? 700 : 500,
+          }}
           onClick={(e) => { e.preventDefault(); setActiveTab('partidas'); }}
         >
-          <Trophy size={20} />
+          <Trophy size={22} style={{ filter: activeTab === 'partidas' ? 'drop-shadow(0 0 4px rgba(249, 115, 22, 0.5))' : 'none', marginBottom: '2px' }} />
           <span>Partidas</span>
         </a>
+        <a 
+          href="#" 
+          className="nav-item"
+          style={{
+            color: '#eab308',
+            opacity: activeTab === 'ranking' ? 1 : 0.65,
+            textShadow: activeTab === 'ranking' ? '0 0 8px rgba(234, 179, 8, 0.5)' : 'none',
+            fontWeight: activeTab === 'ranking' ? 700 : 500,
+          }}
+          onClick={(e) => { e.preventDefault(); setActiveTab('ranking'); }}
+        >
+          <Award size={22} style={{ filter: activeTab === 'ranking' ? 'drop-shadow(0 0 4px rgba(234, 179, 8, 0.5))' : 'none', marginBottom: '2px' }} />
+          <span>Ranking</span>
+        </a>
         {currentUserRole !== 'visitor' && (
-          <>
-            <a 
-              href="#" 
-              className={`nav-item ${activeTab === 'avisos' ? 'active' : ''}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab('avisos'); }}
-            >
-              <MessageSquare size={20} />
-              <span>Avisos</span>
-            </a>
-            <a 
-              href="#" 
-              className={`nav-item ${activeTab === 'configuracoes' ? 'active' : ''}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); }}
-            >
-              <Settings size={20} />
-              <span>Configuração</span>
-            </a>
-          </>
+          <a 
+            href="#" 
+            className="nav-item"
+            style={{
+              color: '#a855f7',
+              opacity: activeTab === 'configuracoes' ? 1 : 0.65,
+              textShadow: activeTab === 'configuracoes' ? '0 0 8px rgba(168, 85, 247, 0.5)' : 'none',
+              fontWeight: activeTab === 'configuracoes' ? 700 : 500,
+            }}
+            onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); }}
+          >
+            <Settings size={22} style={{ filter: activeTab === 'configuracoes' ? 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.5))' : 'none', marginBottom: '2px' }} />
+            <span>Configuração</span>
+          </a>
         )}
       </nav>
       {/* EDIT LAST MATCH MODAL */}

@@ -328,22 +328,24 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
         {/* Card 1 — Pagos */}
         <div style={{
-          padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(34, 197, 94, 0.1)',
-          border: '1px solid rgba(34, 197, 94, 0.2)', display: 'flex', flexDirection: 'column', gap: '8px'
+          padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(34, 197, 94, 0.05)',
+          border: '1px solid rgba(34, 197, 94, 0.15)', display: 'flex', flexDirection: 'column', gap: '4px',
+          alignItems: 'flex-start'
         }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase' }}>Pagos</span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff' }}>{paidMensalistas.length} <span style={{fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)'}}>jogadores</span></span>
-          <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#22c55e' }}>R$ {recebidosVal.toFixed(2)} <span style={{color: 'var(--text-muted)'}}>arrecadados</span></span>
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#22c55e' }}>PAGO</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{paidMensalistas.length} jogadores</span>
+          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff' }}>R$ {recebidosVal.toFixed(2)}</span>
         </div>
 
         {/* Card 2 — Pendentes */}
         <div style={{
-          padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', flexDirection: 'column', gap: '8px'
+          padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(239, 68, 68, 0.05)',
+          border: '1px solid rgba(239, 68, 68, 0.15)', display: 'flex', flexDirection: 'column', gap: '4px',
+          alignItems: 'flex-start'
         }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase' }}>Pendentes</span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff' }}>{pendingMensalistas.length} <span style={{fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)'}}>jogadores</span></span>
-          <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#ef4444' }}>R$ {pendentesVal.toFixed(2)} <span style={{color: 'var(--text-muted)'}}>a receber</span></span>
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#ef4444' }}>PENDENTE</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{pendingMensalistas.length} jogadores</span>
+          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff' }}>R$ {pendentesVal.toFixed(2)}</span>
         </div>
       </div>
 

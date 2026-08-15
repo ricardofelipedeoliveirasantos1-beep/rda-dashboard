@@ -144,7 +144,6 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   const [runnerUpTeam, setRunnerUpTeam] = useState<string>('');
   const [thirdPlaceTeam, setThirdPlaceTeam] = useState<string>('');
   const [fourthPlaceTeam, setFourthPlaceTeam] = useState<string>('');
-  const [ralabostaPlayerId, setRalabostaPlayerId] = useState<string>('');
   const [expandedTeamsStats, setExpandedTeamsStats] = useState<{ [teamCode: string]: boolean }>({
     brasil: false,
     portugal: false,
@@ -766,7 +765,6 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     setRunnerUpTeam('');
     setThirdPlaceTeam('');
     setFourthPlaceTeam('');
-    setRalabostaPlayerId('');
     setActiveClassSelect(null);
     setShowFinalizeConfirm(false);
     setExpandedTeamsStats({
@@ -851,7 +849,6 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
     // Map existing stats to localState
     const initialStats: { [playerId: string]: { goals: number; assists: number; yellow: number; blue: number; red: number } } = {};
-    let initialRalabostaId = '';
 
     (match.match_players || []).forEach(mp => {
       if (mp.category_at_match === 'Mensalista') {
@@ -864,15 +861,10 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           blue: foundStat?.blue_cards || 0,
           red: foundStat?.red_cards || 0
         };
-
-        if (foundStat?.is_ralabosta) {
-          initialRalabostaId = mp.player_id;
-        }
       }
     });
 
     setLocalStats(initialStats);
-    setRalabostaPlayerId(initialRalabostaId);
 
     setView('stats');
     setValidationError(null);
@@ -929,17 +921,22 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       if (matchUpdateError) throw matchUpdateError;
 
       // 2. Prepare match_player_stats upsert rows (Only for Mensalistas)
-      const statsRows = Object.entries(localStats).map(([playerId, stats]) => ({
-        match_id: activeMatchForStats.id,
-        player_id: playerId,
-        goals: stats.goals,
-        assists: stats.assists,
-        yellow_cards: stats.yellow,
-        blue_cards: stats.blue,
-        red_cards: stats.red,
-        is_ralabosta: ralabostaPlayerId === playerId,
-        updated_at: new Date().toISOString()
-      }));
+      const statsRows = Object.entries(localStats).map(([playerId, stats]) => {
+        const mp = (activeMatchForStats.match_players || []).find(p => p.player_id === playerId);
+        const isRalabosta = mp?.team === fourthPlaceTeam;
+
+        return {
+          match_id: activeMatchForStats.id,
+          player_id: playerId,
+          goals: stats.goals,
+          assists: stats.assists,
+          yellow_cards: stats.yellow,
+          blue_cards: stats.blue,
+          red_cards: stats.red,
+          is_ralabosta: isRalabosta,
+          updated_at: new Date().toISOString()
+        };
+      });
 
       if (statsRows.length > 0) {
         // PostgREST upsert works with unique constraint unique_match_player_stats
@@ -1977,8 +1974,6 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     const teamJapaoStats = matchPlayers.filter(mp => mp.team === 'japao');
     const teamUruguaiStats = matchPlayers.filter(mp => mp.team === 'uruguai');
 
-
-
     // Validate if classification is complete and clean
     const isClassificationValid = championTeam && runnerUpTeam && thirdPlaceTeam && fourthPlaceTeam &&
       (new Set([championTeam, runnerUpTeam, thirdPlaceTeam, fourthPlaceTeam]).size === 4);
@@ -1989,7 +1984,6 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     const sumYellow = Object.values(localStats).reduce((sum, s) => sum + s.yellow, 0);
     const sumBlue = Object.values(localStats).reduce((sum, s) => sum + s.blue, 0);
     const sumRed = Object.values(localStats).reduce((sum, s) => sum + s.red, 0);
-
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
@@ -2311,7 +2305,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                   Diarista — não contabiliza estatísticas
                                 </span>
                               ) : (
-                                ralabostaPlayerId === mp.player_id && (
+                                (fourthPlaceTeam && mp.team === fourthPlaceTeam) && (
                                   <span style={{ fontSize: '0.72rem', color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
                                     💩 RALABOSTA
                                   </span>
