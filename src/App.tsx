@@ -260,6 +260,8 @@ export default function App() {
   
   // Dashboard Aggregations
   const [totalPlayers, setTotalPlayers] = useState(0);
+  const [totalMensalistas, setTotalMensalistas] = useState(0);
+  const [totalDiaristas, setTotalDiaristas] = useState(0);
   const [totalMatches, setTotalMatches] = useState(0);
   const [totalGoals, setTotalGoals] = useState(0);
   const [totalAssists, setTotalAssists] = useState(0);
@@ -389,6 +391,8 @@ export default function App() {
       
       const activePlayers = playersData || [];
       setTotalPlayers(activePlayers.length);
+      setTotalMensalistas(activePlayers.filter((p: any) => p.category === 'Mensalista').length);
+      setTotalDiaristas(activePlayers.filter((p: any) => p.category === 'Diarista').length);
       
       // Birthdays (closest 3 upcoming)
       const bdays = activePlayers.filter(p => p.birth_date).map(p => {
@@ -1105,37 +1109,54 @@ export default function App() {
                       <Award size={18} /> Resumo da Temporada
                     </span>
                   </div>
-                  <div className="grid-2x2">
-                    <div className="mini-card">
-                      <div className="mini-card-header">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div style={{
+                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.3)',
+                      borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#3b82f6', marginBottom: '2px' }}>
                         <Users size={16} />
                       </div>
-                      <span className="mini-card-val">{totalPlayers}</span>
-                      <span className="mini-card-lbl">Jogadores</span>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{totalPlayers}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Jogadores</span>
+                      <div style={{ display: 'flex', gap: '4px', fontSize: '0.65rem', fontWeight: 700, marginTop: '2px', flexWrap: 'wrap' }}>
+                        <span style={{ color: '#22c55e' }}>{totalMensalistas} Mensalistas</span>
+                        <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
+                        <span style={{ color: '#f87171' }}>{totalDiaristas} Diaristas</span>
+                      </div>
                     </div>
                     
-                    <div className="mini-card">
-                      <div className="mini-card-header">
+                    <div style={{
+                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(249,115,22,0.3)',
+                      borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#f97316', marginBottom: '2px' }}>
                         <Calendar size={16} />
                       </div>
-                      <span className="mini-card-val">{totalMatches}</span>
-                      <span className="mini-card-lbl">Partidas</span>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{totalMatches}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Partidas</span>
                     </div>
 
-                    <div className="mini-card">
-                      <div className="mini-card-header">
+                    <div style={{
+                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(34,197,94,0.3)',
+                      borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#22c55e', marginBottom: '2px' }}>
                         <Flame size={16} />
                       </div>
-                      <span className="mini-card-val">{totalGoals}</span>
-                      <span className="mini-card-lbl">Gols</span>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{totalGoals}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Gols</span>
                     </div>
 
-                    <div className="mini-card">
-                      <div className="mini-card-header">
+                    <div style={{
+                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(168,85,247,0.3)',
+                      borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#a855f7', marginBottom: '2px' }}>
                         <Star size={16} />
                       </div>
-                      <span className="mini-card-val">{totalAssists}</span>
-                      <span className="mini-card-lbl">Assistências</span>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{totalAssists}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Assistências</span>
                     </div>
                   </div>
                 </div>
