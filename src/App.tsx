@@ -94,13 +94,12 @@ export default function App() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentEmail, setCurrentEmail] = useState<string | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [loginModal, setLoginModal] = useState<{
-    role: 'admin' | 'assistant';
-    email: string;
-    password: string;
-    error: string | null;
-    submitting: boolean;
-  } | null>(null);
+  const [loginForm, setLoginForm] = useState({
+    email: '',
+    password: '',
+    error: null as string | null,
+    submitting: false,
+  });
   
   const [assistantPermissions, setAssistantPermissions] = useState<AssistantPermissions>(() => {
     const saved = localStorage.getItem('rda_assistant_permissions');
@@ -126,13 +125,7 @@ export default function App() {
     localStorage.setItem('rda_assistant_permissions', JSON.stringify(assistantPermissions));
   }, [assistantPermissions]);
 
-  // Visitor: acesso público instantâneo e somente leitura (sem login, sem localStorage de role).
-  const enterVisitor = () => {
-    setCurrentUserRole('visitor');
-    setCurrentUserId(null);
-    setCurrentEmail(null);
-    setIsUserMenuOpen(false);
-  };
+
 
   const can = (action: keyof AssistantPermissions): boolean => {
     if (currentUserRole === 'admin') return true;
@@ -203,22 +196,22 @@ export default function App() {
     }
   };
 
-  // Login real: email/senha via Supabase Auth (Admin ou Assistant).
+
+  // Login real: email/senha via Supabase Auth.
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginModal) return;
-    setLoginModal((m) => (m ? { ...m, submitting: true, error: null } : m));
-    const { email, password } = loginModal;
+    setLoginForm((m) => ({ ...m, submitting: true, error: null }));
+    const { email, password } = loginForm;
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setLoginModal((m) => (m ? { ...m, submitting: false, error: error.message } : m));
+        setLoginForm((m) => ({ ...m, submitting: false, error: error.message }));
         return;
       }
       // O onAuthStateChange (abaixo) aplica o role real vindo de profiles.
-      setLoginModal(null);
+      setLoginForm({ email: '', password: '', error: null, submitting: false });
     } catch (err: any) {
-      setLoginModal((m) => (m ? { ...m, submitting: false, error: err?.message || 'Erro de login.' } : m));
+      setLoginForm((m) => ({ ...m, submitting: false, error: err?.message || 'Erro de login.' }));
     }
   };
 
@@ -226,7 +219,7 @@ export default function App() {
   const handleLogout = async () => {
     clearCache();
     await supabase.auth.signOut();
-    // onAuthStateChange reage e reconfigura como visitor
+    // onAuthStateChange reage e reconfigura como sem sessão
   };
 
   // Check Supabase Auth
@@ -702,6 +695,81 @@ export default function App() {
     );
   }
 
+  // REGRA DE SEGURANÇA: NENHUMA RENDERIZAÇÃO DO APLICATIVO SEM SESSÃO
+  if (!currentUserId) {
+    return (
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center', 
+        height: '100vh', backgroundColor: '#121212', color: '#fff',
+        padding: '20px', boxSizing: 'border-box'
+      }}>
+        <div style={{
+          backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '20px', padding: '32px 24px', width: '100%', maxWidth: '360px',
+          display: 'flex', flexDirection: 'column', gap: '24px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.8)'
+        }}>
+          <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '16px', margin: 0 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>⚽</div>
+              <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>
+                Entrar no RDA
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '8px' }}>
+                Use seu email e senha para acessar o aplicativo
+              </p>
+            </div>
+
+            <input
+              type="email"
+              placeholder="Email"
+              required
+              autoFocus
+              value={loginForm.email}
+              onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value, error: null })}
+              style={{
+                width: '100%', padding: '14px', borderRadius: '12px',
+                backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                color: '#fff', fontSize: '1rem', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box'
+              }}
+            />
+
+            <input
+              type="password"
+              placeholder="Senha"
+              required
+              autoComplete="current-password"
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value, error: null })}
+              style={{
+                width: '100%', padding: '14px', borderRadius: '12px',
+                backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                color: '#fff', fontSize: '1rem', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box'
+              }}
+            />
+
+            {loginForm.error && (
+              <div style={{ color: '#f87171', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>{loginForm.error}</div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loginForm.submitting}
+              style={{
+                width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
+                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                color: '#fff', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', opacity: loginForm.submitting ? 0.7 : 1,
+                marginTop: '8px', transition: 'opacity 0.2s'
+              }}
+            >
+              {loginForm.submitting ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   const renderPodium = (data: any[], title: string, icon: any, color: string, suffix: string, emptyMsg: string) => (
     <div className="dashboard-card" style={{ cursor: 'pointer', transition: 'var(--transition)' }} onClick={() => setActiveTab('ranking')}>
       <div className="card-header" style={{ marginBottom: '16px' }}>
@@ -858,61 +926,6 @@ export default function App() {
 
               {/* Ações: Visitante (somente leitura) | Login real (Admin/Assistente) | Logout */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {!currentUserId ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                    <button
-                      onClick={enterVisitor}
-                      style={{
-                        padding: '10px 4px',
-                        borderRadius: '10px',
-                        border: '1.5px solid',
-                        borderColor: currentUserRole === 'visitor' ? '#6b7280' : 'rgba(255,255,255,0.06)',
-                        backgroundColor: currentUserRole === 'visitor' ? 'rgba(107,114,128,0.15)' : 'rgba(255,255,255,0.02)',
-                        color: currentUserRole === 'visitor' ? '#d1d5db' : 'var(--text-secondary)',
-                        fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <span style={{ fontSize: '1.1rem' }}>👁</span>
-                      Visitante
-                    </button>
-                    <button
-                      onClick={() => { setLoginModal({ role: 'admin', email: '', password: '', error: null, submitting: false }); setIsUserMenuOpen(false); }}
-                      style={{
-                        padding: '10px 4px',
-                        borderRadius: '10px',
-                        border: '1.5px solid',
-                        borderColor: currentUserRole === 'admin' ? '#818cf8' : 'rgba(255,255,255,0.06)',
-                        backgroundColor: currentUserRole === 'admin' ? 'rgba(129,140,248,0.12)' : 'rgba(255,255,255,0.02)',
-                        color: currentUserRole === 'admin' ? '#818cf8' : 'var(--text-secondary)',
-                        fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <span style={{ fontSize: '1.1rem' }}>🔐</span>
-                      Admin
-                    </button>
-                    <button
-                      onClick={() => { setLoginModal({ role: 'assistant', email: '', password: '', error: null, submitting: false }); setIsUserMenuOpen(false); }}
-                      style={{
-                        padding: '10px 4px',
-                        borderRadius: '10px',
-                        border: '1.5px solid',
-                        borderColor: currentUserRole === 'assistant' ? '#38bdf8' : 'rgba(255,255,255,0.06)',
-                        backgroundColor: currentUserRole === 'assistant' ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.02)',
-                        color: currentUserRole === 'assistant' ? '#38bdf8' : 'var(--text-secondary)',
-                        fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <span style={{ fontSize: '1.1rem' }}>🤝</span>
-                      Assistente
-                    </button>
-                  </div>
-                ) : (
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
                     {/* Botão Sair — compacto, alinhado à direita */}
                     <button
@@ -933,7 +946,6 @@ export default function App() {
                       Sair
                     </button>
                   </div>
-                )}
               </div>
 
               {/* Links rápidos (apenas admin autenticado) */}
@@ -952,89 +964,7 @@ export default function App() {
             </div>
           )}
 
-          {/* Modal de Login (Admin / Assistente) — autenticação real do Supabase Auth */}
-          {loginModal && (
-            <div style={{
-              position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              zIndex: 9999, backdropFilter: 'blur(4px)'
-            }} onClick={() => !loginModal.submitting && setLoginModal(null)}>
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '20px', padding: '28px 24px', width: '320px',
-                  display: 'flex', flexDirection: 'column', gap: '20px',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.8)'
-                }}
-              >
-                <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: 0 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{loginModal.role === 'admin' ? '🔐' : '🤝'}</div>
-                    <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: 0 }}>
-                      Entrar como {loginModal.role === 'admin' ? 'Administrador' : 'Assistente'}
-                    </h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '6px' }}>
-                      Use seu email e senha do Supabase Auth
-                    </p>
-                  </div>
 
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    required
-                    autoFocus
-                    value={loginModal.email}
-                    onChange={(e) => setLoginModal({ ...loginModal, email: e.target.value, error: null })}
-                    style={{
-                      width: '100%', padding: '12px 14px', borderRadius: '10px',
-                      backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#fff', fontSize: '1rem', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box'
-                    }}
-                  />
-
-                  <input
-                    type="password"
-                    placeholder="Senha (6 dígitos)"
-                    required
-                    autoComplete="current-password"
-                    value={loginModal.password}
-                    onChange={(e) => setLoginModal({ ...loginModal, password: e.target.value, error: null })}
-                    style={{
-                      width: '100%', padding: '12px 14px', borderRadius: '10px',
-                      backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#fff', fontSize: '1rem', fontFamily: 'inherit', outline: 'none',
-                      letterSpacing: '0.2em', textAlign: 'center', boxSizing: 'border-box'
-                    }}
-                  />
-
-                  {loginModal.error && (
-                    <div style={{ color: '#f87171', fontSize: '0.8rem', fontWeight: 600, textAlign: 'center' }}>{loginModal.error}</div>
-                  )}
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <button
-                      type="button"
-                      disabled={loginModal.submitting}
-                      onClick={() => setLoginModal(null)}
-                      style={{ padding: '11px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}
-                    >Cancelar</button>
-                    <button
-                      type="submit"
-                      disabled={loginModal.submitting}
-                      style={{
-                        padding: '11px', borderRadius: '10px', border: 'none',
-                        background: loginModal.role === 'admin'
-                          ? 'linear-gradient(135deg,#6366f1,#8b5cf6)'
-                          : 'linear-gradient(135deg,#0ea5e9,#6366f1)',
-                        color: '#fff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', opacity: loginModal.submitting ? 0.7 : 1
-                      }}
-                    >{loginModal.submitting ? 'Entrando...' : 'Entrar'}</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
         </div>
       </header>
 
@@ -1141,29 +1071,15 @@ export default function App() {
 
           <div className="sidebar-divider"></div>
 
-          {currentUserId ? (
-            <a 
-              href="#" 
-              className="sidebar-item"
-              onClick={(e) => { e.preventDefault(); handleLogout(); setIsSidebarOpen(false); }}
-            >
-              <span className="sidebar-emoji-container">🚪</span>
-              <span>Sair</span>
-            </a>
-          ) : (
-            <a 
-              href="#" 
-              className="sidebar-item"
-              onClick={(e) => { 
-                e.preventDefault(); 
-                setLoginModal({ role: 'admin', email: '', password: '', error: null, submitting: false }); 
-                setIsSidebarOpen(false); 
-              }}
-            >
-              <span className="sidebar-emoji-container">🔐</span>
-              <span>Entrar</span>
-            </a>
-          )}
+          <a 
+            href="#" 
+            className="sidebar-item"
+            style={{ color: '#f87171', marginTop: '10px' }}
+            onClick={(e) => { e.preventDefault(); handleLogout(); setIsSidebarOpen(false); }}
+          >
+            <span className="sidebar-emoji-container">🚪</span>
+            <span>Sair</span>
+          </a>
 
         </nav>
       </aside>
