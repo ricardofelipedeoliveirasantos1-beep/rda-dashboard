@@ -233,13 +233,15 @@ export default function App() {
     try {
       const { error } = await supabase.auth.signInAnonymously();
       if (error) {
-        setLoginForm((m) => ({ ...m, visitorSubmitting: false, error: error.message }));
+        console.error("Technical error signInAnonymously:", error);
+        setLoginForm((m) => ({ ...m, visitorSubmitting: false, error: 'Não foi possível entrar como visitante.' }));
         return;
       }
       // applySession fará o resto.
       setLoginForm({ email: '', password: '', error: null, submitting: false, visitorSubmitting: false });
     } catch (err: any) {
-      setLoginForm((m) => ({ ...m, visitorSubmitting: false, error: err?.message || 'Erro ao entrar como visitante.' }));
+      console.error("Technical exception signInAnonymously:", err);
+      setLoginForm((m) => ({ ...m, visitorSubmitting: false, error: 'Não foi possível entrar como visitante.' }));
     }
   };
 
