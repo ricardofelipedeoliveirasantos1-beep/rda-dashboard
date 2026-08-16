@@ -1127,6 +1127,33 @@ export default function App() {
               </a>
             </>
           )}
+
+          <div className="sidebar-divider"></div>
+
+          {currentUserId ? (
+            <a 
+              href="#" 
+              className="sidebar-item"
+              onClick={(e) => { e.preventDefault(); handleLogout(); setIsSidebarOpen(false); }}
+            >
+              <span className="sidebar-emoji-container">🚪</span>
+              <span>Sair</span>
+            </a>
+          ) : (
+            <a 
+              href="#" 
+              className="sidebar-item"
+              onClick={(e) => { 
+                e.preventDefault(); 
+                setLoginModal({ role: 'admin', email: '', password: '', error: null, submitting: false }); 
+                setIsSidebarOpen(false); 
+              }}
+            >
+              <span className="sidebar-emoji-container">🔐</span>
+              <span>Entrar</span>
+            </a>
+          )}
+
         </nav>
       </aside>
 
