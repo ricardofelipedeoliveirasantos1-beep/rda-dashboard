@@ -528,7 +528,7 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
                     
                     <div style={{ marginLeft: '8px' }}>
                       {player.photo_url ? (
-                        <img src={player.photo_url} alt={player.name} style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover' }} />
+                        <img src={player.photo_url} alt={player.name} loading="lazy" decoding="async" style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover' }} />
                       ) : (
                         <div style={{ width: 42, height: 42, borderRadius: '50%', backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <User size={20} style={{ color: '#666' }} />

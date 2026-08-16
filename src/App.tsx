@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import Players from './components/Players';
-import Partidas from './components/Partidas';
-import Configuracoes from './components/Configuracoes';
-import Financeiro from './components/Financeiro';
-import Avisos from './components/Avisos';
-import Ranking from './components/Ranking';
-import Relatorios from './components/Relatorios';
-import Mensalidades from './components/Mensalidades';
+import { useState, useEffect, lazy, Suspense } from 'react';
+const Players = lazy(() => import('./components/Players'));
+const Partidas = lazy(() => import('./components/Partidas'));
+const Configuracoes = lazy(() => import('./components/Configuracoes'));
+const Financeiro = lazy(() => import('./components/Financeiro'));
+const Avisos = lazy(() => import('./components/Avisos'));
+const Ranking = lazy(() => import('./components/Ranking'));
+const Relatorios = lazy(() => import('./components/Relatorios'));
+const Mensalidades = lazy(() => import('./components/Mensalidades'));
 import { supabase } from './lib/supabase';
 import { 
   Users, 
@@ -1613,7 +1613,7 @@ export default function App() {
                         <div className="leaderboard-item" key={idx}>
                           <div className="player-info">
                             {player.photo ? (
-                              <img src={player.photo} alt={player.name} className="player-img" style={{ objectFit: 'cover' }} />
+                              <img src={player.photo} alt={player.name} className="player-img" loading="lazy" decoding="async" style={{ objectFit: 'cover' }} />
                             ) : (
                               <div className="player-img" style={{ backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <User size={16} style={{ color: '#666' }} />
@@ -1645,9 +1645,16 @@ export default function App() {
               </>
             )}
           </>
-        ) : activeTab === 'jogadores' ? (
-          <Players userRole={currentUserRole!} can={can} />
-        ) : activeTab === 'ranking' ? (
+        ) : (
+          <Suspense fallback={
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '60vh', gap: '16px', color: 'var(--text-muted)' }}>
+              <Loader2 size={32} className="spinner" />
+              <p>Carregando módulo...</p>
+            </div>
+          }>
+            {activeTab === 'jogadores' ? (
+              <Players userRole={currentUserRole!} can={can} />
+            ) : activeTab === 'ranking' ? (
           <Ranking userRole={currentUserRole!} can={can} />
         ) : activeTab === 'partidas' ? (
           <Partidas mode="partidas" userRole={currentUserRole!} can={can} />
@@ -1677,6 +1684,8 @@ export default function App() {
               Este módulo estará disponível nas próximas fases do desenvolvimento do RDA.
             </p>
           </div>
+        )}
+          </Suspense>
         )}
       </main>
 

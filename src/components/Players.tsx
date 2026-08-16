@@ -648,6 +648,8 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
                     <img 
                       src={player.photo_url} 
                       alt={player.name} 
+                      loading="lazy" 
+                      decoding="async"
                       style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #3f3f46' }}
                     />
                   ) : (

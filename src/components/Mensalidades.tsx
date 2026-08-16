@@ -470,6 +470,8 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
                     <img 
                       src={player.photo_url} 
                       alt={player.name} 
+                      loading="lazy"
+                      decoding="async"
                       style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, aspectRatio: '1/1' }}
                     />
                   ) : (
