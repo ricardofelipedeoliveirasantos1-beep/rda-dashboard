@@ -99,6 +99,7 @@ export default function App() {
     password: '',
     error: null as string | null,
     submitting: false,
+    visitorSubmitting: false,
   });
   
   const [assistantPermissions, setAssistantPermissions] = useState<AssistantPermissions>(() => {
@@ -135,7 +136,7 @@ export default function App() {
 
   // Carrega perfil (role/permissões) do usuário autenticado via Supabase Auth.
   // Fonte real: profiles.role — nunca confiamos em localStorage para conceder acesso.
-  const applySession = async (session: { user: { id: string; email?: string | null } } | null) => {
+  const applySession = async (session: { user: { id: string; email?: string | null; is_anonymous?: boolean } } | null) => {
     if (!session?.user) {
       clearCache();
       setCurrentUserRole(null);
@@ -144,6 +145,17 @@ export default function App() {
       setAuthLoading(false);
       return;
     }
+    
+    // Tratamento para Visitante Anônimo
+    if (session.user.is_anonymous) {
+      clearCache();
+      setCurrentEmail(null);
+      setCurrentUserId(session.user.id);
+      setCurrentUserRole('visitor');
+      setAuthLoading(false);
+      return;
+    }
+
     setCurrentEmail(session.user.email || null);
     setCurrentUserId(session.user.id);
     
@@ -209,9 +221,25 @@ export default function App() {
         return;
       }
       // O onAuthStateChange (abaixo) aplica o role real vindo de profiles.
-      setLoginForm({ email: '', password: '', error: null, submitting: false });
+      setLoginForm({ email: '', password: '', error: null, submitting: false, visitorSubmitting: false });
     } catch (err: any) {
       setLoginForm((m) => ({ ...m, submitting: false, error: err?.message || 'Erro de login.' }));
+    }
+  };
+
+  // Login de Visitante via Supabase Anonymous Auth
+  const handleAnonymousSignIn = async () => {
+    setLoginForm((m) => ({ ...m, visitorSubmitting: true, error: null }));
+    try {
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) {
+        setLoginForm((m) => ({ ...m, visitorSubmitting: false, error: error.message }));
+        return;
+      }
+      // applySession fará o resto.
+      setLoginForm({ email: '', password: '', error: null, submitting: false, visitorSubmitting: false });
+    } catch (err: any) {
+      setLoginForm((m) => ({ ...m, visitorSubmitting: false, error: err?.message || 'Erro ao entrar como visitante.' }));
     }
   };
 
@@ -227,12 +255,12 @@ export default function App() {
     let active = true;
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (active) await applySession(session ? { user: { id: session.user.id, email: session.user.email } } : null);
+      if (active) await applySession(session ? { user: { id: session.user.id, email: session.user.email, is_anonymous: session.user.is_anonymous } } : null);
     }
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
-      if (active) await applySession(session ? { user: { id: session.user.id, email: session.user.email } } : null);
+      if (active) await applySession(session ? { user: { id: session.user.id, email: session.user.email, is_anonymous: session.user.is_anonymous } } : null);
     });
 
     return () => { active = false; subscription.unsubscribe(); };
@@ -706,18 +734,14 @@ export default function App() {
         <div style={{
           backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: '20px', padding: '32px 24px', width: '100%', maxWidth: '360px',
-          display: 'flex', flexDirection: 'column', gap: '24px',
+          display: 'flex', flexDirection: 'column', gap: '20px',
           boxShadow: '0 20px 60px rgba(0,0,0,0.8)'
         }}>
-          <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '16px', margin: 0 }}>
+          <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: 0 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>⚽</div>
-              <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>
-                Entrar no RDA
-              </h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '8px' }}>
-                Use seu email e senha para acessar o aplicativo
-              </p>
+              <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔐</div>
+              <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: 0 }}>Entrar no RDA</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '6px' }}>Gestão, Assistência e Tesouraria</p>
             </div>
 
             <input
@@ -754,7 +778,7 @@ export default function App() {
 
             <button
               type="submit"
-              disabled={loginForm.submitting}
+              disabled={loginForm.submitting || loginForm.visitorSubmitting}
               style={{
                 width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
                 background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
@@ -765,6 +789,27 @@ export default function App() {
               {loginForm.submitting ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0' }}>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>OU</span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAnonymousSignIn}
+            disabled={loginForm.submitting || loginForm.visitorSubmitting}
+            style={{ 
+              width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)', 
+              backgroundColor: 'transparent', color: '#e5e7eb', fontSize: '0.95rem', fontWeight: 700, 
+              cursor: 'pointer', opacity: loginForm.visitorSubmitting ? 0.7 : 1, 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'opacity 0.2s' 
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>👁</span>
+            {loginForm.visitorSubmitting ? 'Conectando...' : 'Entrar como Visitante'}
+          </button>
         </div>
       </div>
     );
