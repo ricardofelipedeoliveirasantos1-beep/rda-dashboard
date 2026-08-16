@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
 import { 
   Search, 
   Plus, 
@@ -103,21 +104,25 @@ export default function Avisos({ userRole: _userRole, can }: { userRole?: 'admin
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('notices')
-        .select('*')
-        .order('created_at', { ascending: false });
 
-      if (fetchError) {
-        if (fetchError.code === 'PGRST205' || fetchError.message.includes('notices')) {
+      let pData: any[] = [];
+      try {
+        pData = await getCachedData('notices', async () => {
+          const { data, error } = await supabase.from('notices').select('*').order('created_at', { ascending: false });
+          if (error) throw error;
+          return data;
+        }, CACHE_TTL.notices) || [];
+      } catch (fetchError: any) {
+        if (fetchError.code === 'PGRST205' || fetchError.message?.includes('notices')) {
           setTableMissing(true);
+          return;
         } else {
           throw fetchError;
         }
-      } else {
-        setTableMissing(false);
-        setNotices(data || []);
       }
+
+      setTableMissing(false);
+      setNotices(pData);
     } catch (err: any) {
       console.error('Erro ao carregar avisos:', err);
       setError('Erro ao carregar os avisos do banco.');
@@ -175,6 +180,7 @@ export default function Avisos({ userRole: _userRole, can }: { userRole?: 'admin
           .eq('id', id);
 
         if (patchError) throw patchError;
+        invalidateCache('notices');
         setFeedback({ type: 'success', message: `Aviso ${nextStatus === 'archived' ? 'arquivado' : 'ativado'} com sucesso!` });
         loadNotices();
       }
@@ -203,6 +209,7 @@ export default function Avisos({ userRole: _userRole, can }: { userRole?: 'admin
           .eq('id', id);
 
         if (deleteError) throw deleteError;
+        invalidateCache('notices');
         setFeedback({ type: 'success', message: 'Aviso excluído com sucesso!' });
         loadNotices();
       }
@@ -300,6 +307,7 @@ export default function Avisos({ userRole: _userRole, can }: { userRole?: 'admin
           if (insertError) throw insertError;
           setFeedback({ type: 'success', message: 'Aviso publicado com sucesso!' });
         }
+        invalidateCache('notices');
         setIsFormOpen(false);
         loadNotices();
       }

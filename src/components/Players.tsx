@@ -15,6 +15,7 @@ import {
   Loader
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
 
 // Definição da Interface do Jogador (Utilizando categorias Capitalizadas)
 interface Player {
@@ -129,11 +130,12 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
   const fetchPlayers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .order('name', { ascending: true });
-
+      const error = null;
+      const data = await getCachedData('players_all', async () => {
+        const { data } = await supabase.from('players').select('*').order('name', { ascending: true });
+        return data;
+      }, CACHE_TTL.players);
+      
       if (error) throw error;
       
       // Mapeamento defensivo para garantir formato Capitalizado
@@ -372,6 +374,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
         setToastMessage('Salvo com sucesso');
       }
 
+      invalidateCache('players');
       closeFormModal();
       fetchPlayers();
     } catch (error: any) {
@@ -400,6 +403,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
         .eq('id', deleteConfirmId);
 
       if (error) throw error;
+      invalidateCache('players');
       setDeleteConfirmId(null);
       fetchPlayers();
     } catch (error) {
@@ -431,6 +435,8 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
         console.error('Erro completo do update de categoria no Supabase:', error);
         throw error;
       }
+
+      invalidateCache('players');
 
       // Atualiza somente o jogador modificado no estado local
       setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, category: nextCategory } : p));

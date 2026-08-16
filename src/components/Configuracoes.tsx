@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
 import { DollarSign, Save, AlertCircle, Check, ClipboardList, History, ChevronDown, ChevronUp, FileText, Users, User, Shield, Plus, X, Loader2 } from 'lucide-react';
 import LancarHistoricoManual from './LancarHistoricoManual';
 import ImportarPlanilha from './ImportarPlanilha';
@@ -120,15 +121,15 @@ export default function Configuracoes({
     async function loadSettings() {
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from('settings')
-          .select('monthly_fee, daily_fee, default_location, default_match_day, default_match_time')
-          .eq('id', 'default')
-          .single();
+        const error: any = null;
+        const data = await getCachedData('settings', async () => {
+          const { data } = await supabase.from('settings').select('monthly_fee, daily_fee, default_location, default_match_day, default_match_time').eq('id', 'default').single();
+          return data;
+        }, CACHE_TTL.settings);
 
         if (error) {
           // If relation does not exist, let the UI reflect that they need to create the table
-          if (error.code === 'PGRST116' || error.message.includes('settings')) {
+          if (error?.code === 'PGRST116' || error?.message?.includes('settings')) {
             console.log('Tabela settings não encontrada, usando padrões temporários.');
             setMonthlyFeeInput(formatCurrencyBRL(60));
             setDailyFeeInput(formatCurrencyBRL(20));
@@ -225,6 +226,8 @@ export default function Configuracoes({
         });
 
       if (error) throw error;
+      
+      invalidateCache('settings');
 
       setFeedback({ type: 'success', message: 'Valores atualizados com sucesso.' });
     } catch (err: any) {

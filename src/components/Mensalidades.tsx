@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
 import { 
   Search, 
   User, 
@@ -73,23 +74,23 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
         setLoading(true);
         setError(null);
 
-        const { data: playersData, error: playersError } = await supabase
-          .from('players')
-          .select('*')
-          .eq('is_active', true)
-          .order('name', { ascending: true });
+        const pError = null;
+        const playersData = await getCachedData('players', async () => {
+          const { data } = await supabase.from('players').select('*').eq('is_active', true).order('name', { ascending: true });
+          return data;
+        }, CACHE_TTL.players);
 
-        if (playersError) throw playersError;
+        if (pError) throw pError;
         setPlayers((playersData || []).map((p: any) => ({
           ...p,
           category: (p.category === 'mensalista' || p.category === 'Mensalista') ? 'Mensalista' : 'Diarista'
         })));
 
-        const { data: settingsData, error: settingsError } = await supabase
-          .from('settings')
-          .select('monthly_fee')
-          .eq('id', 'default')
-          .single();
+        const settingsData = await getCachedData('settings', async () => {
+          const { data } = await supabase.from('settings').select('monthly_fee').eq('id', 'default').single();
+          return data;
+        }, CACHE_TTL.settings);
+        const settingsError = null;
 
         if (!settingsError && settingsData) {
           setDefaultMonthlyFee(Number(settingsData.monthly_fee));
@@ -114,16 +115,12 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
     }
 
     try {
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('monthly_payments')
-        .select('*')
-        .eq('payment_month', monthStr);
+      const allPayments = await getCachedData('monthly_payments', async () => {
+        const { data } = await supabase.from('monthly_payments').select('*');
+        return data;
+      }, CACHE_TTL.monthly_payments);
 
-      if (paymentsError && paymentsError.code !== 'PGRST116') {
-         throw paymentsError;
-      }
-
-      const paymentsRes = paymentsData || [];
+      const paymentsRes = (allPayments || []).filter((p: any) => p.payment_month === monthStr);
 
       financeCache.current[monthStr] = { payments: paymentsRes };
 
@@ -183,6 +180,8 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
         }, { onConflict: 'player_id, payment_month' });
 
       if (upsertError) throw upsertError;
+      
+      invalidateCache('monthly_payments');
 
       const { data: updatedPayments } = await supabase
         .from('monthly_payments')

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { invalidateCache } from '../services/dataCache';
 import { 
   Calendar, 
   MapPin, 
@@ -264,6 +265,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       const { error } = await supabase.from('matches').delete().eq('id', matchId);
       if (error) throw error;
       
+      invalidateCache('matches');
       await fetchMatchesList(); // Reload list
     } catch (err: any) {
       console.error('Erro ao excluir partida:', err);

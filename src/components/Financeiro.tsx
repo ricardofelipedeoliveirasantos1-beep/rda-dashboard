@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
 import { 
   AlertCircle, 
   CheckCircle2,
@@ -91,36 +92,26 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       const nextMonth = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 1);
       const endOfMonth = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
 
-      const { data: matchesData, error: matchesError } = await supabase
-        .from('matches')
-        .select(`id, match_date, status, daily_total`)
-        .eq('status', 'finished')
-        .gte('match_date', startOfMonth)
-        .lt('match_date', endOfMonth);
+      const allMatches = await getCachedData('matches', async () => {
+        const { data } = await supabase.from('matches').select(`id, match_date, status, daily_total`);
+        return data || [];
+      }, CACHE_TTL.matches);
+      
+      const matchesRes = allMatches.filter((m: any) => m.status === 'finished' && m.match_date >= startOfMonth && m.match_date < endOfMonth);
 
-      if (matchesError) console.error('Erro ao carregar partidas:', matchesError);
+      const allPayments = await getCachedData('monthly_payments', async () => {
+        const { data } = await supabase.from('monthly_payments').select('id, payment_month, amount, status');
+        return data || [];
+      }, CACHE_TTL.monthly_payments);
 
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('monthly_payments')
-        .select('id, payment_month, amount, status')
-        .eq('payment_month', monthStr);
+      const paymentsRes = allPayments.filter((p: any) => p.payment_month === monthStr);
 
-      if (paymentsError && paymentsError.code !== 'PGRST116') {
-        console.error('Erro ao carregar pagamentos:', paymentsError);
-      }
-
-      const { data: expensesData, error: expensesError } = await supabase
-        .from('expenses')
-        .select('*')
-        .gte('expense_date', startOfMonth)
-        .lt('expense_date', endOfMonth)
-        .order('expense_date', { ascending: false });
-
-      if (expensesError) console.error('Erro ao carregar despesas:', expensesError);
-
-      const matchesRes = matchesData || [];
-      const paymentsRes = paymentsData || [];
-      const expensesRes = expensesData || [];
+      const allExpenses = await getCachedData('expenses', async () => {
+        const { data } = await supabase.from('expenses').select('*');
+        return data || [];
+      }, CACHE_TTL.expenses);
+      
+      const expensesRes = allExpenses.filter((e: any) => e.expense_date >= startOfMonth && e.expense_date < endOfMonth).sort((a: any, b: any) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
 
       financeCache.current[monthStr] = {
         payments: paymentsRes,
@@ -388,6 +379,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                               try {
                                 const { error } = await supabase.from('expenses').delete().eq('id', expense.id);
                                 if (error) throw error;
+                                invalidateCache('expenses');
                                 setExpenses(prev => prev.filter(e => e.id !== expense.id));
                                 if (financeCache.current[currentMonthStr]) {
                                   financeCache.current[currentMonthStr].expenses = financeCache.current[currentMonthStr].expenses.filter(e => e.id !== expense.id);
@@ -458,6 +450,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                   try {
                     const { data, error } = await supabase.from('expenses').insert([{ category: newExpense.category, amount: Number(newExpense.amount), description: newExpense.description, expense_date: newExpense.date }]).select();
                     if (error) throw error;
+                    invalidateCache('expenses');
                     
                     if (newExpense.date.startsWith(currentMonthStr)) {
                       setExpenses(prev => [data[0], ...prev].sort((a,b) => b.expense_date.localeCompare(a.expense_date)));

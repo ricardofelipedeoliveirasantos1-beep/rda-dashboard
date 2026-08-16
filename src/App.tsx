@@ -8,6 +8,7 @@ const Ranking = lazy(() => import('./components/Ranking'));
 const Relatorios = lazy(() => import('./components/Relatorios'));
 const Mensalidades = lazy(() => import('./components/Mensalidades'));
 import { supabase } from './lib/supabase';
+import { getCachedData, clearCache, CACHE_TTL } from './services/dataCache';
 import { 
   Users, 
   Calendar, 
@@ -143,6 +144,7 @@ export default function App() {
   // Fonte real: profiles.role — nunca confiamos em localStorage para conceder acesso.
   const applySession = async (session: { user: { id: string; email?: string | null } } | null) => {
     if (!session?.user) {
+      clearCache();
       setCurrentUserRole(null);
       setCurrentUserId(null);
       setCurrentEmail(null);
@@ -170,8 +172,10 @@ export default function App() {
     } else if (role === 'treasurer') {
       setCurrentUserRole('treasurer');
     } else if (role === 'visitor') {
+      clearCache();
       setCurrentUserRole('visitor');
     } else {
+      clearCache();
       setCurrentUserRole('visitor');
     }
     setAuthLoading(false);
@@ -220,6 +224,7 @@ export default function App() {
 
   // Logout real
   const handleLogout = async () => {
+    clearCache();
     await supabase.auth.signOut();
     // onAuthStateChange reage e reconfigura como visitor
   };
@@ -369,29 +374,27 @@ export default function App() {
 //       const currentMonthIndex = now.getMonth() + 1; // 1-12
 
       // 1. Fetch Settings
-      const { data: settingsData } = await supabase
-        .from('settings')
-        .select('*')
-        .eq('id', 'default')
-        .single();
+      const settingsData = await getCachedData('settings', async () => {
+        const { data } = await supabase.from('settings').select('*').eq('id', 'default').single();
+        return data;
+      }, CACHE_TTL.settings);
       const settings = settingsData || {};
       const defDay = settings.default_match_day || 'Sexta-feira';
       const defTime = settings.default_match_time || '20:00';
       const defLocation = settings.default_location || 'Arena Ouro Preto';
 
       // 2. Fetch Notices
-      const { data: noticesData } = await supabase
-        .from('notices')
-        .select('*')
-        .eq('status', 'active')
-        .gt('expires_at', now.toISOString());
+      const noticesData = await getCachedData('notices', async () => {
+        const { data } = await supabase.from('notices').select('*').eq('status', 'active').gt('expires_at', now.toISOString());
+        return data;
+      }, CACHE_TTL.notices);
       if (noticesData) setDashboardNotices(noticesData);
 
       // 3. Fetch Players (For count and birthdays)
-      const { data: playersData } = await supabase
-        .from('players')
-        .select('*')
-        .eq('is_active', true);
+      const playersData = await getCachedData('players', async () => {
+        const { data } = await supabase.from('players').select('*').eq('is_active', true);
+        return data;
+      }, CACHE_TTL.players);
       
       const activePlayers = playersData || [];
       setTotalPlayers(activePlayers.length);
@@ -399,7 +402,7 @@ export default function App() {
       setTotalDiaristas(activePlayers.filter((p: any) => p.category === 'Diarista').length);
       
       // Birthdays (closest 3 upcoming)
-      const bdays = activePlayers.filter(p => p.birth_date).map(p => {
+      const bdays = activePlayers.filter((p: any) => p.birth_date).map((p: any) => {
         const [y, m, d] = p.birth_date.split('-');
         let bdayThisYear = new Date(now.getFullYear(), parseInt(m, 10) - 1, parseInt(d, 10));
         
@@ -416,22 +419,24 @@ export default function App() {
           photo: p.photo_url,
           nextBday: bdayThisYear
         };
-      }).sort((a, b) => a.nextBday.getTime() - b.nextBday.getTime()).slice(0, 3);
+      }).sort((a: any, b: any) => a.nextBday.getTime() - b.nextBday.getTime()).slice(0, 3);
       setBirthdays(bdays);
 
-      // 3. Fetch Matches & Stats
-      const { data: matchesData } = await supabase
-        .from('matches')
-        .select(`
-          *,
-          match_players (
-            player_id,
-            category_at_match,
-            player:players (id, name, photo_url, category)
-          ),
-          match_player_stats (*)
-        `)
-        .order('match_date', { ascending: false });
+      // 4. Fetch Matches & Stats
+      const matchesData = await getCachedData('matches_with_stats', async () => {
+        const { data } = await supabase
+          .from('matches')
+          .select(`
+            *,
+            match_players (
+              *,
+              player:players (id, name, photo_url, category, position)
+            ),
+            match_player_stats (*)
+          `)
+          .order('match_date', { ascending: false });
+        return data;
+      }, CACHE_TTL.matches);
 
       const matches = matchesData || [];
       const finishedMatches = matches.filter(m => m.status === 'finished');
@@ -593,16 +598,22 @@ export default function App() {
       setTopPoints(pointsList);
       setTopRalabosta(ralaList);
 
-      // 4. Fetch Finance
-      const { data: paymentsData } = await supabase
-        .from('monthly_payments')
-        .select('*');
-      
+      // 5. Fetch Monthly Payments
+      const paymentsData = await getCachedData('monthly_payments', async () => {
+        const { data } = await supabase.from('monthly_payments').select('*');
+        return data;
+      }, CACHE_TTL.monthly_payments);
       const payments = paymentsData || [];
+      
+      const currentMonthPayments = payments.filter((p: any) => p.competence_month === currentMonthStr);
+      setTotalMonthlyPaid(currentMonthPayments.filter((p: any) => p.status === 'paid').length);
+      setTotalMonthlyPending(currentMonthPayments.filter((p: any) => p.status === 'pending').length);
 
-      const { data: expensesData } = await supabase
-        .from('expenses')
-        .select('*');
+      // 6. Fetch Expenses
+      const expensesData = await getCachedData('expenses', async () => {
+        const { data } = await supabase.from('expenses').select('*');
+        return data;
+      }, CACHE_TTL.expenses);
       const expenses = expensesData || [];
       
       let allTimeRevenue = 0;
@@ -642,10 +653,10 @@ export default function App() {
 
       // Mensalidades - Pendências e Contadores (Sincronizado com a tela Mensalidades)
       const defMonthlyFee = settings.monthly_fee ? Number(settings.monthly_fee) : 60;
-      const currentMonthPayments = payments.filter(p => p.payment_month === currentMonthStr);
+      const currentPayments = payments.filter(p => p.payment_month === currentMonthStr);
       
       activePlayers.forEach(player => {
-        const record = currentMonthPayments.find(p => p.player_id === player.id);
+        const record = currentPayments.find(p => p.player_id === player.id);
         
         if (player.category === 'Mensalista') {
           if (record) {

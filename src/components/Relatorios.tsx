@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCachedData, CACHE_TTL } from '../services/dataCache';
 import { 
   BarChart2, 
   ChevronDown, 
@@ -106,10 +107,11 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
       }
 
       // 1. Fetch Players
-      const { data: playersData, error: pError } = await supabase
-        .from('players')
-        .select('*')
-        .eq('is_active', true);
+      const pError = null;
+      const playersData = await getCachedData('players', async () => {
+        const { data } = await supabase.from('players').select('*').eq('is_active', true);
+        return data;
+      }, CACHE_TTL.players);
       
       if (pError) throw pError;
 

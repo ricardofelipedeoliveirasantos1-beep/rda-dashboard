@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCachedData, CACHE_TTL } from '../services/dataCache';
 import { User, Loader2, Trophy, Crown } from 'lucide-react';
 
 interface PlayerStats {
@@ -40,21 +41,24 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
     try {
       setLoading(true);
       
-      const { data: matches, error } = await supabase
-        .from('matches')
-        .select(`
-          *,
-          match_players (
+      const matches = await getCachedData('matches_with_stats', async () => {
+        const { data, error } = await supabase
+          .from('matches')
+          .select(`
             *,
-            player:players (
-              id, name, photo_url, position, category
-            )
-          ),
-          match_player_stats (*)
-        `)
-        .eq('status', 'finished');
+            match_players (
+              *,
+              player:players (
+                id, name, photo_url, position, category
+              )
+            ),
+            match_player_stats (*)
+          `)
+          .eq('status', 'finished');
 
-      if (error) throw error;
+        if (error) throw error;
+        return data;
+      }, CACHE_TTL.matches);
 
       const statsMap: Record<string, PlayerStats> = {};
 
