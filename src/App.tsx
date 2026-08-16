@@ -288,10 +288,7 @@ export default function App() {
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
   
-  const [biggestScore, setBiggestScore] = useState('');
-  const [totalYellow, setTotalYellow] = useState(0);
-  const [totalBlue, setTotalBlue] = useState(0);
-  const [totalRed, setTotalRed] = useState(0);
+
   const [totalMonthlyPaid, setTotalMonthlyPaid] = useState(0);
   const [totalMonthlyPending, setTotalMonthlyPending] = useState(0);
   const [lastMatchDiarists, setLastMatchDiarists] = useState(0);
@@ -490,27 +487,16 @@ export default function App() {
       // Aggregate Stats
       let tGoals = 0;
       let tAssists = 0;
-      let tYellow = 0;
-      let tBlue = 0;
-      let tRed = 0;
+      
       
       const playerStatsMap: Record<string, any> = {};
-
-      let maxDiff = -1;
-      let biggestScoreStr = 'N/A';
 
       finishedMatches.forEach(match => {
         const isHistorical = match.source === 'historical_manual' || match.source === 'historical_import';
         
         // Calculate biggest score
-        if (match.team_1_score !== undefined && match.team_1_score !== null && 
-            match.team_2_score !== undefined && match.team_2_score !== null) {
-          const diff = Math.abs(match.team_1_score - match.team_2_score);
-          if (diff > maxDiff) {
-            maxDiff = diff;
-            biggestScoreStr = `${Math.max(match.team_1_score, match.team_2_score)} x ${Math.min(match.team_1_score, match.team_2_score)}`;
-          }
-        }
+        // Removing biggestScore calculation as it's no longer displayed
+
 
         match.match_players?.forEach((mp: any) => {
           if (!mp.player) return;
@@ -558,9 +544,6 @@ export default function App() {
           if (stats) {
             tGoals += (stats.goals || 0);
             tAssists += (stats.assists || 0);
-            tYellow += (stats.yellow_cards || 0);
-            tBlue += (stats.blue_cards || 0);
-            tRed += (stats.red_cards || 0);
 
             playerStatsMap[pId].goals += (stats.goals || 0);
             playerStatsMap[pId].assists += (stats.assists || 0);
@@ -570,10 +553,7 @@ export default function App() {
 
       setTotalGoals(tGoals);
       setTotalAssists(tAssists);
-      setTotalYellow(tYellow);
-      setTotalBlue(tBlue);
-      setTotalRed(tRed);
-      setBiggestScore(biggestScoreStr);
+
 
       const allPlayersList = Object.values(playerStatsMap);
       
@@ -1706,36 +1686,7 @@ export default function App() {
                   {renderPodium(topRalabosta, 'Top 3 Ralabostas', <Frown size={18} />, '#ef4444', 'vezes', 'Nenhum ralabosta registrado.')}
                 </div>
 
-                {/* CARD 07 — ESTATÍSTICAS GERAIS */}
-                <div className="dashboard-card">
-                  <div className="card-header">
-                    <span className="card-title">
-                      <Activity size={18} /> Estatísticas Gerais
-                    </span>
-                  </div>
-                  <div className="stats-list">
-                    <div className="stat-item">
-                      <span className="stat-label">Média de gols</span>
-                      <span className="stat-val">{totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : '0'} /partida</span>
-                    </div>
-                    <div className="stat-item">
-                      <span className="stat-label">Média de asts</span>
-                      <span className="stat-val">{totalMatches > 0 ? (totalAssists / totalMatches).toFixed(2) : '0'} /partida</span>
-                    </div>
-                    <div className="stat-item">
-                      <span className="stat-label">Maior resultado</span>
-                      <span className="stat-val">{biggestScore}</span>
-                    </div>
-                    <div className="stat-item">
-                      <span className="stat-label">Total de cartões</span>
-                      <span className="stat-val" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <span style={{ display: 'inline-block', width: '12px', height: '16px', backgroundColor: '#fbbf24', borderRadius: '2px' }} title="Amarelos" /> {totalYellow}
-                        <span style={{ display: 'inline-block', width: '12px', height: '16px', backgroundColor: '#3b82f6', borderRadius: '2px' }} title="Azuis" /> {totalBlue}
-                        <span style={{ display: 'inline-block', width: '12px', height: '16px', backgroundColor: '#ef4444', borderRadius: '2px' }} title="Vermelhos" /> {totalRed}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+
               </>
             )}
           </>
