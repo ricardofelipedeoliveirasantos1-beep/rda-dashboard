@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { User, Loader2, Filter, Trophy, Crown } from 'lucide-react';
+import { User, Loader2, Trophy, Crown } from 'lucide-react';
 
 interface PlayerStats {
   id: string;
@@ -351,10 +351,6 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
           <h1 style={{ fontSize: '1.4rem', fontWeight: 900, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ranking Geral {new Date().getFullYear()}</h1>
         </div>
         <p style={{ fontSize: '0.75rem', color: '#9ca3af', margin: '4px 0 0 0' }}>Classificação geral dos jogadores do RDA</p>
-        
-        <div style={{ position: 'absolute', right: '16px', top: '24px', cursor: 'pointer', padding: '8px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <Filter size={18} color="#9ca3af" />
-        </div>
       </header>
 
       {/* FILTER TABS */}
