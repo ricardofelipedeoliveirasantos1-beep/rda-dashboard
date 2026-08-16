@@ -38,7 +38,9 @@ import {
   Goal,
   Sparkles,
   CircleCheck,
-  CircleAlert
+  CircleAlert,
+  Crown,
+  Frown
 } from 'lucide-react';
 
 
@@ -272,6 +274,8 @@ export default function App() {
   const [totalAssists, setTotalAssists] = useState(0);
   const [topScorers, setTopScorers] = useState<any[]>([]);
   const [topAssists, setTopAssists] = useState<any[]>([]);
+  const [topPoints, setTopPoints] = useState<any[]>([]);
+  const [topRalabosta, setTopRalabosta] = useState<any[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
   
   const [lastMatch, setLastMatch] = useState<any>(null);
@@ -519,12 +523,38 @@ export default function App() {
               id: pId,
               name: mp.player.name,
               photo: mp.player.photo_url,
+              position: mp.player.position,
               goals: 0,
-              assists: 0
+              assists: 0,
+              champion: 0,
+              vice: 0,
+              ralabosta: 0,
+              games: 0,
+              points: 0
             };
           }
 
           const stats = match.match_player_stats?.find((s: any) => s.player_id === pId);
+          
+          let isChamp = false;
+          let isVice = false;
+          let isRala = false;
+
+          if (isHistorical) {
+            isChamp = stats?.is_champion || false;
+            isVice = stats?.is_runner_up || false;
+            isRala = stats?.is_ralabosta || false;
+          } else {
+            isChamp = match.champion_team === mp.team;
+            isVice = match.runner_up_team === mp.team;
+            isRala = stats?.is_ralabosta || false;
+          }
+
+          playerStatsMap[pId].games += 1;
+          if (isChamp) playerStatsMap[pId].champion += 1;
+          if (isVice) playerStatsMap[pId].vice += 1;
+          if (isRala) playerStatsMap[pId].ralabosta += 1;
+
           if (stats) {
             tGoals += (stats.goals || 0);
             tAssists += (stats.assists || 0);
@@ -546,11 +576,44 @@ export default function App() {
       setBiggestScore(biggestScoreStr);
 
       const allPlayersList = Object.values(playerStatsMap);
-      const scorers = [...allPlayersList].sort((a, b) => b.goals - a.goals).slice(0, 5).map((p, i) => ({ ...p, rank: i+1, count: p.goals }));
-      const assisters = [...allPlayersList].sort((a, b) => b.assists - a.assists).slice(0, 5).map((p, i) => ({ ...p, rank: i+1, count: p.assists }));
+      
+      allPlayersList.forEach(ps => {
+        ps.points = ps.goals + ps.assists + (ps.champion * 3) + (ps.vice * 1);
+      });
+
+      const scorers = [...allPlayersList].sort((a, b) => {
+        if (b.goals !== a.goals) return b.goals - a.goals;
+        if (b.assists !== a.assists) return b.assists - a.assists;
+        if (a.games !== b.games) return a.games - b.games;
+        return a.name.localeCompare(b.name);
+      }).slice(0, 3).map((p, i) => ({ ...p, rank: i+1, count: p.goals }));
+      
+      const assisters = [...allPlayersList].sort((a, b) => {
+        if (b.assists !== a.assists) return b.assists - a.assists;
+        if (b.goals !== a.goals) return b.goals - a.goals;
+        if (a.games !== b.games) return a.games - b.games;
+        return a.name.localeCompare(b.name);
+      }).slice(0, 3).map((p, i) => ({ ...p, rank: i+1, count: p.assists }));
+      
+      const pointsList = [...allPlayersList].sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.goals !== a.goals) return b.goals - a.goals;
+        if (b.assists !== a.assists) return b.assists - a.assists;
+        if (b.champion !== a.champion) return b.champion - a.champion;
+        if (a.games !== b.games) return a.games - b.games;
+        return a.name.localeCompare(b.name);
+      }).slice(0, 3).map((p, i) => ({ ...p, rank: i+1, count: p.points }));
+
+      const ralaList = [...allPlayersList].sort((a, b) => {
+        if (b.ralabosta !== a.ralabosta) return b.ralabosta - a.ralabosta;
+        if (a.games !== b.games) return a.games - b.games;
+        return a.name.localeCompare(b.name);
+      }).slice(0, 3).map((p, i) => ({ ...p, rank: i+1, count: p.ralabosta }));
       
       setTopScorers(scorers);
       setTopAssists(assisters);
+      setTopPoints(pointsList);
+      setTopRalabosta(ralaList);
 
       // 4. Fetch Finance
       const { data: paymentsData } = await supabase
@@ -649,6 +712,54 @@ export default function App() {
       </div>
     );
   }
+
+  const renderPodium = (data: any[], title: string, icon: any, color: string, suffix: string, emptyMsg: string) => (
+    <div className="dashboard-card" style={{ cursor: 'pointer', transition: 'var(--transition)' }} onClick={() => setActiveTab('ranking')}>
+      <div className="card-header" style={{ marginBottom: '16px' }}>
+        <span className="card-title" style={{ color: color, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {icon} {title}
+        </span>
+      </div>
+      {data.length > 0 ? (
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '4px', height: '140px', paddingBottom: '16px', marginTop: '16px' }}>
+          {/* 3º Lugar */}
+          {data[2] && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, width: 0 }}>
+              <img src={data[2].photo || '/default.png'} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #cd7f32' }} />
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, marginTop: '4px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{data[2].name.split(' ')[0]}</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--text-secondary)' }}>{data[2].count} {suffix}</span>
+              <div style={{ width: '100%', height: '40px', backgroundColor: 'rgba(205,127,50,0.1)', borderTop: '2px solid #cd7f32', marginTop: '4px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 800, color: '#cd7f32', borderRadius: '4px 4px 0 0' }}>3º</div>
+            </div>
+          )}
+
+          {/* 1º Lugar */}
+          {data[0] && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2, zIndex: 2, width: 0 }}>
+              <Crown size={16} color={color} style={{ marginBottom: '2px' }} />
+              <img src={data[0].photo || '/default.png'} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: `3px solid ${color}` }} />
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, marginTop: '4px', textAlign: 'center', color: color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{data[0].name.split(' ')[0]}</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 900, color: '#fff' }}>{data[0].count} {suffix}</span>
+              <div style={{ width: '100%', height: '60px', backgroundColor: `${color}1A`, borderTop: `3px solid ${color}`, marginTop: '4px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 900, fontSize: '1.2rem', color: color, borderRadius: '4px 4px 0 0' }}>1º</div>
+            </div>
+          )}
+
+          {/* 2º Lugar */}
+          {data[1] && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, width: 0 }}>
+              <img src={data[1].photo || '/default.png'} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #c0c0c0' }} />
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, marginTop: '4px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{data[1].name.split(' ')[0]}</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--text-secondary)' }}>{data[1].count} {suffix}</span>
+              <div style={{ width: '100%', height: '50px', backgroundColor: 'rgba(192,192,192,0.1)', borderTop: '2px solid #c0c0c0', marginTop: '4px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 800, color: '#c0c0c0', borderRadius: '4px 4px 0 0' }}>2º</div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
+          {emptyMsg}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="app-container" onClick={() => isUserMenuOpen && setIsUserMenuOpen(false)}>
@@ -1588,67 +1699,11 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-                  {/* CARD 04 — RANKING DE ARTILHEIROS */}
-                                  <div className="dashboard-card">
-                                    <div className="card-header">
-                                      <span className="card-title">
-                                        <Trophy size={18} /> Ranking de Artilheiros
-                                      </span>
-                                    </div>
-                                    <div className="leaderboard-list">
-                                      {topScorers.length > 0 ? topScorers.map((player) => (
-                                        <div className="leaderboard-item" key={player.id}>
-                                          <div className="player-info">
-                                            <span className="player-rank">{player.rank}°</span>
-                                            {player.photo ? (
-                                              <img src={player.photo} alt={player.name} className="player-img" style={{ objectFit: 'cover' }} />
-                                            ) : (
-                                              <div className="player-img" style={{ backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <User size={16} style={{ color: '#666' }} />
-                                              </div>
-                                            )}
-                                            <span className="player-name">{player.name}</span>
-                                          </div>
-                                          <span className="player-score">{player.count} gols</span>
-                                        </div>
-                                      )) : (
-                                        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                                          Nenhum gol registrado.
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                  {/* CARD 05 — RANKING DE ASSISTÊNCIAS */}
-                                  <div className="dashboard-card">
-                                    <div className="card-header">
-                                      <span className="card-title">
-                                        <Star size={18} /> Ranking de Assistências
-                                      </span>
-                                    </div>
-                                    <div className="leaderboard-list">
-                                      {topAssists.length > 0 ? topAssists.map((player) => (
-                                        <div className="leaderboard-item" key={player.id}>
-                                          <div className="player-info">
-                                            <span className="player-rank">{player.rank}°</span>
-                                            {player.photo ? (
-                                              <img src={player.photo} alt={player.name} className="player-img" style={{ objectFit: 'cover' }} />
-                                            ) : (
-                                              <div className="player-img" style={{ backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <User size={16} style={{ color: '#666' }} />
-                                              </div>
-                                            )}
-                                            <span className="player-name">{player.name}</span>
-                                          </div>
-                                          <span className="player-score">{player.count} asts</span>
-                                        </div>
-                                      )) : (
-                                        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                                          Nenhuma assistência registrada.
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                  {renderPodium(topPoints, 'Top 3 Pontuação', <Trophy size={18} />, '#fbbf24', 'pts', 'Nenhuma pontuação registrada.')}
+                  {renderPodium(topScorers, 'Top 3 Artilheiros', <Goal size={18} />, '#22c55e', 'gols', 'Nenhum gol registrado.')}
+                  {renderPodium(topAssists, 'Top 3 Assistências', <Star size={18} />, '#3b82f6', 'asts', 'Nenhuma assistência registrada.')}
+                  {renderPodium(topRalabosta, 'Top 3 Ralabostas', <Frown size={18} />, '#ef4444', 'vezes', 'Nenhum ralabosta registrado.')}
                 </div>
 
                 {/* CARD 07 — ESTATÍSTICAS GERAIS */}
