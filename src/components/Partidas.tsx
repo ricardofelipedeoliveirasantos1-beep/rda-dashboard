@@ -74,6 +74,9 @@ interface Match {
   runner_up_team?: string | null;
   third_place_team?: string | null;
   fourth_place_team?: string | null;
+  team_count?: number;
+  players_per_team?: number;
+  finished_at?: string | null;
   created_at: string;
   match_players?: MatchPlayer[];
   match_player_stats?: PlayerStat[];
@@ -100,6 +103,9 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
   // Wizard Step state: 'config' (Setup & Selection) | 'teams' (Teams Distribution)
   const [step, setStep] = useState<'config' | 'teams'>('config');
+
+  // New State: Number of teams for the draw
+  const [numberOfTeams, setNumberOfTeams] = useState<2 | 3 | 4>(4);
 
   // Database lists
   const [players, setPlayers] = useState<Player[]>([]);
@@ -343,6 +349,18 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   const defaultDailyFeeInCents = Math.round(defaultDailyFee * 100);
   const totalEstimatedFees = (totalDiaristas * defaultDailyFeeInCents) / 100;
 
+  // Active Teams Logic
+  const getActiveTeams = () => {
+    const lastFinishedMatch = matches.find(m => m.status === 'finished' && m.champion_team);
+    const champTeamStr = lastFinishedMatch?.champion_team || null;
+    const defaultOrder = ['brasil', 'portugal', 'japao', 'uruguai'];
+    const active = defaultOrder.slice(0, numberOfTeams);
+    if (champTeamStr && !active.includes(champTeamStr)) {
+      active[active.length - 1] = champTeamStr;
+    }
+    return active;
+  };
+
   // Transition from Selection (config) to Teams
   const handleContinueToTeams = () => {
     if (!matchDate) {
@@ -379,11 +397,28 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       !Array.from(currentSelectionIds).every(id => currentDistributedIds.has(id));
 
     if (isSelectionChanged) {
-      setAvailablePlayers(selectedPlayers);
-      setTeamBrasil([]);
-      setTeamPortugal([]);
-      setTeamJapao([]);
-      setTeamUruguai([]);
+      const lastFinishedMatch = matches.find(m => m.status === 'finished' && m.champion_team);
+      const champTeamStr = lastFinishedMatch?.champion_team || null;
+      let champPlayerIds = new Set<string>();
+      if (lastFinishedMatch && champTeamStr) {
+        champPlayerIds = new Set(
+          (lastFinishedMatch.match_players || [])
+            .filter(mp => mp.team === champTeamStr)
+            .map(mp => mp.player_id)
+        );
+      }
+
+      const active = getActiveTeams();
+      const shouldFixChampions = champTeamStr && active.includes(champTeamStr);
+
+      const fixedChampions = selectedPlayers.filter(p => shouldFixChampions && champPlayerIds.has(p.id));
+      const remainingPlayers = selectedPlayers.filter(p => !(shouldFixChampions && champPlayerIds.has(p.id)));
+
+      setAvailablePlayers(remainingPlayers);
+      setTeamBrasil(shouldFixChampions && champTeamStr === 'brasil' ? fixedChampions : []);
+      setTeamPortugal(shouldFixChampions && champTeamStr === 'portugal' ? fixedChampions : []);
+      setTeamJapao(shouldFixChampions && champTeamStr === 'japao' ? fixedChampions : []);
+      setTeamUruguai(shouldFixChampions && champTeamStr === 'uruguai' ? fixedChampions : []);
       setSelectedPlayerForDraw(null);
     }
 
@@ -392,6 +427,18 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
   // Move Player manual draw helper
   const movePlayer = (player: Player, from: string, to: string) => {
+    if (to !== 'disponiveis') {
+      let destTeamLength = 0;
+      if (to === 'brasil') destTeamLength = teamBrasil.length;
+      if (to === 'portugal') destTeamLength = teamPortugal.length;
+      if (to === 'japao') destTeamLength = teamJapao.length;
+      if (to === 'uruguai') destTeamLength = teamUruguai.length;
+      if (destTeamLength >= 6) {
+        alert('Este time já atingiu o limite de 6 vagas!');
+        return;
+      }
+    }
+
     const removeFromState = (teamName: string, playerId: string) => {
       if (teamName === 'disponiveis') setAvailablePlayers(prev => prev.filter(p => p.id !== playerId));
       if (teamName === 'brasil') setTeamBrasil(prev => prev.filter(p => p.id !== playerId));
@@ -433,11 +480,33 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
   // Sorteio Flash algorithm
   const runFlashSorteio = () => {
-    const brasil: Player[] = [];
-    const portugal: Player[] = [];
-    const japao: Player[] = [];
-    const uruguai: Player[] = [];
-    const teamLists = [brasil, portugal, japao, uruguai];
+    const lastFinishedMatch = matches.find(m => m.status === 'finished' && m.champion_team);
+    const champTeamStr = lastFinishedMatch?.champion_team || null;
+    let champPlayerIds = new Set<string>();
+    if (lastFinishedMatch && champTeamStr) {
+      champPlayerIds = new Set(
+        (lastFinishedMatch.match_players || [])
+          .filter(mp => mp.team === champTeamStr)
+          .map(mp => mp.player_id)
+      );
+    }
+
+    const active = getActiveTeams();
+    const shouldFixChampions = champTeamStr && active.includes(champTeamStr);
+
+    const fixedChampions = selectedPlayers.filter(p => shouldFixChampions && champPlayerIds.has(p.id));
+    const playersToDraw = selectedPlayers.filter(p => !(shouldFixChampions && champPlayerIds.has(p.id)));
+
+    const brasil: Player[] = shouldFixChampions && champTeamStr === 'brasil' ? [...fixedChampions] : [];
+    const portugal: Player[] = shouldFixChampions && champTeamStr === 'portugal' ? [...fixedChampions] : [];
+    const japao: Player[] = shouldFixChampions && champTeamStr === 'japao' ? [...fixedChampions] : [];
+    const uruguai: Player[] = shouldFixChampions && champTeamStr === 'uruguai' ? [...fixedChampions] : [];
+
+    const activeTeamLists: { name: string, list: Player[] }[] = [];
+    if (active.includes('brasil')) activeTeamLists.push({ name: 'brasil', list: brasil });
+    if (active.includes('portugal')) activeTeamLists.push({ name: 'portugal', list: portugal });
+    if (active.includes('japao')) activeTeamLists.push({ name: 'japao', list: japao });
+    if (active.includes('uruguai')) activeTeamLists.push({ name: 'uruguai', list: uruguai });
 
     const groups: { [key: string]: Player[] } = {
       'Goleiro': [],
@@ -448,7 +517,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       'Outros': []
     };
 
-    selectedPlayers.forEach(p => {
+    playersToDraw.forEach(p => {
       const pos = p.position || 'Sem posição';
       if (pos === 'Goleiro' || pos === 'Zagueiro' || pos === 'Volante' || pos === 'Meia' || pos === 'Atacante') {
         groups[pos].push(p);
@@ -477,28 +546,36 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       ...shuffledGroups['Outros']
     ];
 
+    let remainingAvailable: Player[] = [];
+    
     orderedPlayers.forEach(player => {
       let minSize = Infinity;
       let candidateTeams: Player[][] = [];
 
-      teamLists.forEach(t => {
-        if (t.length < minSize) {
-          minSize = t.length;
-          candidateTeams = [t];
-        } else if (t.length === minSize) {
-          candidateTeams.push(t);
+      activeTeamLists.forEach(t => {
+        if (t.list.length < 6) {
+          if (t.list.length < minSize) {
+            minSize = t.list.length;
+            candidateTeams = [t.list];
+          } else if (t.list.length === minSize) {
+            candidateTeams.push(t.list);
+          }
         }
       });
 
-      const chosenTeam = candidateTeams[Math.floor(Math.random() * candidateTeams.length)];
-      chosenTeam.push(player);
+      if (candidateTeams.length > 0) {
+        const chosenTeam = candidateTeams[Math.floor(Math.random() * candidateTeams.length)];
+        chosenTeam.push(player);
+      } else {
+        remainingAvailable.push(player);
+      }
     });
 
-    setTeamBrasil(brasil);
-    setTeamPortugal(portugal);
-    setTeamJapao(japao);
-    setTeamUruguai(uruguai);
-    setAvailablePlayers([]);
+    setTeamBrasil(active.includes('brasil') ? brasil : []);
+    setTeamPortugal(active.includes('portugal') ? portugal : []);
+    setTeamJapao(active.includes('japao') ? japao : []);
+    setTeamUruguai(active.includes('uruguai') ? uruguai : []);
+    setAvailablePlayers(remainingAvailable.sort((a, b) => a.name.localeCompare(b.name)));
     setSelectedPlayerForDraw(null);
     setActiveTeamMenu(null);
     setValidationError(null);
@@ -540,21 +617,17 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       setValidationError('Por favor, informe o local da partida.');
       return;
     }
-    if (availablePlayers.length > 0) {
-      setValidationError('Distribua todos os jogadores antes de salvar.');
-      return;
-    }
-
     const allAssigned = [...teamBrasil, ...teamPortugal, ...teamJapao, ...teamUruguai];
     const uniqueIds = new Set(allAssigned.map(p => p.id));
     if (uniqueIds.size !== allAssigned.length) {
       setValidationError('Erro de integridade: Existem jogadores duplicados nos times.');
       return;
     }
-    if (uniqueIds.size !== totalSelected) {
-      setValidationError('Erro de integridade: A quantidade de jogadores nos times difere da seleção.');
-      return;
-    }
+    // We no longer require all players to be assigned
+    // if (uniqueIds.size !== totalSelected) {
+    //   setValidationError('Erro de integridade: A quantidade de jogadores nos times difere da seleção.');
+    //   return;
+    // }
 
     setValidationError(null);
     setSaving(true);
@@ -569,7 +642,9 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             match_time: matchTime,
             location: matchLocation.trim(),
             status: 'in_progress',
-            daily_total: totalEstimatedFees
+            daily_total: totalEstimatedFees,
+            team_count: numberOfTeams,
+            players_per_team: 6
           })
           .select()
           .single();
@@ -605,6 +680,13 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             team: 'uruguai',
             category_at_match: p.category,
             daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0
+          })),
+          ...availablePlayers.map(p => ({
+            match_id: newMatchId,
+            player_id: p.id,
+            team: null,
+            category_at_match: p.category,
+            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0
           }))
         ];
 
@@ -629,7 +711,9 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             match_date: matchDate,
             match_time: matchTime,
             location: matchLocation.trim(),
-            daily_total: dailyTotalToSave
+            daily_total: dailyTotalToSave,
+            team_count: numberOfTeams,
+            players_per_team: 6
           })
           .eq('id', editingMatchId);
 
@@ -678,6 +762,13 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             match_id: editingMatchId,
             player_id: p.id,
             team: 'uruguai',
+            category_at_match: p.category,
+            daily_fee_at_match: getPlayerFee(p)
+          })),
+          ...availablePlayers.map(p => ({
+            match_id: editingMatchId,
+            player_id: p.id,
+            team: null,
             category_at_match: p.category,
             daily_fee_at_match: getPlayerFee(p)
           }))
@@ -787,6 +878,12 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     setMatchDate(match.match_date);
     setMatchTime(match.match_time.slice(0, 5));
     setMatchLocation((match.location || '').split('|')[0]);
+    
+    if (match.team_count === 2 || match.team_count === 3 || match.team_count === 4) {
+      setNumberOfTeams(match.team_count as 2 | 3 | 4);
+    } else {
+      setNumberOfTeams(4);
+    }
 
     const participantIds = new Set((match.match_players || []).map(mp => mp.player_id));
     setSelectedPlayerIds(participantIds);
@@ -1000,6 +1097,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         .from('matches')
         .update({
           status: 'finished',
+          finished_at: activeMatchForStats.status === 'finished' ? (activeMatchForStats.finished_at || new Date().toISOString()) : new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', activeMatchForStats.id);
@@ -1047,9 +1145,6 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   };
 
   // Calculations for Step 2
-  const baseCount = Math.floor(totalSelected / 4);
-  const remainder = totalSelected % 4;
-  const maxBalancedCount = baseCount + (remainder > 0 ? 1 : 0);
 
   if (loading) {
     return (
@@ -1707,6 +1802,40 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                       fontSize: '0.95rem'
                     }}
                   />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>QUANTIDADE DE TIMES</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[2, 3, 4].map(num => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => {
+                        if (teamBrasil.length > 0 || teamPortugal.length > 0 || teamJapao.length > 0 || teamUruguai.length > 0) {
+                          if (!confirm('Alterar o número de times limpará a distribuição atual. Continuar?')) return;
+                          clearTeams();
+                        }
+                        setNumberOfTeams(num as 2 | 3 | 4);
+                      }}
+                      disabled={saving}
+                      style={{
+                        flex: 1,
+                        padding: '10px 0',
+                        backgroundColor: numberOfTeams === num ? '#6366f1' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${numberOfTeams === num ? '#6366f1' : 'rgba(255,255,255,0.08)'}`,
+                        borderRadius: '8px',
+                        color: numberOfTeams === num ? '#ffffff' : 'var(--text-secondary)',
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                        transition: 'var(--transition)'
+                      }}
+                    >
+                      {num} Times
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -2640,7 +2769,6 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   // ==========================================
   // VIEW: CREATE (WIZARD STEP 2) OR EDIT (TEAMS ESCALATION)
   // ==========================================
-  const averagePlayersPerTeam = totalSelected / 4;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -2689,11 +2817,11 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           </div>
           <div>
             <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Times</span>
-            <strong style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>4</strong>
+            <strong style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>{numberOfTeams}</strong>
           </div>
           <div>
             <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Média por time</span>
-            <strong style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>{averagePlayersPerTeam % 1 === 0 ? averagePlayersPerTeam : averagePlayersPerTeam.toFixed(1)}</strong>
+            <strong style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>6</strong>
           </div>
         </div>
 
@@ -2708,20 +2836,29 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           fontSize: '0.78rem',
           fontWeight: 700
         }}>
-          <button onClick={() => scrollToTeam('team-brasil')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', display: 'flex', gap: '4px' }}>
-            BRA <span style={{ backgroundColor: 'rgba(34,197,94,0.15)', padding: '1px 6px', borderRadius: '4px' }}>{teamBrasil.length}</span>
-          </button>
-          <button onClick={() => scrollToTeam('team-portugal')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', gap: '4px' }}>
-            POR <span style={{ backgroundColor: 'rgba(239,68,68,0.15)', padding: '1px 6px', borderRadius: '4px' }}>{teamPortugal.length}</span>
-          </button>
-          <button onClick={() => scrollToTeam('team-japao')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ffffff', display: 'flex', gap: '4px' }}>
-            JAP <span style={{ backgroundColor: 'rgba(255,255,255,0.15)', padding: '1px 6px', borderRadius: '4px' }}>{teamJapao.length}</span>
-          </button>
-          <button onClick={() => scrollToTeam('team-uruguai')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#38bdf8', display: 'flex', gap: '4px' }}>
-            URU <span style={{ backgroundColor: 'rgba(56,189,248,0.15)', padding: '1px 6px', borderRadius: '4px' }}>{teamUruguai.length}</span>
-          </button>
+          {getActiveTeams().includes('brasil') && (
+            <button onClick={() => scrollToTeam('team-brasil')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', display: 'flex', gap: '4px' }}>
+              BRA <span style={{ backgroundColor: 'rgba(34,197,94,0.15)', padding: '1px 6px', borderRadius: '4px' }}>{teamBrasil.length}/6</span>
+            </button>
+          )}
+          {getActiveTeams().includes('portugal') && (
+            <button onClick={() => scrollToTeam('team-portugal')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', gap: '4px' }}>
+              POR <span style={{ backgroundColor: 'rgba(239,68,68,0.15)', padding: '1px 6px', borderRadius: '4px' }}>{teamPortugal.length}/6</span>
+            </button>
+          )}
+          {getActiveTeams().includes('japao') && (
+            <button onClick={() => scrollToTeam('team-japao')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ffffff', display: 'flex', gap: '4px' }}>
+              JAP <span style={{ backgroundColor: 'rgba(255,255,255,0.15)', padding: '1px 6px', borderRadius: '4px' }}>{teamJapao.length}/6</span>
+            </button>
+          )}
+          {getActiveTeams().includes('uruguai') && (
+            <button onClick={() => scrollToTeam('team-uruguai')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#38bdf8', display: 'flex', gap: '4px' }}>
+              URU <span style={{ backgroundColor: 'rgba(56,189,248,0.15)', padding: '1px 6px', borderRadius: '4px' }}>{teamUruguai.length}/6</span>
+            </button>
+          )}
         </div>
       </section>
+
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
         <button 
@@ -2846,38 +2983,46 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           </div>
           <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Escolha o time:</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <button 
-              onClick={() => movePlayer(selectedPlayerForDraw, 'disponiveis', 'brasil')}
-              style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', transition: 'var(--transition)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(34,197,94,0.15)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(34,197,94,0.08)'}
-            >
-              BRASIL
-            </button>
-            <button 
-              onClick={() => movePlayer(selectedPlayerForDraw, 'disponiveis', 'portugal')}
-              style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', transition: 'var(--transition)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'}
-            >
-              PORTUGAL
-            </button>
-            <button 
-              onClick={() => movePlayer(selectedPlayerForDraw, 'disponiveis', 'japao')}
-              style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', transition: 'var(--transition)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'}
-            >
-              JAPÃO
-            </button>
-            <button 
-              onClick={() => movePlayer(selectedPlayerForDraw, 'disponiveis', 'uruguai')}
-              style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', transition: 'var(--transition)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(56,189,248,0.15)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(56,189,248,0.08)'}
-            >
-              URUGUAI
-            </button>
+            {getActiveTeams().includes('brasil') && (
+              <button 
+                onClick={() => movePlayer(selectedPlayerForDraw, 'disponiveis', 'brasil')}
+                style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', transition: 'var(--transition)' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(34,197,94,0.15)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(34,197,94,0.08)'}
+              >
+                BRASIL
+              </button>
+            )}
+            {getActiveTeams().includes('portugal') && (
+              <button 
+                onClick={() => movePlayer(selectedPlayerForDraw, 'disponiveis', 'portugal')}
+                style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', transition: 'var(--transition)' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'}
+              >
+                PORTUGAL
+              </button>
+            )}
+            {getActiveTeams().includes('japao') && (
+              <button 
+                onClick={() => movePlayer(selectedPlayerForDraw, 'disponiveis', 'japao')}
+                style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', transition: 'var(--transition)' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'}
+              >
+                JAPÃO
+              </button>
+            )}
+            {getActiveTeams().includes('uruguai') && (
+              <button 
+                onClick={() => movePlayer(selectedPlayerForDraw, 'disponiveis', 'uruguai')}
+                style={{ padding: '12px', borderRadius: '10px', backgroundColor: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', transition: 'var(--transition)' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(56,189,248,0.15)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(56,189,248,0.08)'}
+              >
+                URUGUAI
+              </button>
+            )}
           </div>
         </section>
       )}
@@ -2893,8 +3038,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           { id: 'team-portugal', name: 'portugal', label: 'PORTUGAL', color: '#ef4444', bg: 'rgba(239,68,68,0.02)', players: teamPortugal },
           { id: 'team-japao', name: 'japao', label: 'JAPÃO', color: '#ffffff', bg: 'rgba(255,255,255,0.01)', players: teamJapao },
           { id: 'team-uruguai', name: 'uruguai', label: 'URUGUAI', color: '#38bdf8', bg: 'rgba(56,189,248,0.02)', players: teamUruguai }
-        ].map((team) => {
-          const isOverloaded = team.players.length > maxBalancedCount;
+        ].filter(team => getActiveTeams().includes(team.name)).map((team) => {
           return (
             <div 
               key={team.id}
@@ -2903,22 +3047,20 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
               style={{ 
                 borderLeft: `4px solid ${team.color}`, 
                 backgroundColor: team.bg,
-                gap: '12px',
-                borderColor: isOverloaded ? 'rgba(245,158,11,0.4)' : undefined,
-                boxShadow: isOverloaded ? '0 4px 12px rgba(245,158,11,0.05)' : undefined
+                gap: '12px'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '8px' }}>
                 <span style={{ fontWeight: 800, fontSize: '1rem', color: team.color, letterSpacing: '0.5px' }}>{team.label}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {isOverloaded && (
-                    <span style={{ fontSize: '0.68rem', color: 'var(--warning)', backgroundColor: 'rgba(245,158,11,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                      Mais jogadores
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    {team.players.length}/6
+                  </span>
+                  {team.players.length < 6 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Falta {6 - team.players.length}
                     </span>
                   )}
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    {team.players.length} jogadores
-                  </span>
                 </div>
               </div>
 

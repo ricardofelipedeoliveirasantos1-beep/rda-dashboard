@@ -22,7 +22,7 @@ interface PlayerStats {
   points: number;
 }
 
-type FilterType = 'Geral' | 'Gols' | 'Assistências' | 'Campeões' | 'Vices' | 'Ralabosta' | 'Cartões';
+type FilterType = 'Geral' | 'Pontos' | 'Gols' | 'Assistências' | 'Campeões' | 'Vices' | 'Ralabosta' | 'Cartões';
 type CardFilterType = 'Amarelo' | 'Azul' | 'Vermelho';
 
 export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 'admin' | 'assistant' | 'visitor' | 'treasurer'; can: (action: any) => boolean }) {
@@ -150,7 +150,7 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
     }
 
     list.sort((a, b) => {
-      if (filter === 'Geral') {
+      if (filter === 'Geral' || filter === 'Pontos') {
         if (b.points !== a.points) return b.points - a.points;
         if (b.goals !== a.goals) return b.goals - a.goals;
         if (b.assists !== a.assists) return b.assists - a.assists;
@@ -207,6 +207,7 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
   const getFilterAccentColor = () => {
     switch (filter) {
       case 'Geral': return '#5865F2'; 
+      case 'Pontos': return '#eab308';
       case 'Gols': return '#fbbf24'; 
       case 'Assistências': return '#fbbf24'; 
       case 'Campeões': return '#22c55e';
@@ -234,6 +235,7 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
     
     switch (filter) {
       case 'Geral': val = player.points; label = 'PONTOS'; break;
+      case 'Pontos': val = player.points; label = 'PONTOS'; break;
       case 'Gols': val = player.goals; label = 'GOLS'; break;
       case 'Assistências': val = player.assists; label = 'ASSISTÊNCIAS'; break;
       case 'Campeões': val = player.champion; label = 'TÍTULOS'; break;
@@ -322,6 +324,7 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
   const getListValue = (player: PlayerStats) => {
     switch (filter) {
       case 'Geral': return player.points;
+      case 'Pontos': return player.points;
       case 'Gols': return player.goals;
       case 'Assistências': return player.assists;
       case 'Campeões': return player.champion;
@@ -363,11 +366,12 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
           display: 'flex', gap: '8px', overflowX: 'auto', padding: '6px', scrollbarWidth: 'none', 
           backgroundColor: '#111', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' 
         }}>
-          {(['Geral', 'Gols', 'Assistências', 'Campeões', 'Vices', 'Ralabosta', 'Cartões'] as FilterType[]).map(f => {
+          {(['Geral', 'Pontos', 'Gols', 'Assistências', 'Campeões', 'Vices', 'Ralabosta', 'Cartões'] as FilterType[]).map(f => {
             const isSelected = filter === f;
             let bgColor = 'rgba(255,255,255,0.03)';
             if (isSelected) {
               if (f === 'Geral') bgColor = '#a855f7'; // Roxo
+              else if (f === 'Pontos') bgColor = '#eab308'; // Amarelo
               else if (f === 'Gols') bgColor = '#22c55e'; // Verde
               else if (f === 'Assistências') bgColor = '#3b82f6'; // Azul
               else if (f === 'Campeões') bgColor = '#eab308'; // Amarelo Ouro
@@ -505,9 +509,23 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
                   <div style={{ width: '28px', color: '#eab308' }}>PT</div>
                 </div>
               </div>
-            ) : (
+            ) : filter === 'Cartões' ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: '0.65rem', fontWeight: 800, color: '#fff', padding: '12px 12px 12px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '12px' }}>
+                <span style={{ width: '40px', textAlign: 'center' }}>JOGOS</span>
+                <span style={{ width: '50px', textAlign: 'center', color: '#facc15' }}>AMARELO</span>
+                <span style={{ width: '40px', textAlign: 'center', color: '#3b82f6' }}>AZUL</span>
+                <span style={{ width: '50px', textAlign: 'center', color: '#ef4444' }}>VERMELHO</span>
+              </div>
+            ) : filter === 'Campeões' || filter === 'Vices' ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: '0.65rem', fontWeight: 800, color: getFilterAccentColor(), padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 {filter.toUpperCase()}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: '0.65rem', fontWeight: 800, padding: '12px 12px 12px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '16px' }}>
+                <span style={{ width: '50px', textAlign: 'center', color: '#fff' }}>JOGOS</span>
+                <span style={{ width: '70px', textAlign: 'center', color: getFilterAccentColor() }}>
+                  {filter === 'Pontos' ? 'PONTOS' : filter === 'Gols' ? 'GOLS' : filter === 'Assistências' ? 'ASSISTÊNCIAS' : 'RALABOSTA'}
+                </span>
               </div>
             )}
 
@@ -554,9 +572,21 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
                         <div style={{ width: '24px', color: '#ef4444' }}>{player.ralabosta}</div>
                         <div style={{ width: '28px', color: '#eab308', fontWeight: 900, fontSize: '0.95rem' }}>{player.points}</div>
                       </div>
-                    ) : (
-                      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: filter === 'Ralabosta' ? '#ef4444' : '#fff' }}>
+                    ) : filter === 'Cartões' ? (
+                      <div style={{ display: 'flex', gap: '12px', textAlign: 'center', fontSize: '0.9rem', fontWeight: 800, paddingRight: '0px' }}>
+                        <div style={{ width: '40px', color: '#fff' }}>{player.games}</div>
+                        <div style={{ width: '50px', color: '#facc15' }}>{player.yellow_cards}</div>
+                        <div style={{ width: '40px', color: '#3b82f6' }}>{player.blue_cards}</div>
+                        <div style={{ width: '50px', color: '#ef4444' }}>{player.red_cards}</div>
+                      </div>
+                    ) : filter === 'Campeões' || filter === 'Vices' ? (
+                      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#fff' }}>
                         {getListValue(player)}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '16px', textAlign: 'center', fontSize: '0.9rem', fontWeight: 800, paddingRight: '0px' }}>
+                        <div style={{ width: '50px', color: '#fff' }}>{player.games}</div>
+                        <div style={{ width: '70px', color: getFilterAccentColor() }}>{getListValue(player)}</div>
                       </div>
                     )}
                   </div>
