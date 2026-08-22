@@ -110,6 +110,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   // Database lists
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [lastChampionInfo, setLastChampionInfo] = useState<{ team: string, playerIds: Set<string> } | null>(null);
   const [defaultDailyFee, setDefaultDailyFee] = useState(20);
   
   // Loading & feedback states
@@ -351,8 +352,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
   // Active Teams Logic
   const getActiveTeams = () => {
-    const lastFinishedMatch = matches.find(m => m.status === 'finished' && m.champion_team);
-    const champTeamStr = lastFinishedMatch?.champion_team || null;
+    const champTeamStr = lastChampionInfo?.team || null;
     const defaultOrder = ['brasil', 'portugal', 'japao', 'uruguai'];
     const active = defaultOrder.slice(0, numberOfTeams);
     if (champTeamStr && !active.includes(champTeamStr)) {
@@ -362,7 +362,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   };
 
   // Transition from Selection (config) to Teams
-  const handleContinueToTeams = () => {
+  const handleContinueToTeams = async () => {
     if (!matchDate) {
       setValidationError('Por favor, informe a data da partida.');
       return;
@@ -381,6 +381,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     }
 
     setValidationError(null);
+    setSaving(true);
     
     // Initialize available players if selection changed
     const currentSelectionIds = new Set(selectedPlayers.map(p => p.id));
@@ -397,22 +398,58 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       !Array.from(currentSelectionIds).every(id => currentDistributedIds.has(id));
 
     if (isSelectionChanged) {
-      const lastFinishedMatch = matches.find(m => m.status === 'finished' && m.champion_team);
-      const champTeamStr = lastFinishedMatch?.champion_team || null;
+      let champTeamStr: string | null = null;
       let champPlayerIds = new Set<string>();
-      if (lastFinishedMatch && champTeamStr) {
-        champPlayerIds = new Set(
-          (lastFinishedMatch.match_players || [])
-            .filter(mp => mp.team === champTeamStr)
-            .map(mp => mp.player_id)
-        );
+
+      try {
+        const { data: matchesData, error: matchesError } = await supabase
+          .from('matches')
+          .select('id, champion_team')
+          .eq('status', 'finished')
+          .not('champion_team', 'is', null)
+          .order('match_date', { ascending: false })
+          .order('match_time', { ascending: false })
+          .limit(1);
+
+        if (!matchesError && matchesData && matchesData.length > 0) {
+          const lastMatch = matchesData[0];
+          champTeamStr = lastMatch.champion_team;
+          
+          const { data: playersData, error: playersError } = await supabase
+            .from('match_players')
+            .select('player_id')
+            .eq('match_id', lastMatch.id)
+            .eq('team', champTeamStr);
+
+          if (!playersError && playersData) {
+            champPlayerIds = new Set(playersData.map(p => p.player_id));
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao buscar último campeão:", err);
       }
 
-      const active = getActiveTeams();
-      const shouldFixChampions = champTeamStr && active.includes(champTeamStr);
+      const championInfo = champTeamStr ? { team: champTeamStr, playerIds: champPlayerIds } : null;
+      setLastChampionInfo(championInfo);
 
+      // We pass championInfo locally here since state won't update synchronously for getActiveTeams below
+      const defaultOrder = ['brasil', 'portugal', 'japao', 'uruguai'];
+      const active = defaultOrder.slice(0, numberOfTeams);
+      if (champTeamStr && !active.includes(champTeamStr)) {
+        active[active.length - 1] = champTeamStr;
+      }
+
+      const shouldFixChampions = champTeamStr && active.includes(champTeamStr);
       const fixedChampions = selectedPlayers.filter(p => shouldFixChampions && champPlayerIds.has(p.id));
       const remainingPlayers = selectedPlayers.filter(p => !(shouldFixChampions && champPlayerIds.has(p.id)));
+
+      console.log('--- LOG TEMPORÁRIO PARA VALIDAÇÃO (Regra do Campeão) ---');
+      console.log('lastChampionTeam:', champTeamStr);
+      console.log('championPlayerIds:', Array.from(champPlayerIds));
+      console.log('selectedPlayerIds:', selectedPlayers.map(p => p.id));
+      console.log('selectedChampionIds:', fixedChampions.map(p => p.id));
+      console.log('remainingPlayerIds:', remainingPlayers.map(p => p.id));
+      console.log('----------------------------------------------------------');
 
       setAvailablePlayers(remainingPlayers);
       setTeamBrasil(shouldFixChampions && champTeamStr === 'brasil' ? fixedChampions : []);
@@ -422,6 +459,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       setSelectedPlayerForDraw(null);
     }
 
+    setSaving(false);
     setStep('teams');
   };
 
@@ -439,31 +477,23 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       }
     }
 
-    const removeFromState = (teamName: string, playerId: string) => {
-      if (teamName === 'disponiveis') setAvailablePlayers(prev => prev.filter(p => p.id !== playerId));
-      if (teamName === 'brasil') setTeamBrasil(prev => prev.filter(p => p.id !== playerId));
-      if (teamName === 'portugal') setTeamPortugal(prev => prev.filter(p => p.id !== playerId));
-      if (teamName === 'japao') setTeamJapao(prev => prev.filter(p => p.id !== playerId));
-      if (teamName === 'uruguai') setTeamUruguai(prev => prev.filter(p => p.id !== playerId));
-    };
+    const remove = (list: Player[]) => list.filter(p => p.id !== player.id);
+    const add = (list: Player[]) => [...list, player];
 
-    const addToState = (teamName: string, p: Player) => {
-      if (teamName === 'disponiveis') setAvailablePlayers(prev => [...prev, p].sort((a, b) => a.name.localeCompare(b.name)));
-      if (teamName === 'brasil') setTeamBrasil(prev => [...prev, p]);
-      if (teamName === 'portugal') setTeamPortugal(prev => [...prev, p]);
-      if (teamName === 'japao') setTeamJapao(prev => [...prev, p]);
-      if (teamName === 'uruguai') setTeamUruguai(prev => [...prev, p]);
-    };
+    if (from === 'brasil') setTeamBrasil(remove(teamBrasil));
+    if (from === 'portugal') setTeamPortugal(remove(teamPortugal));
+    if (from === 'japao') setTeamJapao(remove(teamJapao));
+    if (from === 'uruguai') setTeamUruguai(remove(teamUruguai));
+    if (from === 'disponiveis') setAvailablePlayers(remove(availablePlayers));
 
-    removeFromState(from, player.id);
-    addToState(to, player);
+    if (to === 'brasil') setTeamBrasil(add(teamBrasil));
+    if (to === 'portugal') setTeamPortugal(add(teamPortugal));
+    if (to === 'japao') setTeamJapao(add(teamJapao));
+    if (to === 'uruguai') setTeamUruguai(add(teamUruguai));
+    if (to === 'disponiveis') setAvailablePlayers(add(availablePlayers).sort((a, b) => a.name.localeCompare(b.name)));
     
-    // Clear selections
-    if (selectedPlayerForDraw?.id === player.id) {
-      setSelectedPlayerForDraw(null);
-    }
+    setSelectedPlayerForDraw(null);
     setActiveTeamMenu(null);
-    setValidationError(null);
   };
 
   // Clear teams
@@ -480,17 +510,9 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
   // Sorteio Flash algorithm
   const runFlashSorteio = () => {
-    const lastFinishedMatch = matches.find(m => m.status === 'finished' && m.champion_team);
-    const champTeamStr = lastFinishedMatch?.champion_team || null;
-    let champPlayerIds = new Set<string>();
-    if (lastFinishedMatch && champTeamStr) {
-      champPlayerIds = new Set(
-        (lastFinishedMatch.match_players || [])
-          .filter(mp => mp.team === champTeamStr)
-          .map(mp => mp.player_id)
-      );
-    }
-
+    const champTeamStr = lastChampionInfo?.team || null;
+    const champPlayerIds = lastChampionInfo?.playerIds || new Set<string>();
+    
     const active = getActiveTeams();
     const shouldFixChampions = champTeamStr && active.includes(champTeamStr);
 
