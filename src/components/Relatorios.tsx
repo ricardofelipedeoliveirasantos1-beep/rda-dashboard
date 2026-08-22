@@ -149,20 +149,21 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, p
         <div
           style={{
             position: 'absolute',
-            top: 'calc(100% + 4px)',
+            top: 'calc(100% + 6px)',
             left: 0,
             width: '100%',
-            backgroundColor: '#171717',
-            border: '1.5px solid rgba(255,255,255,0.12)',
-            borderRadius: '10px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.8)',
+            minWidth: '180px',
+            backgroundColor: '#1c1c1c',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '12px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.85)',
             zIndex: 200,
-            maxHeight: '220px',
+            maxHeight: '260px',
             overflowY: 'auto',
-            padding: '4px',
+            padding: '6px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '2px'
+            gap: '3px'
           }}
         >
           {options.map(opt => {
@@ -178,17 +179,22 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, p
                 style={{
                   width: '100%',
                   textAlign: 'left',
-                  padding: '9px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  minHeight: '38px',
+                  padding: '8px 12px',
                   backgroundColor: isSelected ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
                   border: 'none',
-                  borderRadius: '6px',
-                  color: isSelected ? '#a5b4fc' : '#ffffff',
-                  fontSize: '0.85rem',
+                  borderRadius: '8px',
+                  color: isSelected ? '#a5b4fc' : '#f3f4f6',
+                  fontSize: '0.88rem',
                   fontWeight: isSelected ? 700 : 500,
+                  lineHeight: '1.3',
                   cursor: 'pointer',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  transition: 'background-color 0.15s ease'
                 }}
               >
                 {opt.label}
