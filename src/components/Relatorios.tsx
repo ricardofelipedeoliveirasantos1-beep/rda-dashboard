@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 // === INTERFACES ===
-interface PlayerSummary {
+export interface PlayerSummary {
   id: string;
   name: string;
   photo_url: string | null;
@@ -20,6 +20,12 @@ interface PlayerSummary {
   yellow_cards: number;
   blue_cards: number;
   red_cards: number;
+}
+
+export interface RankedPlayer {
+  rank: number;
+  player: PlayerSummary;
+  value: number;
 }
 
 interface RelatorioData {
@@ -44,12 +50,6 @@ interface RelatorioData {
   };
   rankingList: PlayerSummary[];
   matchesList: any[];
-  destaques: {
-    artilheiro: PlayerSummary | null;
-    assistente: PlayerSummary | null;
-    campeao: PlayerSummary | null;
-    ralabosta: PlayerSummary | null;
-  };
   monthlyStats: { month: string; goals: number; assists: number }[];
   financialStats: { month: string; entradas: number; despesas: number; saldo: number }[];
   comparison: {
@@ -86,7 +86,47 @@ const PERIOD_OPTIONS = [
   { value: 'year', label: 'Anual' }
 ];
 
+const CATEGORY_OPTIONS = [
+  { value: 'goals', label: 'Artilheiro' },
+  { value: 'assists', label: 'Assistências' },
+  { value: 'champion', label: 'Maior Campeão' },
+  { value: 'ralabosta', label: 'Ralabosta' }
+];
+
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+// === CENTRAL DENSE RANKING ENGINE ===
+export const getDenseRanking = (
+  players: PlayerSummary[],
+  metric: 'goals' | 'assists' | 'champion' | 'ralabosta'
+): RankedPlayer[] => {
+  // 1. Filtrar apenas jogadores com valor maior que zero
+  const active = players.filter(p => (Number(p[metric]) || 0) > 0);
+
+  // 2. Ordenar primariamente por valor desc, e secundariamente por nome asc para estabilidade
+  active.sort((a, b) => {
+    const diff = (Number(b[metric]) || 0) - (Number(a[metric]) || 0);
+    if (diff !== 0) return diff;
+    return a.name.localeCompare(b.name, 'pt-BR');
+  });
+
+  // 3. Calcular ranking denso (1º, 2º, 2º, 2º, 3º...)
+  let currentRank = 0;
+  let lastValue = -1;
+
+  return active.map(p => {
+    const val = Number(p[metric]) || 0;
+    if (val !== lastValue) {
+      currentRank += 1;
+      lastValue = val;
+    }
+    return {
+      rank: currentRank,
+      player: p,
+      value: val
+    };
+  });
+};
 
 // === CUSTOM DARK DROPDOWN COMPONENT ===
 interface CustomSelectProps {
@@ -227,7 +267,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
   const [isComparacaoOpen, setIsComparacaoOpen] = useState(false);
 
   // Ranking filters
-  const [rankingCategory, setRankingCategory] = useState<'goals' | 'assists' | 'champ' | 'rala'>('goals');
+  const [rankingCategory, setRankingCategory] = useState<'goals' | 'assists' | 'champion' | 'ralabosta'>('goals');
   const [rankingPlayerId, setRankingPlayerId] = useState<string>('all');
   
   // Exibir Label de periodo
@@ -272,6 +312,124 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
     return { start, end };
   };
 
+  // === FONTE ÚNICA DE AGREGAÇÃO POR JOGADOR ===
+  const buildPeriodPlayerStats = ({
+    matches,
+    matchPlayers,
+    matchPlayerStats,
+    playersMap
+  }: {
+    matches: any[];
+    matchPlayers: any[];
+    matchPlayerStats: any[];
+    playersMap: Record<string, any>;
+  }) => {
+    let playersSet = new Set<string>();
+    let tGoals = 0, tAssists = 0, tYellow = 0, tBlue = 0, tRed = 0;
+    let tChamp = 0, tVice = 0, tRala = 0;
+    let totalDiaristas = 0;
+
+    const playerMap: Record<string, PlayerSummary> = {};
+
+    matches.forEach(match => {
+      totalDiaristas += Number(match.daily_total || 0);
+      const isHistorical = match.source === 'historical_manual' || match.source === 'historical_import';
+
+      // Deduplica participantes por partida
+      const seenPlayersInMatch = new Set<string>();
+      const mPlayers = matchPlayers.filter(mp => mp.match_id === match.id);
+
+      mPlayers.forEach(mp => {
+        const pId = mp.player_id;
+        if (!pId || seenPlayersInMatch.has(pId)) return;
+        seenPlayersInMatch.add(pId);
+        playersSet.add(pId);
+
+        const playerInfo = playersMap[pId] || { name: 'Desconhecido', photo_url: null, category: mp.category_at_match };
+
+        if (!playerMap[pId]) {
+          playerMap[pId] = {
+            id: pId,
+            name: playerInfo.name,
+            photo_url: playerInfo.photo_url,
+            category: mp.category_at_match || playerInfo.category,
+            games: 0,
+            goals: 0,
+            assists: 0,
+            champion: 0,
+            vice: 0,
+            ralabosta: 0,
+            yellow_cards: 0,
+            blue_cards: 0,
+            red_cards: 0
+          };
+        }
+
+        playerMap[pId].games += 1;
+
+        // Estatísticas individuais dessa partida
+        const pStat = matchPlayerStats.find(s => s.match_id === match.id && s.player_id === pId);
+
+        if (pStat) {
+          const goalsVal = Number(pStat.goals) || 0;
+          const assistsVal = Number(pStat.assists) || 0;
+          const yellowVal = Number(pStat.yellow_cards) || 0;
+          const blueVal = Number(pStat.blue_cards) || 0;
+          const redVal = Number(pStat.red_cards) || 0;
+
+          playerMap[pId].goals += goalsVal;
+          playerMap[pId].assists += assistsVal;
+          playerMap[pId].yellow_cards += yellowVal;
+          playerMap[pId].blue_cards += blueVal;
+          playerMap[pId].red_cards += redVal;
+
+          tGoals += goalsVal;
+          tAssists += assistsVal;
+          tYellow += yellowVal;
+          tBlue += blueVal;
+          tRed += redVal;
+        }
+
+        let isChamp = false;
+        let isVice = false;
+        let isRala = false;
+
+        if (isHistorical) {
+          isChamp = pStat?.is_champion || false;
+          isVice = pStat?.is_runner_up || false;
+          isRala = pStat?.is_ralabosta || false;
+        } else {
+          isChamp = !!(match.champion_team && match.champion_team === mp.team);
+          isVice = !!(match.runner_up_team && match.runner_up_team === mp.team);
+          isRala = pStat?.is_ralabosta || false;
+        }
+
+        if (isChamp) { playerMap[pId].champion += 1; tChamp += 1; }
+        if (isVice) { playerMap[pId].vice += 1; tVice += 1; }
+        if (isRala) { playerMap[pId].ralabosta += 1; tRala += 1; }
+      });
+    });
+
+    const rankingList = Object.values(playerMap);
+
+    return {
+      summary: {
+        players: playersSet.size,
+        matches: matches.length,
+        goals: tGoals,
+        assists: tAssists,
+        yellow: tYellow,
+        blue: tBlue,
+        red: tRed,
+        champions: tChamp,
+        vices: tVice,
+        ralabosta: tRala
+      },
+      totalDiaristas,
+      rankingList
+    };
+  };
+
   // Helper para carregar os dados de um período de forma simples e segura
   const fetchPeriodStats = async (startDate: string, endDate: string) => {
     // 1. Buscar partidas finalizadas do período
@@ -284,9 +442,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
       .order('match_date', { ascending: true })
       .order('match_time', { ascending: true });
 
-    if (matchesError) {
-      throw matchesError;
-    }
+    if (matchesError) throw matchesError;
 
     const matches = matchesData || [];
     const matchIds = matches.map(m => m.id);
@@ -359,110 +515,29 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
     if (expError) throw expError;
     const expenses = expData || [];
 
-    // --- AGREGAÇÃO E CÁLCULO DAS ESTATÍSTICAS ---
-    let playersSet = new Set<string>();
-    let tGoals = 0, tAssists = 0, tYellow = 0, tBlue = 0, tRed = 0;
-    let tChamp = 0, tVice = 0, tRala = 0;
-    let totalDiaristas = 0;
-
-    const playerStatsMap: Record<string, PlayerSummary> = {};
-
-    matches.forEach(match => {
-      totalDiaristas += Number(match.daily_total || 0);
-      const isHistorical = match.source === 'historical_manual' || match.source === 'historical_import';
-
-      const mPlayers = matchPlayers.filter(mp => mp.match_id === match.id);
-
-      mPlayers.forEach(mp => {
-        const pId = mp.player_id;
-        if (!pId) return;
-        playersSet.add(pId);
-        const playerInfo = playersMap[pId] || { name: 'Desconhecido', photo_url: null, category: mp.category_at_match };
-
-        if (!playerStatsMap[pId]) {
-          playerStatsMap[pId] = {
-            id: pId,
-            name: playerInfo.name,
-            photo_url: playerInfo.photo_url,
-            category: mp.category_at_match || playerInfo.category,
-            games: 0,
-            goals: 0,
-            assists: 0,
-            champion: 0,
-            vice: 0,
-            ralabosta: 0,
-            yellow_cards: 0,
-            blue_cards: 0,
-            red_cards: 0
-          };
-        }
-
-        playerStatsMap[pId].games += 1;
-
-        const pStat = stats.find(s => s.match_id === match.id && s.player_id === pId);
-
-        if (pStat) {
-          playerStatsMap[pId].goals += (pStat.goals || 0);
-          playerStatsMap[pId].assists += (pStat.assists || 0);
-          playerStatsMap[pId].yellow_cards += (pStat.yellow_cards || 0);
-          playerStatsMap[pId].blue_cards += (pStat.blue_cards || 0);
-          playerStatsMap[pId].red_cards += (pStat.red_cards || 0);
-
-          tGoals += (pStat.goals || 0);
-          tAssists += (pStat.assists || 0);
-          tYellow += (pStat.yellow_cards || 0);
-          tBlue += (pStat.blue_cards || 0);
-          tRed += (pStat.red_cards || 0);
-        }
-
-        let isChamp = false;
-        let isVice = false;
-        let isRala = false;
-
-        if (isHistorical) {
-          isChamp = pStat?.is_champion || false;
-          isVice = pStat?.is_runner_up || false;
-          isRala = pStat?.is_ralabosta || false;
-        } else {
-          isChamp = !!(match.champion_team && match.champion_team === mp.team);
-          isVice = !!(match.runner_up_team && match.runner_up_team === mp.team);
-          isRala = pStat?.is_ralabosta || false;
-        }
-
-        if (isChamp) { playerStatsMap[pId].champion += 1; tChamp += 1; }
-        if (isVice) { playerStatsMap[pId].vice += 1; tVice += 1; }
-        if (isRala) { playerStatsMap[pId].ralabosta += 1; tRala += 1; }
-      });
+    // --- AGREGAÇÃO UNIFICADA ---
+    const aggregated = buildPeriodPlayerStats({
+      matches,
+      matchPlayers,
+      matchPlayerStats: stats,
+      playersMap
     });
-
-    const rankingList = Object.values(playerStatsMap);
 
     const mensalidadesTotal = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + Number(p.amount || 0), 0);
     const despesasTotal = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-    const entradasTotal = mensalidadesTotal + totalDiaristas;
+    const entradasTotal = mensalidadesTotal + aggregated.totalDiaristas;
     const saldoTotal = entradasTotal - despesasTotal;
 
     return {
-      summary: {
-        players: playersSet.size,
-        matches: matches.length,
-        goals: tGoals,
-        assists: tAssists,
-        yellow: tYellow,
-        blue: tBlue,
-        red: tRed,
-        champions: tChamp,
-        vices: tVice,
-        ralabosta: tRala
-      },
+      summary: aggregated.summary,
       finance: {
         entradas: entradasTotal,
         mensalidades: mensalidadesTotal,
-        diaristas: totalDiaristas,
+        diaristas: aggregated.totalDiaristas,
         despesas: despesasTotal,
         saldo: saldoTotal
       },
-      rankingList,
+      rankingList: aggregated.rankingList,
       matches,
       stats,
       payments,
@@ -545,19 +620,13 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
       // Carga do período atual
       const currentResult = await fetchPeriodStats(current.start, current.end);
 
-      // Carga do período anterior para comparação (em bloco separado para não falhar o relatório principal)
+      // Carga do período anterior para comparação
       let prevResult: any = null;
       try {
         prevResult = await fetchPeriodStats(prev.start, prev.end);
       } catch (errPrev) {
         console.warn('Erro ao carregar dados do período anterior para comparação:', errPrev);
       }
-
-      // Destaques do período
-      const getTop = (field: keyof PlayerSummary) => {
-        const sorted = [...currentResult.rankingList].sort((a, b) => (Number(b[field]) || 0) - (Number(a[field]) || 0));
-        return (sorted[0] && (Number(sorted[0][field]) || 0) > 0) ? sorted[0] : null;
-      };
 
       const comp = prevResult ? {
         goalsDiff: currentResult.summary.goals - prevResult.summary.goals,
@@ -571,12 +640,6 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
         finance: currentResult.finance,
         rankingList: currentResult.rankingList,
         matchesList: currentResult.matches,
-        destaques: {
-          artilheiro: getTop('goals'),
-          assistente: getTop('assists'),
-          campeao: getTop('champion'),
-          ralabosta: getTop('ralabosta')
-        },
         monthlyStats: buildMonthlyStats(currentResult.matches, currentResult.stats, current.start, filterType),
         financialStats: buildFinancialStats(currentResult.payments, currentResult.expenses, currentResult.matches, current.start, filterType),
         comparison: comp
@@ -600,43 +663,84 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
     // eslint-disable-next-line
   }, []);
 
-  // --- RENDER COMPUTED ---
-  const activeRanking = useMemo(() => {
+  // --- RANKINGS CENTRALIZADOS (DENSE RANKING) ---
+  const goalsRanking = useMemo(() => {
     if (!data) return [];
-    return [...data.rankingList].sort((a, b) => {
-      if (rankingCategory === 'goals') return b.goals - a.goals || a.name.localeCompare(b.name);
-      if (rankingCategory === 'assists') return b.assists - a.assists || a.name.localeCompare(b.name);
-      if (rankingCategory === 'champ') return b.champion - a.champion || a.name.localeCompare(b.name);
-      if (rankingCategory === 'rala') return b.ralabosta - a.ralabosta || a.name.localeCompare(b.name);
-      return 0;
-    });
-  }, [data, rankingCategory]);
+    return getDenseRanking(data.rankingList, 'goals');
+  }, [data]);
 
+  const assistsRanking = useMemo(() => {
+    if (!data) return [];
+    return getDenseRanking(data.rankingList, 'assists');
+  }, [data]);
+
+  const championRanking = useMemo(() => {
+    if (!data) return [];
+    return getDenseRanking(data.rankingList, 'champion');
+  }, [data]);
+
+  const ralabostaRanking = useMemo(() => {
+    if (!data) return [];
+    return getDenseRanking(data.rankingList, 'ralabosta');
+  }, [data]);
+
+  // Ranking ativo conforme categoria selecionada
+  const activeRanking = useMemo(() => {
+    if (rankingCategory === 'goals') return goalsRanking;
+    if (rankingCategory === 'assists') return assistsRanking;
+    if (rankingCategory === 'champion') return championRanking;
+    if (rankingCategory === 'ralabosta') return ralabostaRanking;
+    return [];
+  }, [rankingCategory, goalsRanking, assistsRanking, championRanking, ralabostaRanking]);
+
+  // Jogador individual selecionado
   const activePlayer = useMemo(() => {
     if (!data || rankingPlayerId === 'all') return null;
     return data.rankingList.find(p => p.id === rankingPlayerId) || null;
   }, [data, rankingPlayerId]);
 
-  const getPos = (pId: string, cat: keyof PlayerSummary) => {
-    if (!data) return 0;
-    const sorted = [...data.rankingList].sort((a, b) => (Number(b[cat]) || 0) - (Number(a[cat]) || 0));
-    return sorted.findIndex(p => p.id === pId) + 1;
+  // Posição de um jogador em uma métrica (Dense Rank)
+  const getPlayerDenseRank = (pId: string, metric: 'goals' | 'assists' | 'champion' | 'ralabosta') => {
+    const list = metric === 'goals' ? goalsRanking :
+                 metric === 'assists' ? assistsRanking :
+                 metric === 'champion' ? championRanking : ralabostaRanking;
+    const found = list.find(r => r.player.id === pId);
+    return found ? `${found.rank}º` : '—';
+  };
+
+  // Helper para obter os líderes (1º lugar com detecção de empate)
+  const getHighlightData = (metric: 'goals' | 'assists' | 'champion' | 'ralabosta', unit: string) => {
+    const list = metric === 'goals' ? goalsRanking :
+                 metric === 'assists' ? assistsRanking :
+                 metric === 'champion' ? championRanking : ralabostaRanking;
+    
+    if (list.length === 0) return null;
+
+    const firstRankPlayers = list.filter(r => r.rank === 1);
+    const primary = firstRankPlayers[0];
+    const tieCount = firstRankPlayers.length - 1;
+
+    let labelName = primary.player.name;
+    if (tieCount > 0) {
+      labelName = `${primary.player.name} (+${tieCount} emp.)`;
+    }
+
+    return {
+      player: primary.player,
+      displayName: labelName,
+      val: `${primary.value} ${unit}`,
+      hasTie: tieCount > 0,
+      totalTied: firstRankPlayers.length
+    };
   };
 
   // Dropdown player options
   const playerDropdownOptions = useMemo(() => {
     const base = [{ value: 'all', label: 'Todos os jogadores' }];
     if (!data) return base;
-    const playersSorted = [...data.rankingList].sort((a, b) => a.name.localeCompare(b.name));
+    const playersSorted = [...data.rankingList].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     return base.concat(playersSorted.map(p => ({ value: p.id, label: p.name })));
   }, [data]);
-
-  const CATEGORY_OPTIONS = [
-    { value: 'goals', label: 'Artilheiro' },
-    { value: 'assists', label: 'Assistências' },
-    { value: 'champ', label: 'Maior Campeão' },
-    { value: 'rala', label: 'Ralabosta' }
-  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', paddingBottom: '20px' }}>
@@ -913,7 +1017,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
                 <span style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>RANKING DO PERÍODO</span>
                 {!isRankingOpen && (
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Art: {data.destaques.artilheiro?.name || '—'} • Ast: {data.destaques.assistente?.name || '—'}
+                    Art: {goalsRanking[0]?.player.name || '—'} • Ast: {assistsRanking[0]?.player.name || '—'}
                   </span>
                 )}
               </div>
@@ -960,46 +1064,36 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#fff' }}><span>Ralabosta:</span> <strong>{activePlayer.ralabosta}x</strong></div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Artilheiro: <strong style={{ color: '#fff' }}>{getPos(activePlayer.id, 'goals')}º</strong></div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Assistências: <strong style={{ color: '#fff' }}>{getPos(activePlayer.id, 'assists')}º</strong></div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Maior Campeão: <strong style={{ color: '#fff' }}>{getPos(activePlayer.id, 'champion')}º</strong></div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Ralabosta: <strong style={{ color: '#fff' }}>{activePlayer.ralabosta > 0 ? getPos(activePlayer.id, 'ralabosta') + 'º' : '—'}</strong></div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Artilheiro: <strong style={{ color: '#fff' }}>{getPlayerDenseRank(activePlayer.id, 'goals')}</strong></div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Assistências: <strong style={{ color: '#fff' }}>{getPlayerDenseRank(activePlayer.id, 'assists')}</strong></div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Maior Campeão: <strong style={{ color: '#fff' }}>{getPlayerDenseRank(activePlayer.id, 'champion')}</strong></div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Ralabosta: <strong style={{ color: '#fff' }}>{getPlayerDenseRank(activePlayer.id, 'ralabosta')}</strong></div>
                     </div>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                    {activeRanking.filter(p => {
-                      if (rankingCategory === 'goals') return p.goals > 0;
-                      if (rankingCategory === 'assists') return p.assists > 0;
-                      if (rankingCategory === 'champ') return p.champion > 0;
-                      if (rankingCategory === 'rala') return p.ralabosta > 0;
-                      return false;
-                    }).map((p, i) => (
-                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                        <span style={{ fontWeight: 800, color: i < 3 ? '#fbbf24' : 'var(--text-muted)', width: '24px' }}>{i + 1}º</span>
-                        {p.photo_url ? (
-                          <img src={p.photo_url} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                    {activeRanking.map((item) => (
+                      <div key={item.player.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                        <span style={{ fontWeight: 800, color: item.rank === 1 ? '#fbbf24' : item.rank === 2 ? '#94a3b8' : item.rank === 3 ? '#b45309' : 'var(--text-muted)', width: '28px', fontSize: '0.9rem' }}>
+                          {item.rank}º
+                        </span>
+                        {item.player.photo_url ? (
+                          <img src={item.player.photo_url} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
                         ) : (
                           <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <User size={16} color="#666" />
                           </div>
                         )}
-                        <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>{p.name}</span>
+                        <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>{item.player.name}</span>
                         <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#38bdf8' }}>
-                          {rankingCategory === 'goals' && `${p.goals} gols`}
-                          {rankingCategory === 'assists' && `${p.assists} asts`}
-                          {rankingCategory === 'champ' && `${p.champion} títulos`}
-                          {rankingCategory === 'rala' && `${p.ralabosta} vezes`}
+                          {rankingCategory === 'goals' && `${item.value} gols`}
+                          {rankingCategory === 'assists' && `${item.value} asts`}
+                          {rankingCategory === 'champion' && `${item.value} títulos`}
+                          {rankingCategory === 'ralabosta' && `${item.value} vezes`}
                         </div>
                       </div>
                     ))}
-                    {activeRanking.filter(p => {
-                      if (rankingCategory === 'goals') return p.goals > 0;
-                      if (rankingCategory === 'assists') return p.assists > 0;
-                      if (rankingCategory === 'champ') return p.champion > 0;
-                      if (rankingCategory === 'rala') return p.ralabosta > 0;
-                      return false;
-                    }).length === 0 && (
+                    {activeRanking.length === 0 && (
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '8px 0', textAlign: 'center' }}>
                         Nenhum dado encontrado no período para esta categoria.
                       </span>
@@ -1092,7 +1186,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
             )}
           </div>
 
-          {/* 5. JOGADORES TOP 3 */}
+          {/* 5. JOGADORES (TOP 3 COLOCAÇÕES) */}
           <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
             <div 
               onClick={() => setIsJogadoresOpen(!isJogadoresOpen)}
@@ -1111,39 +1205,63 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
             
             {isJogadoresOpen && (
               <div style={{ padding: '0 16px 16px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '8px', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Artilheiros */}
                 <div>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>Artilheiros</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {[...data.rankingList].sort((a, b) => b.goals - a.goals).slice(0, 3).filter(p => p.goals > 0).map((p, i) => (
-                      <div key={'a' + p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#fff', padding: '4px 0' }}>
-                        <span><strong style={{ color: i === 0 ? '#fbbf24' : 'var(--text-muted)' }}>{i + 1}º</strong> {p.name}</span>
-                        <strong>{p.goals} gols</strong>
+                    {goalsRanking.filter(r => r.rank <= 3).map((item) => (
+                      <div key={'a_' + item.player.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#fff', padding: '4px 0' }}>
+                        <span>
+                          <strong style={{ color: item.rank === 1 ? '#fbbf24' : item.rank === 2 ? '#94a3b8' : '#b45309', marginRight: '6px' }}>
+                            {item.rank}º
+                          </strong>
+                          {item.player.name}
+                        </span>
+                        <strong>{item.value} gols</strong>
                       </div>
                     ))}
+                    {goalsRanking.length === 0 && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Nenhum gol no período</span>}
                   </div>
                 </div>
+
+                {/* Assistentes */}
                 <div>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>Assistentes</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {[...data.rankingList].sort((a, b) => b.assists - a.assists).slice(0, 3).filter(p => p.assists > 0).map((p, i) => (
-                      <div key={'as' + p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#fff', padding: '4px 0' }}>
-                        <span><strong style={{ color: i === 0 ? '#fbbf24' : 'var(--text-muted)' }}>{i + 1}º</strong> {p.name}</span>
-                        <strong>{p.assists} asts</strong>
+                    {assistsRanking.filter(r => r.rank <= 3).map((item) => (
+                      <div key={'as_' + item.player.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#fff', padding: '4px 0' }}>
+                        <span>
+                          <strong style={{ color: item.rank === 1 ? '#fbbf24' : item.rank === 2 ? '#94a3b8' : '#b45309', marginRight: '6px' }}>
+                            {item.rank}º
+                          </strong>
+                          {item.player.name}
+                        </span>
+                        <strong>{item.value} asts</strong>
                       </div>
                     ))}
+                    {assistsRanking.length === 0 && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Nenhuma assistência no período</span>}
                   </div>
                 </div>
+
+                {/* Mais Campeões */}
                 <div>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>Mais Campeões</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {[...data.rankingList].sort((a, b) => b.champion - a.champion).slice(0, 3).filter(p => p.champion > 0).map((p, i) => (
-                      <div key={'c' + p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#fff', padding: '4px 0' }}>
-                        <span><strong style={{ color: i === 0 ? '#fbbf24' : 'var(--text-muted)' }}>{i + 1}º</strong> {p.name}</span>
-                        <strong>{p.champion} títulos</strong>
+                    {championRanking.filter(r => r.rank <= 3).map((item) => (
+                      <div key={'c_' + item.player.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#fff', padding: '4px 0' }}>
+                        <span>
+                          <strong style={{ color: item.rank === 1 ? '#fbbf24' : item.rank === 2 ? '#94a3b8' : '#b45309', marginRight: '6px' }}>
+                            {item.rank}º
+                          </strong>
+                          {item.player.name}
+                        </span>
+                        <strong>{item.value} títulos</strong>
                       </div>
                     ))}
+                    {championRanking.length === 0 && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Nenhum título no período</span>}
                   </div>
                 </div>
+
                 <button 
                   onClick={() => { setIsJogadoresOpen(false); setIsRankingOpen(true); }} 
                   style={{ marginTop: '8px', padding: '8px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}
@@ -1206,7 +1324,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
                 <span style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>DESTAQUES DO PERÍODO</span>
                 {!isDestaquesOpen && (
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Art: {data.destaques.artilheiro?.name || '—'} • Ast: {data.destaques.assistente?.name || '—'}
+                    Art: {goalsRanking[0]?.player.name || '—'} • Ast: {assistsRanking[0]?.player.name || '—'}
                   </span>
                 )}
               </div>
@@ -1216,28 +1334,30 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
             {isDestaquesOpen && (
               <div style={{ padding: '0 16px 16px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '8px', paddingTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 {[
-                  { label: 'Artilheiro', player: data.destaques.artilheiro, val: (data.destaques.artilheiro?.goals || 0) + ' gols', icon: <Flame size={14} color="#f97316" /> },
-                  { label: 'Líder de Assistências', player: data.destaques.assistente, val: (data.destaques.assistente?.assists || 0) + ' asts', icon: <Star size={14} color="#fbbf24" /> },
-                  { label: 'Mais Campeão', player: data.destaques.campeao, val: (data.destaques.campeao?.champion || 0) + ' vezes', icon: <Trophy size={14} color="#fbbf24" /> },
-                  { label: 'Mais Ralabosta', player: data.destaques.ralabosta, val: (data.destaques.ralabosta?.ralabosta || 0) + ' vezes', icon: <span style={{ fontSize: '12px' }}>💩</span> }
+                  { label: 'Artilheiro', data: getHighlightData('goals', 'gols'), icon: <Flame size={14} color="#f97316" /> },
+                  { label: 'Líder de Assistências', data: getHighlightData('assists', 'asts'), icon: <Star size={14} color="#fbbf24" /> },
+                  { label: 'Mais Campeão', data: getHighlightData('champion', 'vezes'), icon: <Trophy size={14} color="#fbbf24" /> },
+                  { label: 'Mais Ralabosta', data: getHighlightData('ralabosta', 'vezes'), icon: <span style={{ fontSize: '12px' }}>💩</span> }
                 ].map((d, i) => (
                   <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {d.icon}
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{d.label}</span>
                     </div>
-                    {d.player ? (
+                    {d.data ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {d.player.photo_url ? (
-                          <img src={d.player.photo_url} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                        {d.data.player.photo_url ? (
+                          <img src={d.data.player.photo_url} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
                         ) : (
                           <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <User size={14} color="#666" />
                           </div>
                         )}
                         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.player.name}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{d.val}</span>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {d.data.displayName}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{d.data.val}</span>
                         </div>
                       </div>
                     ) : (
