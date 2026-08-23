@@ -1008,6 +1008,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     setValidationError(null);
   };
 
+
   // Save Stats in Supabase
   const handleSaveStats = async (isFinalizingFlow = false) => {
     if (userRole === 'visitor') {
@@ -1016,8 +1017,15 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     }
     if (!activeMatchForStats) return false;
 
+    const teamCount = activeMatchForStats.team_count || 4;
+
     // Check classification uniqueness if any is filled
-    const filledTeams = [championTeam, runnerUpTeam, thirdPlaceTeam, fourthPlaceTeam].filter(t => t !== '');
+    const filledTeams = [
+      championTeam,
+      runnerUpTeam,
+      teamCount >= 3 ? thirdPlaceTeam : '',
+      teamCount >= 4 ? fourthPlaceTeam : ''
+    ].filter(t => t !== '');
     const uniqueFilledTeams = new Set(filledTeams);
     if (filledTeams.length !== uniqueFilledTeams.size) {
       setValidationError('Cada time deve ocupar apenas uma posição na classificação.');
@@ -1034,17 +1042,25 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         .update({
           champion_team: championTeam || null,
           runner_up_team: runnerUpTeam || null,
-          third_place_team: thirdPlaceTeam || null,
-          fourth_place_team: fourthPlaceTeam || null
+          third_place_team: teamCount >= 3 ? (thirdPlaceTeam || null) : null,
+          fourth_place_team: teamCount >= 4 ? (fourthPlaceTeam || null) : null
         })
         .eq('id', activeMatchForStats.id);
 
       if (matchUpdateError) throw matchUpdateError;
 
+      // Determinar time Ralabosta automático
+      let ralabostaTeamCode: string | null = null;
+      if (teamCount === 3) {
+        ralabostaTeamCode = thirdPlaceTeam;
+      } else if (teamCount === 4) {
+        ralabostaTeamCode = fourthPlaceTeam;
+      }
+
       // 2. Prepare match_player_stats upsert rows (Only for Mensalistas)
       const statsRows = Object.entries(localStats).map(([playerId, stats]) => {
         const mp = (activeMatchForStats.match_players || []).find(p => p.player_id === playerId);
-        const isRalabosta = mp?.team === fourthPlaceTeam;
+        const isRalabosta = ralabostaTeamCode ? (mp?.team === ralabostaTeamCode) : false;
 
         return {
           match_id: activeMatchForStats.id,
@@ -1102,9 +1118,19 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     }
     if (!activeMatchForStats) return;
 
-    // Must have complete classification
-    if (!championTeam || !runnerUpTeam || !thirdPlaceTeam || !fourthPlaceTeam) {
-      setValidationError('Por favor, defina todas as posições da classificação antes de finalizar.');
+    const teamCount = activeMatchForStats.team_count || 4;
+
+    // Must have complete classification required for the team count
+    if (!championTeam || !runnerUpTeam) {
+      setValidationError('Por favor, defina o Campeão e Vice antes de finalizar.');
+      return;
+    }
+    if (teamCount >= 3 && !thirdPlaceTeam) {
+      setValidationError('Por favor, defina o 3º colocado antes de finalizar.');
+      return;
+    }
+    if (teamCount >= 4 && !fourthPlaceTeam) {
+      setValidationError('Por favor, defina o 4º colocado antes de finalizar.');
       return;
     }
 
@@ -1523,25 +1549,43 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                             backgroundColor: 'rgba(34,197,94,0.02)',
                             border: '1px solid rgba(34,197,94,0.1)'
                           }}>
-                            {/* CLASSIFICAÇÃO FINAL */}
-                            <div className="classification-grid">
-                              <div className="classification-item" style={{ backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)' }}>
-                                <span className="classification-title" style={{ color: '#fbbf24' }}>1º CAMPEÃO</span>
-                                <strong className="classification-team">{match.champion_team}</strong>
-                              </div>
-                              <div className="classification-item" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.2)' }}>
-                                <span className="classification-title" style={{ color: '#94a3b8' }}>2º VICE</span>
-                                <strong className="classification-team">{match.runner_up_team}</strong>
-                              </div>
-                              <div className="classification-item" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(180,83,9,0.2)' }}>
-                                <span className="classification-title" style={{ color: '#b45309' }}>3º LUGAR</span>
-                                <strong className="classification-team">{match.third_place_team}</strong>
-                              </div>
-                              <div className="classification-item" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(56,189,248,0.2)' }}>
-                                <span className="classification-title" style={{ color: '#38bdf8' }}>4º LUGAR</span>
-                                <strong className="classification-team">{match.fourth_place_team}</strong>
-                              </div>
-                            </div>
+                             {/* CLASSIFICAÇÃO FINAL */}
+                             <div className="classification-grid" style={{
+                               display: 'grid',
+                               gridTemplateColumns: `repeat(${match.team_count || 4}, 1fr)`,
+                               gap: '8px'
+                             }}>
+                               <div className="classification-item" style={{ backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)' }}>
+                                 <span className="classification-title" style={{ color: '#fbbf24' }}>1º CAMPEÃO</span>
+                                 <strong className="classification-team">{match.champion_team ? match.champion_team.toUpperCase() : '—'}</strong>
+                               </div>
+                               <div className="classification-item" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.2)' }}>
+                                 <span className="classification-title" style={{ color: '#94a3b8' }}>2º VICE</span>
+                                 <strong className="classification-team">{match.runner_up_team ? match.runner_up_team.toUpperCase() : '—'}</strong>
+                               </div>
+                               {(match.team_count || 4) >= 3 && (
+                                 <div className="classification-item" style={{ 
+                                   backgroundColor: match.team_count === 3 ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)', 
+                                   border: match.team_count === 3 ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(180,83,9,0.2)' 
+                                 }}>
+                                   <span className="classification-title" style={{ color: match.team_count === 3 ? '#ef4444' : '#b45309' }}>
+                                     {match.team_count === 3 ? '3º RALABOSTA' : '3º LUGAR'}
+                                   </span>
+                                   <strong className="classification-team">{match.third_place_team ? match.third_place_team.toUpperCase() : '—'}</strong>
+                                 </div>
+                               )}
+                               {(match.team_count || 4) >= 4 && (
+                                 <div className="classification-item" style={{ 
+                                   backgroundColor: match.team_count === 4 ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)', 
+                                   border: match.team_count === 4 ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(56,189,248,0.2)' 
+                                 }}>
+                                   <span className="classification-title" style={{ color: match.team_count === 4 ? '#ef4444' : '#38bdf8' }}>
+                                     {match.team_count === 4 ? '4º RALABOSTA' : '4º LUGAR'}
+                                   </span>
+                                   <strong className="classification-team">{match.fourth_place_team ? match.fourth_place_team.toUpperCase() : '—'}</strong>
+                                 </div>
+                               )}
+                             </div>
 
                             {/* RESUMO DE NÚMEROS */}
                             <div style={{ 
@@ -2127,9 +2171,23 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     const teamJapaoStats = matchPlayers.filter(mp => mp.team === 'japao');
     const teamUruguaiStats = matchPlayers.filter(mp => mp.team === 'uruguai');
 
-    // Validate if classification is complete and clean
-    const isClassificationValid = championTeam && runnerUpTeam && thirdPlaceTeam && fourthPlaceTeam &&
-      (new Set([championTeam, runnerUpTeam, thirdPlaceTeam, fourthPlaceTeam]).size === 4);
+    // Validate if classification is complete and clean based on team_count
+    const teamCount = activeMatchForStats.team_count || 4;
+    const isClassificationValid = (() => {
+      if (!championTeam || !runnerUpTeam) return false;
+      if (teamCount === 2) {
+        return championTeam !== runnerUpTeam;
+      }
+      if (teamCount === 3) {
+        if (!thirdPlaceTeam) return false;
+        return new Set([championTeam, runnerUpTeam, thirdPlaceTeam]).size === 3;
+      }
+      if (teamCount === 4) {
+        if (!thirdPlaceTeam || !fourthPlaceTeam) return false;
+        return new Set([championTeam, runnerUpTeam, thirdPlaceTeam, fourthPlaceTeam]).size === 4;
+      }
+      return false;
+    })();
 
     // Sum summary stats for the top banner dynamically (Mensalistas only)
     const sumGoals = Object.values(localStats).reduce((sum, s) => sum + s.goals, 0);
@@ -2458,11 +2516,19 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                   Diarista — não contabiliza estatísticas
                                 </span>
                               ) : (
-                                (fourthPlaceTeam && mp.team === fourthPlaceTeam) && (
-                                  <span style={{ fontSize: '0.72rem', color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                                    💩 RALABOSTA
-                                  </span>
-                                )
+                                (() => {
+                                  const tCount = activeMatchForStats.team_count || 4;
+                                  const isRala = (tCount === 3 && thirdPlaceTeam && mp.team === thirdPlaceTeam) ||
+                                                 (tCount === 4 && fourthPlaceTeam && mp.team === fourthPlaceTeam);
+                                  if (isRala) {
+                                    return (
+                                      <span style={{ fontSize: '0.72rem', color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                                        💩 RALABOSTA
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()
                               )}
                             </div>
 
@@ -2533,11 +2599,25 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             {[
-              { id: 'champion' as const, label: '🥇 1º Lugar (Campeão)', color: '#fbbf24', value: championTeam, setter: setChampionTeam },
-              { id: 'runnerUp' as const, label: '🥈 2º Lugar (Vice)', color: '#94a3b8', value: runnerUpTeam, setter: setRunnerUpTeam },
-              { id: 'third' as const, label: '🥉 3º Lugar', color: '#b45309', value: thirdPlaceTeam, setter: setThirdPlaceTeam },
-              { id: 'fourth' as const, label: '🏅 4º Lugar', color: '#52525b', value: fourthPlaceTeam, setter: setFourthPlaceTeam }
-            ].map((pos) => {
+              { id: 'champion' as const, label: '🥇 1º Lugar (Campeão)', color: '#fbbf24', value: championTeam, setter: setChampionTeam, visible: true },
+              { id: 'runnerUp' as const, label: '🥈 2º Lugar (Vice)', color: '#94a3b8', value: runnerUpTeam, setter: setRunnerUpTeam, visible: true },
+              { 
+                id: 'third' as const, 
+                label: (activeMatchForStats.team_count === 3) ? '🥉 3º Lugar (Ralabosta)' : '🥉 3º Lugar', 
+                color: '#b45309', 
+                value: thirdPlaceTeam, 
+                setter: setThirdPlaceTeam,
+                visible: (activeMatchForStats.team_count || 4) >= 3
+              },
+              { 
+                id: 'fourth' as const, 
+                label: (activeMatchForStats.team_count === 4) ? '🏅 4º Lugar (Ralabosta)' : '🏅 4º Lugar', 
+                color: '#52525b', 
+                value: fourthPlaceTeam, 
+                setter: setFourthPlaceTeam,
+                visible: (activeMatchForStats.team_count || 4) >= 4
+              }
+            ].filter(pos => pos.visible).map((pos) => {
               const isMenuOpen = activeClassSelect === pos.id;
               const availableOptions = getAvailableTeamsForPosition(pos.id);
 

@@ -13,6 +13,7 @@ vi.mock('../lib/supabase', () => ({
       update: vi.fn().mockReturnThis(),
       delete: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
       gt: vi.fn().mockReturnThis(),
       lt: vi.fn().mockReturnThis(),
       gte: vi.fn().mockReturnThis(),

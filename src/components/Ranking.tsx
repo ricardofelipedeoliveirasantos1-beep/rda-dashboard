@@ -109,7 +109,8 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
           } else {
             isChamp = match.champion_team === mp.team;
             isVice = match.runner_up_team === mp.team;
-            isRala = playerStats?.is_ralabosta || false;
+            const teamCount = match.team_count || 4;
+            isRala = teamCount >= 3 ? (playerStats?.is_ralabosta || false) : false;
           }
 
           statsMap[playerId].games += 1;

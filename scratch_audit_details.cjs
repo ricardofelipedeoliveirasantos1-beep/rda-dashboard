@@ -15,36 +15,22 @@ envContent.split('\n').forEach(line => {
 
 const supabase = createClient(envConfig.VITE_SUPABASE_URL, envConfig.VITE_SUPABASE_ANON_KEY);
 
-async function inspectData() {
-  console.log("=== PROFILES ===");
-  try {
-    const { data, error } = await supabase.from('profiles').select('*').limit(5);
-    console.log("Profiles sample:", data, error);
-  } catch(e) { console.log(e); }
-
-  console.log("=== USERS ===");
-  try {
-    const { data, error } = await supabase.from('users').select('*').limit(5);
-    console.log("Users sample:", data, error);
-  } catch(e) { console.log(e); }
-
-  console.log("=== ROLES ===");
-  try {
-    const { data, error } = await supabase.from('roles').select('*').limit(5);
-    console.log("Roles sample:", data, error);
-  } catch(e) { console.log(e); }
-
-  console.log("=== ASSISTANT PERMISSIONS ===");
-  try {
-    const { data, error } = await supabase.from('assistant_permissions').select('*').limit(5);
-    console.log("Permissions sample:", data, error);
-  } catch(e) { console.log(e); }
-
-  console.log("=== SETTINGS ===");
-  try {
-    const { data, error } = await supabase.from('settings').select('*').limit(5);
-    console.log("Settings sample:", data, error);
-  } catch(e) { console.log(e); }
+async function inspectSchema() {
+  const tables = ['matches', 'match_players', 'match_player_stats', 'players'];
+  for (const t of tables) {
+    console.log(`=== Schema for ${t} ===`);
+    try {
+      const { data, error } = await supabase.from(t).select('*').limit(1);
+      if (error) {
+        console.log(`Error reading table ${t}:`, error.message);
+      } else {
+        console.log(`Columns in ${t}:`, data && data[0] ? Object.keys(data[0]) : "Empty table");
+        console.log(`Sample row in ${t}:`, data && data[0] ? data[0] : "None");
+      }
+    } catch (e) {
+      console.log(`Exception on table ${t}:`, e);
+    }
+  }
 }
 
-inspectData();
+inspectSchema();
