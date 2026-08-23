@@ -1084,6 +1084,9 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         if (upsertError) throw upsertError;
       }
 
+      // Invalida os caches de partidas
+      invalidateCache('matches');
+
       // Re-fetch matches from database
       await fetchMatchesList();
 
@@ -1151,6 +1154,9 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         .eq('id', activeMatchForStats.id);
 
       if (finalizeError) throw finalizeError;
+
+      // Invalida os caches de partidas
+      invalidateCache('matches');
 
       await fetchMatchesList();
       
