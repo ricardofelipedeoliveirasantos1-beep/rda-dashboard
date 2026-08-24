@@ -450,7 +450,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
         // da fonte (historical ou app). Não inferir a partir de match.champion_team.
         const isChamp = pStat?.is_champion || false;
         const isVice = pStat?.is_runner_up || false;
-        const isRala = pStat?.is_ralabosta || false;
+        const isRala = (match.team_count === 3 || match.team_count === 4) ? (pStat?.is_ralabosta || false) : false;
 
         if (isChamp) { playerMap[pId].champion += 1; tChamp += 1; }
         if (isVice) { playerMap[pId].vice += 1; tVice += 1; }
