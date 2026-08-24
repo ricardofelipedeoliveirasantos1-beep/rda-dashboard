@@ -247,6 +247,7 @@ export default function App() {
 
   // Logout real
   const handleLogout = async () => {
+    setIsUserMenuOpen(false);
     clearCache();
     await supabase.auth.signOut();
     // onAuthStateChange reage e reconfigura como sem sessão

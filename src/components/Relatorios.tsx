@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
   BarChart2, ChevronDown, User, Trophy, 
-  AlertCircle, Loader2, Flame, Star, ArrowUp, ArrowDown, Minus, RefreshCw
+  AlertCircle, Loader2, Flame, Star, RefreshCw
 } from 'lucide-react';
 
 // === INTERFACES ===
@@ -53,11 +53,24 @@ interface RelatorioData {
   monthlyStats: { month: string; goals: number; assists: number }[];
   financialStats: { month: string; entradas: number; despesas: number; saldo: number }[];
   comparison: {
-    goalsDiff: number;
-    assistsDiff: number;
-    entradasDiff: number;
-    despesasDiff: number;
+    type: 'mensal' | 'semestral' | 'nenhum';
+    prevLabel: string;
+    currLabel: string;
+    isPartial?: boolean;
+    isPrevPartial?: boolean;
+    isCurrPartial?: boolean;
+    goals: { prev: number; curr: number; diff: number; pct: number };
+    assists: { prev: number; curr: number; diff: number; pct: number };
+    champions: { prev: number; curr: number; diff: number; pct: number };
+    ralabostas: { prev: number; curr: number; diff: number; pct: number };
+    matches: { prev: number; curr: number; diff: number; pct: number };
   } | null;
+  monthlyMap: Record<string, {
+    month: string;
+    summary: { matches: number; goals: number; assists: number; champions: number; vices: number; ralabosta: number; players: number; };
+    rankingList: PlayerSummary[];
+    matchesList: any[];
+  }>;
 }
 
 const MONTHS = [
@@ -94,6 +107,21 @@ const CATEGORY_OPTIONS = [
 ];
 
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+const isSemesterPartial = (semName: '1º Semestre' | '2º Semestre', yearStr: string) => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+  const year = parseInt(yearStr, 10);
+  if (year > currentYear) return true;
+  if (year < currentYear) return false;
+  if (semName === '1º Semestre') {
+    return currentMonth <= 6;
+  } else {
+    return currentMonth <= 12;
+  }
+};
+
 
 // === CENTRAL DENSE RANKING ENGINE ===
 export const getDenseRanking = (
@@ -192,7 +220,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, p
             top: 'calc(100% + 6px)',
             left: 0,
             width: '100%',
-            minWidth: '180px',
+            minWidth: '100%',
             backgroundColor: '#1c1c1c',
             border: '1px solid rgba(255,255,255,0.15)',
             borderRadius: '12px',
@@ -247,7 +275,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, p
   );
 };
 
-export default function Relatorios({ userRole: _userRole, can: _can }: { userRole: 'admin' | 'assistant' | 'visitor' | 'treasurer'; can: (action: any) => boolean }) {
+export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' | 'assistant' | 'visitor' | 'treasurer'; can: (action: any) => boolean }) {
   const [filterType, setFilterType] = useState<'month' | 'semestre1' | 'semestre2' | 'year'>('month');
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
@@ -260,15 +288,44 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
   const [isResumoOpen, setIsResumoOpen] = useState(true);
   const [isDesempenhoOpen, setIsDesempenhoOpen] = useState(false);
   const [isRankingOpen, setIsRankingOpen] = useState(false);
-  const [isFinanceiroOpen, setIsFinanceiroOpen] = useState(false);
+  const [isFinanceiroOpen] = useState(false);
   const [isJogadoresOpen, setIsJogadoresOpen] = useState(false);
   const [isPartidasOpen, setIsPartidasOpen] = useState(false);
   const [isDestaquesOpen, setIsDestaquesOpen] = useState(false);
+  const [isDestaquesMesOpen, setIsDestaquesMesOpen] = useState(false);
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [isComparacaoOpen, setIsComparacaoOpen] = useState(false);
 
   // Ranking filters
   const [rankingCategory, setRankingCategory] = useState<'goals' | 'assists' | 'champion' | 'ralabosta'>('goals');
   const [rankingPlayerId, setRankingPlayerId] = useState<string>('all');
+  
+  // Refs e states para os gráficos com scroll horizontal
+  const chartScrollRef = useRef<HTMLDivElement | null>(null);
+  const finChartScrollRef = useRef<HTMLDivElement | null>(null);
+  const [showChartScrollIndicator, setShowChartScrollIndicator] = useState(false);
+  // const [showFinChartScrollIndicator, setShowFinChartScrollIndicator] = useState(false);
+
+  useEffect(() => {
+    const checkScroll = () => {
+      if (chartScrollRef.current) {
+        const { scrollWidth, clientWidth } = chartScrollRef.current;
+        setShowChartScrollIndicator(scrollWidth > clientWidth);
+      }
+      if (finChartScrollRef.current) {
+        // const { scrollWidth, clientWidth } = finChartScrollRef.current;
+        // setShowFinChartScrollIndicator(scrollWidth > clientWidth);
+      }
+    };
+    
+    const timer = setTimeout(checkScroll, 150);
+    window.addEventListener('resize', checkScroll);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkScroll);
+    };
+  }, [data, isDesempenhoOpen, isFinanceiroOpen]);
   
   // Exibir Label de periodo
   const getPeriodLabel = () => {
@@ -333,7 +390,6 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
 
     matches.forEach(match => {
       totalDiaristas += Number(match.daily_total || 0);
-      const isHistorical = match.source === 'historical_manual' || match.source === 'historical_import';
 
       // Deduplica participantes por partida
       const seenPlayersInMatch = new Set<string>();
@@ -390,19 +446,11 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
           tRed += redVal;
         }
 
-        let isChamp = false;
-        let isVice = false;
-        let isRala = false;
-
-        if (isHistorical) {
-          isChamp = pStat?.is_champion || false;
-          isVice = pStat?.is_runner_up || false;
-          isRala = pStat?.is_ralabosta || false;
-        } else {
-          isChamp = !!(match.champion_team && match.champion_team === mp.team);
-          isVice = !!(match.runner_up_team && match.runner_up_team === mp.team);
-          isRala = pStat?.is_ralabosta || false;
-        }
+        // O marcador oficial deve vir sempre de match_player_stats, independentemente
+        // da fonte (historical ou app). Não inferir a partir de match.champion_team.
+        const isChamp = pStat?.is_champion || false;
+        const isVice = pStat?.is_runner_up || false;
+        const isRala = pStat?.is_ralabosta || false;
 
         if (isChamp) { playerMap[pId].champion += 1; tChamp += 1; }
         if (isVice) { playerMap[pId].vice += 1; tVice += 1; }
@@ -432,10 +480,14 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
 
   // Helper para carregar os dados de um período de forma simples e segura
   const fetchPeriodStats = async (startDate: string, endDate: string) => {
-    // 1. Buscar partidas finalizadas do período
+    // 1. Buscar partidas finalizadas do período (omite daily_total para visitantes)
+    const matchesSelect = userRole === 'visitor'
+      ? 'id, match_date, match_time, status, champion_team, runner_up_team, source'
+      : 'id, match_date, match_time, status, daily_total, champion_team, runner_up_team, source';
+
     const { data: matchesData, error: matchesError } = await supabase
       .from('matches')
-      .select('id, match_date, match_time, status, daily_total, champion_team, runner_up_team, source')
+      .select(matchesSelect)
       .eq('status', 'finished')
       .gte('match_date', startDate)
       .lt('match_date', endDate)
@@ -444,7 +496,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
 
     if (matchesError) throw matchesError;
 
-    const matches = matchesData || [];
+    const matches: any[] = (matchesData as any) || [];
     const matchIds = matches.map(m => m.id);
 
     let stats: any[] = [];
@@ -461,10 +513,14 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
       if (statsError) throw statsError;
       stats = statsData || [];
 
-      // 3. Buscar vínculos dos jogadores com as partidas
+      // 3. Buscar vínculos dos jogadores com as partidas (omite daily_fee_at_match para visitantes)
+      const mpSelect = userRole === 'visitor'
+        ? 'match_id, player_id, team, category_at_match'
+        : 'match_id, player_id, team, category_at_match, daily_fee_at_match';
+
       const { data: mpData, error: mpError } = await supabase
         .from('match_players')
-        .select('match_id, player_id, team, category_at_match, daily_fee_at_match')
+        .select(mpSelect)
         .in('match_id', matchIds);
 
       if (mpError) throw mpError;
@@ -485,7 +541,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
       }
     }
 
-    // 5. Buscar mensalidades pagas dos meses correspondentes
+    // 5. Buscar mensalidades pagas dos meses correspondentes (somente se não for visitante)
     const monthPrefixes: string[] = [];
     const dIt = new Date(startDate + 'T00:00:00');
     const dEnd = new Date(endDate + 'T00:00:00');
@@ -495,7 +551,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
     }
 
     let payments: any[] = [];
-    if (monthPrefixes.length > 0) {
+    if (monthPrefixes.length > 0 && userRole !== 'visitor') {
       const { data: payData, error: payError } = await supabase
         .from('monthly_payments')
         .select('id, payment_month, amount, status')
@@ -505,15 +561,18 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
       payments = payData || [];
     }
 
-    // 6. Buscar despesas do período
-    const { data: expData, error: expError } = await supabase
-      .from('expenses')
-      .select('id, amount, expense_date, category, description')
-      .gte('expense_date', startDate)
-      .lt('expense_date', endDate);
+    // 6. Buscar despesas do período (somente se não for visitante)
+    let expenses: any[] = [];
+    if (userRole !== 'visitor') {
+      const { data: expData, error: expError } = await supabase
+        .from('expenses')
+        .select('id, amount, expense_date, category, description')
+        .gte('expense_date', startDate)
+        .lt('expense_date', endDate);
 
-    if (expError) throw expError;
-    const expenses = expData || [];
+      if (expError) throw expError;
+      expenses = expData || [];
+    }
 
     // --- AGREGAÇÃO UNIFICADA ---
     const aggregated = buildPeriodPlayerStats({
@@ -540,118 +599,157 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
       rankingList: aggregated.rankingList,
       matches,
       stats,
+      matchPlayers,
+      playersMap,
       payments,
       expenses
     };
-  };
-
-  const buildMonthlyStats = (matches: any[], stats: any[], startDate: string, type: string) => {
-    const monthlyMap: Record<string, { month: string; goals: number; assists: number }> = {};
-
-    matches.forEach(m => {
-      const mPrefix = m.match_date.slice(0, 7);
-      if (!monthlyMap[mPrefix]) monthlyMap[mPrefix] = { month: mPrefix, goals: 0, assists: 0 };
-
-      const matchStats = stats.filter(s => s.match_id === m.id);
-      const mGoals = matchStats.reduce((sum, s) => sum + (s.goals || 0), 0);
-      const mAssists = matchStats.reduce((sum, s) => sum + (s.assists || 0), 0);
-
-      monthlyMap[mPrefix].goals += mGoals;
-      monthlyMap[mPrefix].assists += mAssists;
-    });
-
-    const result = [];
-    const dateIt = new Date(startDate + 'T00:00:00');
-    const count = type === 'month' ? 1 : (type.includes('semestre') ? 6 : 12);
-
-    for (let i = 0; i < count; i++) {
-      const yyyy_mm = `${dateIt.getFullYear()}-${String(dateIt.getMonth() + 1).padStart(2, '0')}`;
-      result.push(monthlyMap[yyyy_mm] || { month: yyyy_mm, goals: 0, assists: 0 });
-      dateIt.setMonth(dateIt.getMonth() + 1);
-    }
-    return result;
-  };
-
-  const buildFinancialStats = (payments: any[], expenses: any[], matches: any[], startDate: string, type: string) => {
-    const map: Record<string, { month: string; entradas: number; despesas: number; saldo: number }> = {};
-
-    payments.forEach(p => {
-      if (p.status !== 'paid') return;
-      const m = p.payment_month;
-      if (!map[m]) map[m] = { month: m, entradas: 0, despesas: 0, saldo: 0 };
-      map[m].entradas += Number(p.amount || 0);
-    });
-
-    expenses.forEach(e => {
-      const m = e.expense_date.slice(0, 7);
-      if (!map[m]) map[m] = { month: m, entradas: 0, despesas: 0, saldo: 0 };
-      map[m].despesas += Number(e.amount || 0);
-    });
-
-    matches.forEach(m => {
-      const mPrefix = m.match_date.slice(0, 7);
-      if (!map[mPrefix]) map[mPrefix] = { month: mPrefix, entradas: 0, despesas: 0, saldo: 0 };
-      map[mPrefix].entradas += Number(m.daily_total || 0);
-    });
-
-    Object.keys(map).forEach(k => {
-      map[k].saldo = map[k].entradas - map[k].despesas;
-    });
-
-    const result = [];
-    const dateIt = new Date(startDate + 'T00:00:00');
-    const count = type === 'month' ? 1 : (type.includes('semestre') ? 6 : 12);
-
-    for (let i = 0; i < count; i++) {
-      const yyyy_mm = `${dateIt.getFullYear()}-${String(dateIt.getMonth() + 1).padStart(2, '0')}`;
-      result.push(map[yyyy_mm] || { month: yyyy_mm, entradas: 0, despesas: 0, saldo: 0 });
-      dateIt.setMonth(dateIt.getMonth() + 1);
-    }
-    return result;
   };
 
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
     try {
-      const current = getPeriodDates(filterType, selectedMonth, selectedYear, 0);
-      const prev = getPeriodDates(filterType, selectedMonth, selectedYear, -1);
+      const baseStart = `${parseInt(selectedYear) - 1}-12-01`;
+      const baseEnd = `${parseInt(selectedYear) + 1}-01-01`;
 
-      // Carga do período atual
-      const currentResult = await fetchPeriodStats(current.start, current.end);
+      const fullData = await fetchPeriodStats(baseStart, baseEnd);
 
-      // Carga do período anterior para comparação
-      let prevResult: any = null;
-      try {
-        prevResult = await fetchPeriodStats(prev.start, prev.end);
-      } catch (errPrev) {
-        console.warn('Erro ao carregar dados do período anterior para comparação:', errPrev);
+      const monthlyMap: Record<string, any> = {};
+      const prevDec = `${parseInt(selectedYear) - 1}-12`;
+      const monthsKeys = [prevDec];
+      for (let i = 1; i <= 12; i++) {
+        monthsKeys.push(`${selectedYear}-${String(i).padStart(2, '0')}`);
       }
 
-      const comp = prevResult ? {
-        goalsDiff: currentResult.summary.goals - prevResult.summary.goals,
-        assistsDiff: currentResult.summary.assists - prevResult.summary.assists,
-        entradasDiff: currentResult.finance.entradas - prevResult.finance.entradas,
-        despesasDiff: currentResult.finance.despesas - prevResult.finance.despesas
-      } : null;
+      monthsKeys.forEach(m => {
+        const mMatches = fullData.matches.filter(x => x.match_date.startsWith(m));
+        const matchIds = new Set(mMatches.map(x => x.id));
+        monthlyMap[m] = {
+          month: m,
+          ...buildPeriodPlayerStats({
+            matches: mMatches,
+            matchPlayers: fullData.matchPlayers.filter(x => matchIds.has(x.match_id)),
+            matchPlayerStats: fullData.stats.filter(x => matchIds.has(x.match_id)),
+            playersMap: fullData.playersMap
+          }),
+          matchesList: mMatches
+        };
+      });
+
+      const current = getPeriodDates(filterType, selectedMonth, selectedYear, 0);
+      const currMatches = fullData.matches.filter(x => x.match_date >= current.start && x.match_date < current.end);
+      const currIds = new Set(currMatches.map(x => x.id));
+      const currentResult = {
+        ...buildPeriodPlayerStats({
+          matches: currMatches,
+          matchPlayers: fullData.matchPlayers.filter(x => currIds.has(x.match_id)),
+          matchPlayerStats: fullData.stats.filter(x => currIds.has(x.match_id)),
+          playersMap: fullData.playersMap
+        }),
+        matches: currMatches
+      };
+
+      const calcFinance = (start: string, end: string, diaristasTotal: number) => {
+        const mPay = fullData.payments.filter(p => {
+           const pDate = p.payment_month + '-01';
+           return pDate >= start && pDate < end && p.status === 'paid';
+        }).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        const exp = fullData.expenses.filter(e => e.expense_date >= start && e.expense_date < end)
+          .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+        return {
+          entradas: mPay + diaristasTotal,
+          mensalidades: mPay,
+          diaristas: diaristasTotal,
+          despesas: exp,
+          saldo: (mPay + diaristasTotal) - exp
+        };
+      };
+
+      const currentFinance = userRole === 'visitor'
+        ? { entradas: 0, mensalidades: 0, diaristas: 0, despesas: 0, saldo: 0 }
+        : calcFinance(current.start, current.end, currentResult.totalDiaristas);
+
+      let comp = null;
+      const calcPct = (c: number, p: number) => {
+        if (p === 0 && c > 0) return Infinity; 
+        if (p === 0 && c === 0) return 0;
+        return ((c - p) / p) * 100;
+      };
+
+      const buildCompObj = (curr: any, prev: any, type: any, currLabel: string, prevLabel: string) => {
+        if (!curr || !prev) return null;
+        const isPrevPartial = type === 'semestral' ? isSemesterPartial('1º Semestre', selectedYear) : false;
+        const isCurrPartial = type === 'semestral' ? isSemesterPartial('2º Semestre', selectedYear) : false;
+        const isPartial = isPrevPartial || isCurrPartial;
+        return {
+          type, currLabel, prevLabel,
+          isPartial,
+          isPrevPartial,
+          isCurrPartial,
+          goals: { prev: prev.summary.goals, curr: curr.summary.goals, diff: curr.summary.goals - prev.summary.goals, pct: calcPct(curr.summary.goals, prev.summary.goals) },
+          assists: { prev: prev.summary.assists, curr: curr.summary.assists, diff: curr.summary.assists - prev.summary.assists, pct: calcPct(curr.summary.assists, prev.summary.assists) },
+          champions: { prev: prev.summary.champions, curr: curr.summary.champions, diff: curr.summary.champions - prev.summary.champions, pct: calcPct(curr.summary.champions, prev.summary.champions) },
+          ralabostas: { prev: prev.summary.ralabosta, curr: curr.summary.ralabosta, diff: curr.summary.ralabosta - prev.summary.ralabosta, pct: calcPct(curr.summary.ralabosta, prev.summary.ralabosta) },
+          matches: { prev: prev.summary.matches, curr: curr.summary.matches, diff: curr.summary.matches - prev.summary.matches, pct: calcPct(curr.summary.matches, prev.summary.matches) }
+        };
+      };
+
+      if (filterType === 'month') {
+        const currKey = `${selectedYear}-${selectedMonth}`;
+        const prevKey = selectedMonth === '01' ? prevDec : `${selectedYear}-${String(parseInt(selectedMonth) - 1).padStart(2, '0')}`;
+        const prevLabel = selectedMonth === '01' ? `Dezembro/${parseInt(selectedYear)-1}` : `${MONTHS.find(m => m.value === String(parseInt(selectedMonth) - 1).padStart(2, '0'))?.label}`;
+        comp = buildCompObj(monthlyMap[currKey], monthlyMap[prevKey], 'mensal', MONTHS.find(m => m.value === selectedMonth)?.label || '', prevLabel);
+      } else if (filterType === 'semestre1' || filterType === 'semestre2' || filterType === 'year') {
+        const s1Start = `${selectedYear}-01-01`; const s1End = `${selectedYear}-07-01`;
+        const s2Start = `${selectedYear}-07-01`; const s2End = `${parseInt(selectedYear)+1}-01-01`;
+        
+        const m1 = fullData.matches.filter(x => x.match_date >= s1Start && x.match_date < s1End);
+        const m1Ids = new Set(m1.map(x => x.id));
+        const sem1 = buildPeriodPlayerStats({ matches: m1, matchPlayers: fullData.matchPlayers.filter(x => m1Ids.has(x.match_id)), matchPlayerStats: fullData.stats.filter(x => m1Ids.has(x.match_id)), playersMap: fullData.playersMap });
+        
+        const m2 = fullData.matches.filter(x => x.match_date >= s2Start && x.match_date < s2End);
+        const m2Ids = new Set(m2.map(x => x.id));
+        const sem2 = buildPeriodPlayerStats({ matches: m2, matchPlayers: fullData.matchPlayers.filter(x => m2Ids.has(x.match_id)), matchPlayerStats: fullData.stats.filter(x => m2Ids.has(x.match_id)), playersMap: fullData.playersMap });
+
+        comp = buildCompObj(sem2, sem1, 'semestral', '2º Semestre', '1º Semestre');
+      }
+
+      const monthlyStatsArr = [];
+      const financialStatsArr = [];
+      const iterateMonths = filterType === 'month' ? 1 : (filterType.includes('semestre') ? 6 : 12);
+      const dIt = new Date(current.start + 'T00:00:00');
+      for (let i = 0; i < iterateMonths; i++) {
+        const mStr = `${dIt.getFullYear()}-${String(dIt.getMonth() + 1).padStart(2, '0')}`;
+        const mapData = monthlyMap[mStr];
+        monthlyStatsArr.push({ month: mStr, goals: mapData?.summary.goals || 0, assists: mapData?.summary.assists || 0 });
+        
+        const nextMonthDate = new Date(dIt.getFullYear(), dIt.getMonth() + 1, 1);
+        const nextMStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+        const fDate = `${mStr}-01`;
+        const fData = userRole === 'visitor'
+          ? { entradas: 0, despesas: 0, saldo: 0 }
+          : calcFinance(fDate, nextMStr, mapData?.totalDiaristas || 0);
+        financialStatsArr.push({ month: mStr, entradas: fData.entradas, despesas: fData.despesas, saldo: fData.saldo });
+        
+        dIt.setMonth(dIt.getMonth() + 1);
+      }
 
       setData({
         summary: currentResult.summary,
-        finance: currentResult.finance,
+        finance: currentFinance,
         rankingList: currentResult.rankingList,
         matchesList: currentResult.matches,
-        monthlyStats: buildMonthlyStats(currentResult.matches, currentResult.stats, current.start, filterType),
-        financialStats: buildFinancialStats(currentResult.payments, currentResult.expenses, currentResult.matches, current.start, filterType),
-        comparison: comp
+        monthlyStats: monthlyStatsArr,
+        financialStats: financialStatsArr,
+        comparison: comp,
+        monthlyMap
       });
 
-      // Reset ranking player filter to 'all' if selected player not in current list
       setRankingPlayerId('all');
-
     } catch (err: any) {
       console.error('Erro detalhado ao gerar relatório:', err);
-      const errorMsg = err?.message || 'Erro ao carregar dados do Supabase.';
-      setError(`Não foi possível carregar o relatório: ${errorMsg}`);
+      setError(`Não foi possível carregar o relatório: ${err?.message || 'Erro'}`);
       setData(null);
     } finally {
       setLoading(false);
@@ -708,15 +806,12 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
     return found ? `${found.rank}º` : '—';
   };
 
-  // Helper para obter os líderes (1º lugar com detecção de empate)
-  const getHighlightData = (metric: 'goals' | 'assists' | 'champion' | 'ralabosta', unit: string) => {
-    const list = metric === 'goals' ? goalsRanking :
-                 metric === 'assists' ? assistsRanking :
-                 metric === 'champion' ? championRanking : ralabostaRanking;
-    
+  // Helper para obter líderes baseado em qualquer lista de rankings
+  const getHighlightFromRanking = (list: RankedPlayer[], unit: string) => {
     if (list.length === 0) return null;
-
     const firstRankPlayers = list.filter(r => r.rank === 1);
+    if (firstRankPlayers.length === 0) return null;
+    
     const primary = firstRankPlayers[0];
     const tieCount = firstRankPlayers.length - 1;
 
@@ -729,9 +824,87 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
       player: primary.player,
       displayName: labelName,
       val: `${primary.value} ${unit}`,
+      value: primary.value,
       hasTie: tieCount > 0,
-      totalTied: firstRankPlayers.length
+      totalTied: firstRankPlayers.length,
+      tiedPlayers: firstRankPlayers.map(r => r.player)
     };
+  };
+
+  // Helper legado
+  const getHighlightData = (metric: 'goals' | 'assists' | 'champion' | 'ralabosta', unit: string) => {
+    const list = metric === 'goals' ? goalsRanking :
+                 metric === 'assists' ? assistsRanking :
+                 metric === 'champion' ? championRanking : ralabostaRanking;
+    
+    return getHighlightFromRanking(list, unit);
+  };
+
+  const HighlightCard = ({ data, label, icon }: { data: any, label: string, icon: React.ReactNode }) => {
+    const [expanded, setExpanded] = useState(false);
+    
+    return (
+      <div 
+        onClick={() => data?.hasTie && setExpanded(!expanded)} 
+        style={{ 
+          backgroundColor: 'rgba(255,255,255,0.02)', 
+          padding: '10px', 
+          borderRadius: '10px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '8px', 
+          border: '1px solid rgba(255,255,255,0.03)',
+          cursor: data?.hasTie ? 'pointer' : 'default'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {icon}
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{label}</span>
+        </div>
+        
+        {data && data.value !== 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {data.player.photo_url ? (
+                <img src={data.player.photo_url} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+              ) : (
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <User size={14} color="#666" />
+                </div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {data.displayName}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{data.val}</span>
+              </div>
+              {data.hasTie && (
+                <ChevronDown size={14} style={{ color: 'var(--text-muted)', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+              )}
+            </div>
+            
+            {expanded && data.hasTie && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                {data.tiedPlayers.map((p: any) => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {p.photo_url ? (
+                      <img src={p.photo_url} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                    ) : (
+                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <User size={10} color="#666" />
+                      </div>
+                    )}
+                    <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 600 }}>{p.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Nenhum</div>
+        )}
+      </div>
+    );
   };
 
   // Dropdown player options
@@ -756,7 +929,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
       </div>
 
       {/* FILTER CARD */}
-      <div className="dashboard-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div className="dashboard-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="card-title" style={{ fontSize: '0.9rem' }}>PERÍODO</span>
         </div>
@@ -865,11 +1038,16 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
             <div style={{ backgroundColor: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)', padding: '14px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase' }}>Resumo do Semestre</span>
               <p style={{ fontSize: '0.85rem', color: '#fff', margin: 0, lineHeight: 1.5 }}>
-                {data.summary.matches} partidas • {data.summary.goals} gols • {data.summary.assists} assistências<br/>
-                {formatCurrency(data.finance.entradas)} de entradas • {formatCurrency(data.finance.despesas)} de despesas<br/>
-                <strong style={{ color: data.finance.saldo >= 0 ? '#22c55e' : '#ef4444' }}>
-                  {formatCurrency(data.finance.saldo)} de saldo
-                </strong>
+                {data.summary.matches} partidas • {data.summary.goals} gols • {data.summary.assists} assistências
+                {userRole !== 'visitor' && (
+                  <>
+                    <br/>
+                    {formatCurrency(data.finance.entradas)} de entradas • {formatCurrency(data.finance.despesas)} de despesas<br/>
+                    <strong style={{ color: data.finance.saldo >= 0 ? '#22c55e' : '#ef4444' }}>
+                      {formatCurrency(data.finance.saldo)} de saldo
+                    </strong>
+                  </>
+                )}
               </p>
             </div>
           )}
@@ -968,30 +1146,41 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
                 </div>
                 
                 {/* GRÁFICO 1: Gols x Assistências */}
-                <div style={{ marginTop: '16px' }}>
-                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', marginBottom: '16px', textAlign: 'center' }}>GOLS X ASSISTÊNCIAS</h4>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '4px' }}>
-                    {data.monthlyStats.map((ms, i) => {
-                      const maxVal = Math.max(...data.monthlyStats.map(s => Math.max(s.goals, s.assists))) || 1;
-                      const hGols = (ms.goals / maxVal) * 100;
-                      const hAsts = (ms.assists / maxVal) * 100;
-                      const mNumber = ms.month.split('-')[1];
-                      const mLabel = MONTHS.find(m => m.value === mNumber)?.label.slice(0, 3) || mNumber;
-                      return (
-                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '100px', width: '100%', justifyContent: 'center' }}>
-                            <div style={{ width: '40%', height: `${hGols}%`, backgroundColor: '#38bdf8', borderRadius: '4px 4px 0 0', position: 'relative' }}>
-                              {ms.goals > 0 && <span style={{ position: 'absolute', top: '-14px', left: '50%', transform: 'translateX(-50%)', fontSize: '9px', color: '#fff', fontWeight: 700 }}>{ms.goals}</span>}
+                <div style={{ marginTop: '16px', width: '100%', maxWidth: '100%' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', marginBottom: '20px', textAlign: 'center' }}>GOLS X ASSISTÊNCIAS</h4>
+                  <div ref={chartScrollRef} style={{ overflowX: 'auto', paddingBottom: '8px', width: '100%', maxWidth: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', height: '140px', gap: '8px', minWidth: `${Math.max(280, data.monthlyStats.length * 40)}px` }}>
+                      {data.monthlyStats.map((ms, i) => {
+                        const maxVal = Math.max(...data.monthlyStats.map(s => Math.max(s.goals, s.assists))) || 1;
+                        // Deixar 20% de espaço extra no topo para os labels não cortarem
+                        const paddedMax = maxVal * 1.25; 
+                        const hGols = (ms.goals / paddedMax) * 100;
+                        const hAsts = (ms.assists / paddedMax) * 100;
+                        const mNumber = ms.month.split('-')[1];
+                        const mLabel = MONTHS.find(m => m.value === mNumber)?.label.slice(0, 3) || mNumber;
+                        return (
+                          <div key={i} style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, alignItems: 'center', flex: 1, gap: '4px', maxWidth: '60px' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '120px', width: '100%', justifyContent: 'center' }}>
+                              <div style={{ width: '40%', height: `${hGols}%`, backgroundColor: '#38bdf8', borderRadius: '4px 4px 0 0', position: 'relative', minHeight: ms.goals === 0 ? '1px' : '0' }}>
+                                <span style={{ position: 'absolute', top: '-16px', left: '50%', transform: 'translateX(-50%)', fontSize: '9px', color: ms.goals === 0 ? 'rgba(255,255,255,0.3)' : '#38bdf8', fontWeight: 700 }}>{ms.goals}</span>
+                              </div>
+                              <div style={{ width: '40%', height: `${hAsts}%`, backgroundColor: '#fbbf24', borderRadius: '4px 4px 0 0', position: 'relative', minHeight: ms.assists === 0 ? '1px' : '0' }}>
+                                <span style={{ position: 'absolute', top: '-16px', left: '50%', transform: 'translateX(-50%)', fontSize: '9px', color: ms.assists === 0 ? 'rgba(255,255,255,0.3)' : '#fbbf24', fontWeight: 700 }}>{ms.assists}</span>
+                              </div>
                             </div>
-                            <div style={{ width: '40%', height: `${hAsts}%`, backgroundColor: '#fbbf24', borderRadius: '4px 4px 0 0', position: 'relative' }}>
-                              {ms.assists > 0 && <span style={{ position: 'absolute', top: '-14px', left: '50%', transform: 'translateX(-50%)', fontSize: '9px', color: '#fff', fontWeight: 700 }}>{ms.assists}</span>}
-                            </div>
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{mLabel}</span>
                           </div>
-                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{mLabel}</span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
+                  {showChartScrollIndicator && (
+                    <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 8px 0' }}>
+                      <span style={{ fontSize: '0.68rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.85 }}>
+                        Deslize para ver outros meses →
+                      </span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <div style={{ width: '10px', height: '10px', backgroundColor: '#38bdf8', borderRadius: '2px' }} />
@@ -1105,86 +1294,6 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
           </div>
 
           {/* 4. FINANCEIRO */}
-          <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
-            <div 
-              onClick={() => setIsFinanceiroOpen(!isFinanceiroOpen)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>FINANCEIRO</span>
-                {!isFinanceiroOpen && (
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Rec: {formatCurrency(data.finance.entradas)} • Desp: {formatCurrency(data.finance.despesas)} • Saldo: {formatCurrency(data.finance.saldo)}
-                  </span>
-                )}
-              </div>
-              <ChevronDown size={20} style={{ transform: isFinanceiroOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: 'var(--text-muted)' }} />
-            </div>
-            
-            {isFinanceiroOpen && (
-              <div style={{ padding: '0 16px 16px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '8px', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Mensalidades</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>{formatCurrency(data.finance.mensalidades)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Diaristas</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>{formatCurrency(data.finance.diaristas)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '8px' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#22c55e' }}>Entradas</span>
-                  <span style={{ fontSize: '1rem', fontWeight: 800, color: '#22c55e' }}>{formatCurrency(data.finance.entradas)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ef4444' }}>Despesas</span>
-                  <span style={{ fontSize: '1rem', fontWeight: 800, color: '#ef4444' }}>{formatCurrency(data.finance.despesas)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: '8px' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#38bdf8' }}>Saldo</span>
-                  <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#38bdf8' }}>{formatCurrency(data.finance.saldo)}</span>
-                </div>
-                
-                {/* GRÁFICO 2: Valores por mês */}
-                <div style={{ marginTop: '20px' }}>
-                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', marginBottom: '16px', textAlign: 'center' }}>VALORES POR MÊS</h4>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '140px', gap: '4px' }}>
-                    {data.financialStats.map((ms, i) => {
-                      const maxVal = Math.max(...data.financialStats.map(s => Math.max(s.entradas, s.despesas, Math.abs(s.saldo)))) || 1;
-                      const hEnt = (ms.entradas / maxVal) * 100;
-                      const hDesp = (ms.despesas / maxVal) * 100;
-                      const hSal = (Math.max(0, ms.saldo) / maxVal) * 100;
-                      const mNumber = ms.month.split('-')[1];
-                      const mLabel = MONTHS.find(m => m.value === mNumber)?.label.slice(0, 3) || mNumber;
-                      return (
-                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '110px', width: '100%', justifyContent: 'center' }}>
-                            <div style={{ width: '30%', height: `${hEnt}%`, backgroundColor: '#22c55e', borderRadius: '3px 3px 0 0' }} />
-                            <div style={{ width: '30%', height: `${hDesp}%`, backgroundColor: '#ef4444', borderRadius: '3px 3px 0 0' }} />
-                            <div style={{ width: '30%', height: `${hSal}%`, backgroundColor: '#38bdf8', borderRadius: '3px 3px 0 0' }} />
-                          </div>
-                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{mLabel}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <div style={{ width: '8px', height: '8px', backgroundColor: '#22c55e', borderRadius: '2px' }} />
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Entradas</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <div style={{ width: '8px', height: '8px', backgroundColor: '#ef4444', borderRadius: '2px' }} />
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Despesas</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <div style={{ width: '8px', height: '8px', backgroundColor: '#38bdf8', borderRadius: '2px' }} />
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Saldo</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* 5. JOGADORES (TOP 3 COLOCAÇÕES) */}
           <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
@@ -1339,35 +1448,59 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
                   { label: 'Mais Campeão', data: getHighlightData('champion', 'vezes'), icon: <Trophy size={14} color="#fbbf24" /> },
                   { label: 'Mais Ralabosta', data: getHighlightData('ralabosta', 'vezes'), icon: <span style={{ fontSize: '12px' }}>💩</span> }
                 ].map((d, i) => (
-                  <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {d.icon}
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{d.label}</span>
-                    </div>
-                    {d.data ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {d.data.player.photo_url ? (
-                          <img src={d.data.player.photo_url} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                        ) : (
-                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <User size={14} color="#666" />
-                          </div>
-                        )}
-                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {d.data.displayName}
-                          </span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{d.data.val}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Nenhum</div>
-                    )}
-                  </div>
+                  <HighlightCard key={i} data={d.data} label={d.label} icon={d.icon} />
                 ))}
               </div>
             )}
           </div>
+
+          {/* 7.5. DESTAQUES POR MÊS */}
+          {(filterType === 'year' || filterType.includes('semestre')) && (
+            <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
+              <div 
+                onClick={() => setIsDestaquesMesOpen(!isDestaquesMesOpen)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>DESTAQUES POR MÊS</span>
+                </div>
+                <ChevronDown size={20} style={{ transform: isDestaquesMesOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: 'var(--text-muted)' }} />
+              </div>
+              
+              {isDestaquesMesOpen && (
+                <div style={{ padding: '0 16px 16px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '8px', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {data.monthlyStats.map(ms => {
+                    const mapData = data.monthlyMap?.[ms.month];
+                    if (!mapData || mapData.matchesList.length === 0) return null;
+                    const isExp = expandedMonth === ms.month;
+                    const mNumber = ms.month.split('-')[1];
+                    const mLabel = MONTHS.find(m => m.value === mNumber)?.label || mNumber;
+                    
+                    return (
+                      <div key={ms.month} style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)', overflow: 'hidden' }}>
+                        <div onClick={() => setExpandedMonth(isExp ? null : ms.month)} style={{ padding: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>{mLabel}</span>
+                          <ChevronDown size={16} style={{ transform: isExp ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: 'var(--text-muted)' }} />
+                        </div>
+                        {isExp && (
+                          <div style={{ padding: '0 12px 12px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            {[
+                              { label: 'Artilheiro', data: getHighlightFromRanking([...mapData.rankingList].sort((a,b)=>b.goals-a.goals).map(p=>({player:p, value:p.goals, rank:0})).map((p,_i,arr)=>({...p, rank: arr.findIndex(x=>x.value===p.value)+1})), 'gols'), icon: <Flame size={12} color="#f97316" /> },
+                              { label: 'Assistências', data: getHighlightFromRanking([...mapData.rankingList].sort((a,b)=>b.assists-a.assists).map(p=>({player:p, value:p.assists, rank:0})).map((p,_i,arr)=>({...p, rank: arr.findIndex(x=>x.value===p.value)+1})), 'asts'), icon: <Star size={12} color="#fbbf24" /> },
+                              { label: 'Mais Campeão', data: getHighlightFromRanking([...mapData.rankingList].sort((a,b)=>b.champion-a.champion).map(p=>({player:p, value:p.champion, rank:0})).map((p,_i,arr)=>({...p, rank: arr.findIndex(x=>x.value===p.value)+1})), 'vezes'), icon: <Trophy size={12} color="#fbbf24" /> },
+                              { label: 'Mais Ralabosta', data: getHighlightFromRanking([...mapData.rankingList].sort((a,b)=>b.ralabosta-a.ralabosta).map(p=>({player:p, value:p.ralabosta, rank:0})).map((p,_i,arr)=>({...p, rank: arr.findIndex(x=>x.value===p.value)+1})), 'vezes'), icon: <span style={{ fontSize: '10px' }}>💩</span> }
+                            ].map((d, i) => (
+                              <HighlightCard key={i} data={d.data} label={d.label} icon={d.icon} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 8. COMPARAÇÃO */}
           <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
@@ -1379,7 +1512,7 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
                 <span style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>COMPARAÇÃO</span>
                 {!isComparacaoOpen && (
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Com o período anterior
+                    {data.comparison?.type === 'mensal' ? 'Com o mês anterior' : data.comparison?.type === 'semestral' ? '1º Semestre x 2º Semestre' : 'Indisponível para o filtro atual'}
                   </span>
                 )}
               </div>
@@ -1388,39 +1521,154 @@ export default function Relatorios({ userRole: _userRole, can: _can }: { userRol
             
             {isComparacaoOpen && (
               <div style={{ padding: '0 16px 16px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '8px', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {data.comparison ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Gols</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: data.comparison.goalsDiff > 0 ? '#22c55e' : data.comparison.goalsDiff < 0 ? '#ef4444' : 'var(--text-muted)' }}>
-                        {data.comparison.goalsDiff > 0 ? <ArrowUp size={14} /> : data.comparison.goalsDiff < 0 ? <ArrowDown size={14} /> : <Minus size={14} />}
-                        <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>{Math.abs(data.comparison.goalsDiff)} gols</span>
+                {data.comparison && data.comparison.type !== 'nenhum' ? (
+                  <>
+                    {/* Mensagem discreta explicativa de Período Parcial */}
+                    {data.comparison.isPartial && (
+                      <div style={{ backgroundColor: 'rgba(251,191,36,0.06)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(251,191,36,0.15)', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#fbbf24', display: 'flex', gap: '6px', alignItems: 'flex-start', lineHeight: '1.4' }}>
+                          <AlertCircle size={14} style={{ flexShrink: 0, marginTop: '2px' }} />
+                          <span>Período ainda em andamento. As médias por partida representam melhor a comparação atual.</span>
+                        </span>
                       </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                        {data.comparison.prevLabel}
+                        {data.comparison.isPrevPartial && <span style={{ color: '#fbbf24', fontSize: '0.7rem', marginLeft: '4px', fontWeight: 500 }}> (PARCIAL)</span>}
+                      </span>
+                      <div style={{ width: '20px', height: '1px', backgroundColor: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#38bdf8' }}>
+                        {data.comparison.currLabel}
+                        {data.comparison.isCurrPartial && <span style={{ color: '#fbbf24', fontSize: '0.7rem', marginLeft: '4px', fontWeight: 500 }}> — período em andamento</span>}
+                      </span>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Assistências</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: data.comparison.assistsDiff > 0 ? '#22c55e' : data.comparison.assistsDiff < 0 ? '#ef4444' : 'var(--text-muted)' }}>
-                        {data.comparison.assistsDiff > 0 ? <ArrowUp size={14} /> : data.comparison.assistsDiff < 0 ? <ArrowDown size={14} /> : <Minus size={14} />}
-                        <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>{Math.abs(data.comparison.assistsDiff)} asts</span>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      {[
+                        { label: 'Gols', metric: data.comparison.goals, unit: 'gols' },
+                        { label: 'Assistências', metric: data.comparison.assists, unit: 'asts' },
+                        { label: 'Campeões', metric: data.comparison.champions, unit: 'vezes' },
+                        { label: 'Ralabostas', metric: data.comparison.ralabostas, unit: 'vezes' },
+                        { label: 'Partidas', metric: data.comparison.matches, unit: 'jogos' }
+                      ].map((item, idx) => {
+                        const isMatches = item.label === 'Partidas';
+                        const showAverageAsPrimary = data.comparison?.isPartial && !isMatches;
+
+                        const prevMatches = data.comparison?.matches.prev || 1;
+                        const currMatches = data.comparison?.matches.curr || 1;
+
+                        const pVal = item.metric.prev;
+                        const cVal = item.metric.curr;
+                        
+                        const pAvg = pVal / prevMatches;
+                        const cAvg = cVal / currMatches;
+
+                        const displayPrev = showAverageAsPrimary ? pAvg : pVal;
+                        const displayCurr = showAverageAsPrimary ? cAvg : cVal;
+                        
+                        const diff = displayCurr - displayPrev;
+                        let pctText = '';
+                        
+                        if (displayPrev === 0 && displayCurr > 0) {
+                          pctText = 'Novo registro';
+                        } else if (displayPrev === 0 && displayCurr === 0) {
+                          pctText = 'Sem alteração';
+                        } else if (displayPrev > 0 && displayCurr === 0) {
+                          pctText = '-100,0%';
+                        } else {
+                          const pct = (diff / displayPrev) * 100;
+                          pctText = `${diff > 0 ? '+' : ''}${pct.toFixed(1).replace('.', ',')}%`;
+                        }
+
+                        let color = '#fff';
+                        let arrow = '→';
+                        if (diff > 0) {
+                          color = item.label === 'Ralabostas' ? '#ef4444' : '#22c55e';
+                          arrow = '↑';
+                        } else if (diff < 0) {
+                          color = item.label === 'Ralabostas' ? '#22c55e' : '#ef4444';
+                          arrow = '↓';
+                        }
+
+                        const formatVal = (v: number) => {
+                          if (showAverageAsPrimary) {
+                            return v.toFixed(1).replace('.', ',');
+                          }
+                          return String(v);
+                        };
+
+                        const secondaryPrevText = showAverageAsPrimary ? `Total: ${pVal}` : `Média: ${pAvg.toFixed(1).replace('.', ',')}`;
+                        const secondaryCurrText = showAverageAsPrimary ? `Total: ${cVal}` : `Média: ${cAvg.toFixed(1).replace('.', ',')}`;
+
+                        return (
+                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>{item.label}</span>
+                              {showAverageAsPrimary && <span style={{ fontSize: '0.65rem', color: '#fbbf24', fontWeight: 500, textTransform: 'none' }}>(Média/partida)</span>}
+                            </span>
+                            
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{data.comparison?.prevLabel}:</span>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{formatVal(displayPrev)}</span>
+                                {!isMatches && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{secondaryPrevText}</span>}
+                              </div>
+                            </div>
+                            
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{data.comparison?.currLabel}:</span>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#38bdf8' }}>{formatVal(displayCurr)}</span>
+                                {!isMatches && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{secondaryCurrText}</span>}
+                              </div>
+                            </div>
+                            
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed rgba(255,255,255,0.1)', marginTop: '6px', paddingTop: '6px' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Diferença:</span>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                                {diff > 0 ? `+${formatVal(diff)}` : formatVal(diff)}
+                              </span>
+                            </div>
+                            
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Variação:</span>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: diff === 0 ? 'var(--text-muted)' : color }}>
+                                {diff === 0 ? (pctText === 'Sem alteração' ? pctText : '→ 0%') : `${arrow} ${pctText}`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {!data.comparison.isPartial && (data.comparison.matches.prev > 0 || data.comparison.matches.curr > 0) ? (
+                      <div style={{ marginTop: '12px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>MÉDIAS (POR PARTIDA)</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Gols</span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.75rem' }}>
+                              <span>{data.comparison.matches.prev > 0 ? (data.comparison.goals.prev / data.comparison.matches.prev).toFixed(1).replace('.', ',') : '—'}</span>
+                              <span style={{ color: 'var(--text-muted)' }}>vs</span>
+                              <span style={{ fontWeight: 600 }}>{data.comparison.matches.curr > 0 ? (data.comparison.goals.curr / data.comparison.matches.curr).toFixed(1).replace('.', ',') : '—'}</span>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Assistências</span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.75rem' }}>
+                              <span>{data.comparison.matches.prev > 0 ? (data.comparison.assists.prev / data.comparison.matches.prev).toFixed(1).replace('.', ',') : '—'}</span>
+                              <span style={{ color: 'var(--text-muted)' }}>vs</span>
+                              <span style={{ fontWeight: 600 }}>{data.comparison.matches.curr > 0 ? (data.comparison.assists.curr / data.comparison.matches.curr).toFixed(1).replace('.', ',') : '—'}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Entradas</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: data.comparison.entradasDiff > 0 ? '#22c55e' : data.comparison.entradasDiff < 0 ? '#ef4444' : 'var(--text-muted)' }}>
-                        {data.comparison.entradasDiff > 0 ? <ArrowUp size={14} /> : data.comparison.entradasDiff < 0 ? <ArrowDown size={14} /> : <Minus size={14} />}
-                        <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>{formatCurrency(Math.abs(data.comparison.entradasDiff))}</span>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Despesas</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: data.comparison.despesasDiff < 0 ? '#22c55e' : data.comparison.despesasDiff > 0 ? '#ef4444' : 'var(--text-muted)' }}>
-                        {data.comparison.despesasDiff > 0 ? <ArrowUp size={14} /> : data.comparison.despesasDiff < 0 ? <ArrowDown size={14} /> : <Minus size={14} />}
-                        <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>{formatCurrency(Math.abs(data.comparison.despesasDiff))}</span>
-                      </div>
-                    </div>
-                  </div>
+                    ) : null}
+                  </>
                 ) : (
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Sem dados suficientes para comparação.</span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>Sem dados ou filtro não suportado (ex: Ano inteiro).</span>
                 )}
               </div>
             )}

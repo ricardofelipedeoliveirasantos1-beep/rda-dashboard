@@ -43,6 +43,8 @@ interface MatchPlayer {
   team: 'brasil' | 'portugal' | 'japao' | 'uruguai';
   category_at_match: 'Mensalista' | 'Diarista';
   daily_fee_at_match: number;
+  payment_status?: "paid" | "pending" | "unknown" | null;
+  paid_at?: string | null;
   player: {
     name: string;
     photo_url: string | null;
@@ -144,6 +146,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   
   // Team menu active popover state
   const [activeTeamMenu, setActiveTeamMenu] = useState<{ playerId: string; teamName: string } | null>(null);
+  const [paymentUpdatingId, setPaymentUpdatingId] = useState<string | null>(null);
 
   // Stats view states
   const [activeMatchForStats, setActiveMatchForStats] = useState<Match | null>(null);
@@ -253,6 +256,56 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       }
     } else {
       setMatches(matchesData || []);
+    }
+  };
+
+  // Toggle Diarista Payment Status (History)
+  const handleToggleDiaristaPayment = async (playerId: string, matchId: string, _currentStatus: string, newStatus: string) => {
+    if (!can('edit_match')) {
+      alert('Você não tem permissão para alterar o financeiro.');
+      return;
+    }
+    setPaymentUpdatingId(playerId);
+    try {
+      const isPaid = newStatus === 'paid';
+      const paidAt = isPaid ? new Date().toISOString() : null;
+
+      const { error: updateError } = await supabase
+        .from('match_players')
+        .update({
+          payment_status: newStatus,
+          paid_at: paidAt
+        })
+        .eq('match_id', matchId)
+        .eq('player_id', playerId);
+
+      if (updateError) throw updateError;
+
+      const updatedMatches = [...matches];
+      const matchIndex = updatedMatches.findIndex(m => m.id === matchId);
+      if (matchIndex >= 0) {
+        const mpIndex = updatedMatches[matchIndex].match_players?.findIndex(mp => mp.player_id === playerId);
+        if (mpIndex !== undefined && mpIndex >= 0) {
+          updatedMatches[matchIndex].match_players![mpIndex].payment_status = newStatus as 'paid' | 'pending' | 'unknown';
+          updatedMatches[matchIndex].match_players![mpIndex].paid_at = paidAt;
+        }
+      }
+      setMatches(updatedMatches);
+      
+      if (activeMatchForStats && activeMatchForStats.id === matchId) {
+        const newStats = { ...activeMatchForStats };
+        const mpIndex = newStats.match_players?.findIndex(mp => mp.player_id === playerId);
+        if (mpIndex !== undefined && mpIndex >= 0) {
+           newStats.match_players![mpIndex].payment_status = newStatus as 'paid' | 'pending' | 'unknown';
+           newStats.match_players![mpIndex].paid_at = paidAt;
+        }
+        setActiveMatchForStats(newStats);
+      }
+    } catch (err: any) {
+      console.error('Erro ao atualizar pagamento:', err);
+      alert('Erro ao atualizar pagamento.');
+    } finally {
+      setPaymentUpdatingId(null);
     }
   };
 
@@ -680,35 +733,45 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             player_id: p.id,
             team: 'brasil',
             category_at_match: p.category,
-            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0
+            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0,
+            payment_status: p.category === 'Diarista' ? 'paid' : 'unknown',
+            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null
           })),
           ...teamPortugal.map(p => ({
             match_id: newMatchId,
             player_id: p.id,
             team: 'portugal',
             category_at_match: p.category,
-            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0
+            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0,
+            payment_status: p.category === 'Diarista' ? 'paid' : 'unknown',
+            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null
           })),
           ...teamJapao.map(p => ({
             match_id: newMatchId,
             player_id: p.id,
             team: 'japao',
             category_at_match: p.category,
-            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0
+            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0,
+            payment_status: p.category === 'Diarista' ? 'paid' : 'unknown',
+            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null
           })),
           ...teamUruguai.map(p => ({
             match_id: newMatchId,
             player_id: p.id,
             team: 'uruguai',
             category_at_match: p.category,
-            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0
+            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0,
+            payment_status: p.category === 'Diarista' ? 'paid' : 'unknown',
+            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null
           })),
           ...availablePlayers.map(p => ({
             match_id: newMatchId,
             player_id: p.id,
             team: null,
             category_at_match: p.category,
-            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0
+            daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0,
+            payment_status: p.category === 'Diarista' ? 'paid' : 'unknown',
+            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null
           }))
         ];
 
@@ -750,7 +813,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
         const getPlayerFee = (p: Player) => {
           if (isEditingFinishedMatch) {
-            const existingPlayer = matchBeingEdited.match_players?.find(mp => mp.player_id === p.id);
+            const existingPlayer = matchBeingEdited.match_players?.find((mp: any) => mp.player_id === p.id) as any;
             if (existingPlayer) {
               return existingPlayer.daily_fee_at_match;
             }
@@ -758,41 +821,69 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           return p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0;
         };
 
+        const getPlayerPaymentStatus = (p: Player) => {
+            if (isEditingFinishedMatch) {
+              const existingPlayer = matchBeingEdited.match_players?.find((mp: any) => mp.player_id === p.id) as any;
+              if (existingPlayer && existingPlayer.payment_status) return existingPlayer.payment_status;
+            }
+            if (p.category === 'Diarista') return 'paid';
+            return 'unknown';
+          };
+
+        const getPlayerPaidAt = (p: Player) => {
+            if (isEditingFinishedMatch) {
+              const existingPlayer = matchBeingEdited.match_players?.find((mp: any) => mp.player_id === p.id) as any;
+              if (existingPlayer) return existingPlayer.paid_at || null;
+            }
+            if (p.category === 'Diarista') return new Date().toISOString();
+            return null;
+          };
+
         const matchPlayersRows = [
           ...teamBrasil.map(p => ({
             match_id: editingMatchId,
             player_id: p.id,
             team: 'brasil',
             category_at_match: p.category,
-            daily_fee_at_match: getPlayerFee(p)
+            daily_fee_at_match: getPlayerFee(p),
+            payment_status: getPlayerPaymentStatus(p),
+            paid_at: getPlayerPaidAt(p)
           })),
           ...teamPortugal.map(p => ({
             match_id: editingMatchId,
             player_id: p.id,
             team: 'portugal',
             category_at_match: p.category,
-            daily_fee_at_match: getPlayerFee(p)
+            daily_fee_at_match: getPlayerFee(p),
+            payment_status: getPlayerPaymentStatus(p),
+            paid_at: getPlayerPaidAt(p)
           })),
           ...teamJapao.map(p => ({
             match_id: editingMatchId,
             player_id: p.id,
             team: 'japao',
             category_at_match: p.category,
-            daily_fee_at_match: getPlayerFee(p)
+            daily_fee_at_match: getPlayerFee(p),
+            payment_status: getPlayerPaymentStatus(p),
+            paid_at: getPlayerPaidAt(p)
           })),
           ...teamUruguai.map(p => ({
             match_id: editingMatchId,
             player_id: p.id,
             team: 'uruguai',
             category_at_match: p.category,
-            daily_fee_at_match: getPlayerFee(p)
+            daily_fee_at_match: getPlayerFee(p),
+            payment_status: getPlayerPaymentStatus(p),
+            paid_at: getPlayerPaidAt(p)
           })),
           ...availablePlayers.map(p => ({
             match_id: editingMatchId,
             player_id: p.id,
             team: null,
             category_at_match: p.category,
-            daily_fee_at_match: getPlayerFee(p)
+            daily_fee_at_match: getPlayerFee(p),
+            payment_status: getPlayerPaymentStatus(p),
+            paid_at: getPlayerPaidAt(p)
           }))
         ];
 
@@ -2518,9 +2609,48 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                               </div>
 
                               {isDiarista ? (
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontStyle: 'italic', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.03)', padding: '2px 8px', borderRadius: '6px' }}>
-                                  Diarista — não contabiliza estatísticas
-                                </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontStyle: 'italic', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.03)', padding: '2px 8px', borderRadius: '6px' }}>
+                                    Diarista — não contabiliza estatísticas
+                                  </span>
+                                  {mp.payment_status === 'paid' ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700, color: '#22c55e', backgroundColor: 'rgba(34,197,94,0.15)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(34,197,94,0.3)' }}>
+                                      <CheckCircle2 size={12} /> PAGO
+                                    </span>
+                                  ) : (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      {mp.payment_status === 'pending' ? (
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.3)' }}>
+                                          PENDENTE
+                                        </span>
+                                      ) : (
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(245,158,11,0.3)' }}>
+                                          ? DESCONHECIDO
+                                        </span>
+                                      )}
+                                      
+                                      <div style={{ display: 'flex', gap: '4px' }}>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleToggleDiaristaPayment(mp.player_id, mp.match_id, mp.payment_status || 'unknown', 'paid'); }}
+                                          disabled={paymentUpdatingId === mp.player_id}
+                                          style={{ padding: '4px 10px', borderRadius: '6px', backgroundColor: '#22c55e', border: 'none', color: '#ffffff', fontSize: '0.7rem', fontWeight: 700, cursor: paymentUpdatingId === mp.player_id ? 'not-allowed' : 'pointer', opacity: paymentUpdatingId === mp.player_id ? 0.5 : 1 }}
+                                        >
+                                          {paymentUpdatingId === mp.player_id ? '...' : 'MARCAR PAGO'}
+                                        </button>
+                                        
+                                        {mp.payment_status !== 'pending' && (
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); handleToggleDiaristaPayment(mp.player_id, mp.match_id, mp.payment_status || 'unknown', 'pending'); }}
+                                            disabled={paymentUpdatingId === mp.player_id}
+                                            style={{ padding: '4px 10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-primary)', fontSize: '0.7rem', fontWeight: 700, cursor: paymentUpdatingId === mp.player_id ? 'not-allowed' : 'pointer', opacity: paymentUpdatingId === mp.player_id ? 0.5 : 1 }}
+                                          >
+                                            PENDENTE
+                                        </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 (() => {
                                   const tCount = activeMatchForStats.team_count || 4;

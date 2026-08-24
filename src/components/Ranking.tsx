@@ -65,16 +65,26 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
       matches?.forEach(match => {
         const isHistorical = match.source === 'historical_manual' || match.source === 'historical_import';
 
+        // Passo 1: Inicializar mapa de match_players para consulta rápida dos dados do jogador
+        const playerDetailsMap: Record<string, any> = {};
         match.match_players?.forEach((mp: any) => {
-          if (!mp.player) return;
+          if (mp.player) {
+            playerDetailsMap[mp.player.id] = mp;
+          }
+        });
+
+        // Passo 2: Iterar EXCLUSIVAMENTE sobre match_player_stats para contar participações oficiais (JG)
+        match.match_player_stats?.forEach((playerStats: any) => {
+          const playerId = playerStats.player_id;
+          const mp = playerDetailsMap[playerId];
+          
+          if (!mp || !mp.player) return;
 
           // Rule: Ignore "Diarista" for normal matches
           if (!isHistorical && mp.category_at_match === 'Diarista') {
             return;
           }
 
-          const playerId = mp.player.id;
-          
           if (!statsMap[playerId]) {
             statsMap[playerId] = {
               id: playerId,
@@ -96,8 +106,6 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
             };
           }
 
-          const playerStats = match.match_player_stats?.find((s: any) => s.player_id === playerId);
-          
           let isChamp = false;
           let isVice = false;
           let isRala = false;
@@ -113,15 +121,14 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
             isRala = teamCount >= 3 ? (playerStats?.is_ralabosta || false) : false;
           }
 
+          // A existência da linha em match_player_stats garante +1 JG (Participação Oficial)
           statsMap[playerId].games += 1;
           
-          if (playerStats) {
-            statsMap[playerId].goals += (playerStats.goals || 0);
-            statsMap[playerId].assists += (playerStats.assists || 0);
-            statsMap[playerId].yellow_cards += (playerStats.yellow_cards || 0);
-            statsMap[playerId].blue_cards += (playerStats.blue_cards || 0);
-            statsMap[playerId].red_cards += (playerStats.red_cards || 0);
-          }
+          statsMap[playerId].goals += (playerStats.goals || 0);
+          statsMap[playerId].assists += (playerStats.assists || 0);
+          statsMap[playerId].yellow_cards += (playerStats.yellow_cards || 0);
+          statsMap[playerId].blue_cards += (playerStats.blue_cards || 0);
+          statsMap[playerId].red_cards += (playerStats.red_cards || 0);
 
           if (isChamp) statsMap[playerId].champion += 1;
           if (isVice) statsMap[playerId].vice += 1;

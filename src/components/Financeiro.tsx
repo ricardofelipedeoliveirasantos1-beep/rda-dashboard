@@ -3,8 +3,9 @@ import { supabase } from '../lib/supabase';
 import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
 import { 
   AlertCircle, 
-  CheckCircle2,
-  ChevronDown
+  CalendarDays,
+  ChevronDown,
+  UsersRound, UserRound, CircleArrowDown, CircleArrowUp, WalletCards, Plus, UserRoundCheck, UserRoundX, ChartNoAxesColumnIncreasing
 } from 'lucide-react';
 
 interface MonthlyPayment {
@@ -39,13 +40,19 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   const [error, setError] = useState<string | null>(null);
   
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [showMonthSelect, setShowMonthSelect] = useState(false);
-  const [showYearSelect, setShowYearSelect] = useState(false);
+  const [showDateModal, setShowDateModal] = useState(false);
   const YEARS_LIST = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
   
   const [payments, setPayments] = useState<MonthlyPayment[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [, setMatches] = useState<Match[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [mensalistasAtivosCount, setMensalistasAtivosCount] = useState<number>(0);
+  const [, setDiaristasPagosCount] = useState<number>(0);
+  const [, setLastMatchDate] = useState<string | null>(null);
+  const [diaristasTotalVal, setDiaristasTotalVal] = useState(0);
+  const [, setUnknownDiariasCount] = useState(0);
+  const [lastMatchDiaristasCount, setLastMatchDiaristasCount] = useState(0);
+  const [lastMatchDiaristasSum, setLastMatchDiaristasSum] = useState(0);
   
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
@@ -68,7 +75,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
     }
   }, [feedback]);
 
-  const financeCache = useRef<Record<string, { payments: MonthlyPayment[]; matches: Match[]; expenses: Expense[] }>>({});
+  const financeCache = useRef<Record<string, { payments: MonthlyPayment[]; matches: Match[]; expenses: Expense[]; mensalistasAtivosCount: number; diaristasPagosCount: number; lastMatchDate: string | null; diaristasTotalVal: number; unknownDiariasCount: number; lastMatchDiaristasCount: number; lastMatchDiaristasSum: number; }>>({});
 
   const getYearMonthString = (date: Date): string => {
     const yyyy = date.getFullYear();
@@ -83,6 +90,13 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       setPayments(financeCache.current[monthStr].payments);
       setMatches(financeCache.current[monthStr].matches);
       setExpenses(financeCache.current[monthStr].expenses);
+      setMensalistasAtivosCount(financeCache.current[monthStr].mensalistasAtivosCount);
+      setDiaristasPagosCount(financeCache.current[monthStr].diaristasPagosCount);
+      setLastMatchDate(financeCache.current[monthStr].lastMatchDate);
+      setDiaristasTotalVal(financeCache.current[monthStr].diaristasTotalVal);
+      setUnknownDiariasCount(financeCache.current[monthStr].unknownDiariasCount);
+      setLastMatchDiaristasCount(financeCache.current[monthStr].lastMatchDiaristasCount);
+      setLastMatchDiaristasSum(financeCache.current[monthStr].lastMatchDiaristasSum);
       setLoading(false);
       return;
     }
@@ -113,15 +127,70 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       
       const expensesRes = allExpenses.filter((e: any) => e.expense_date >= startOfMonth && e.expense_date < endOfMonth).sort((a: any, b: any) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
 
+      const allPlayers = await getCachedData('players', async () => {
+        const { data } = await supabase.from('players').select('id, is_active, category');
+        return data || [];
+      }, CACHE_TTL.players);
+      const activeMensalistas = allPlayers.filter((p: any) => p.is_active && (p.category === 'Mensalista' || p.category === 'mensalista'));
+      const activeMensalistasCount = activeMensalistas.length;
+
+      let uniqueDiaristasCount = 0;
+      let lastMatchDateStr = null;
+      let lastMatchId: string | null = null;
+      let diaristasArrecadadosSum = 0;
+      let unknownCount = 0;
+      let lastMatchDCount = 0;
+      let lastMatchDSum = 0;
+
+      if (matchesRes.length > 0) {
+        const sortedMatches = [...matchesRes].sort((a: any, b: any) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime());
+        lastMatchDateStr = sortedMatches[0].match_date;
+        lastMatchId = sortedMatches[0].id;
+        
+        const matchIds = matchesRes.map((m: any) => m.id);
+        const { data: mpData } = await supabase.from('match_players').select('match_id, player_id, category_at_match, daily_fee_at_match, payment_status').in('match_id', matchIds);
+        
+        if (mpData) {
+          const diaristas = mpData.filter((mp: any) => mp.category_at_match === 'Diarista' || mp.category_at_match === 'diarista');
+          
+          const paidDiaristas = diaristas.filter((mp: any) => mp.payment_status === 'paid');
+          diaristasArrecadadosSum = paidDiaristas.reduce((sum, mp) => sum + Number(mp.daily_fee_at_match || 0), 0);
+          
+          const lastMatchDiaristas = paidDiaristas.filter((mp: any) => mp.match_id === lastMatchId);
+          lastMatchDCount = lastMatchDiaristas.length;
+          lastMatchDSum = lastMatchDiaristas.reduce((sum, mp) => sum + Number(mp.daily_fee_at_match || 0), 0);
+
+          const uniqueIds = new Set(paidDiaristas.map((mp: any) => mp.player_id));
+          uniqueDiaristasCount = uniqueIds.size;
+          
+          unknownCount = diaristas.filter((mp: any) => !mp.payment_status || mp.payment_status === 'unknown').length;
+        }
+      }
+
       financeCache.current[monthStr] = {
         payments: paymentsRes,
         matches: matchesRes,
-        expenses: expensesRes
+        expenses: expensesRes,
+        mensalistasAtivosCount: activeMensalistasCount,
+        diaristasPagosCount: uniqueDiaristasCount,
+        lastMatchDate: lastMatchDateStr,
+        diaristasTotalVal: diaristasArrecadadosSum,
+        unknownDiariasCount: unknownCount,
+        lastMatchDiaristasCount: lastMatchDCount,
+        lastMatchDiaristasSum: lastMatchDSum
       };
 
       setPayments(paymentsRes);
       setMatches(matchesRes);
       setExpenses(expensesRes);
+      setMensalistasAtivosCount(activeMensalistasCount);
+      setDiaristasPagosCount(uniqueDiaristasCount);
+      setLastMatchDate(lastMatchDateStr);
+      setDiaristasTotalVal(diaristasArrecadadosSum);
+      setUnknownDiariasCount(unknownCount);
+      setLastMatchDiaristasCount(lastMatchDCount);
+      setLastMatchDiaristasSum(lastMatchDSum);
+
       setLoading(false);
     } catch (err) {
       console.error(`Erro ao carregar dados do mês ${monthStr}:`, err);
@@ -134,11 +203,17 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   }, [currentMonthStr]);
 
   // Cálculos Financeiros
+
+  const totalDespesasVal = expenses.reduce((sum, e) => sum + e.amount, 0);
   const recebidosVal = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
-  const diaristasTotalVal = matches.reduce((sum, m) => sum + Number(m.daily_total || 0), 0);
   const totalEntradasVal = recebidosVal + diaristasTotalVal;
-  const totalDespesasVal = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const saldoFinalVal = totalEntradasVal - totalDespesasVal;
+
+  // @ts-ignore
+  const mensalistasPagos = payments.filter(p => p.status === 'paid' && p.amount > 0).length;
+  const uniqueMensalistasPagosIds = new Set(payments.filter(p => p.status === 'paid').map((p: any) => p.player_id || p.id));
+  const mensalistasPagosUnicos = uniqueMensalistasPagosIds.size;
+  const mensalistasPendentes = Math.max(0, mensalistasAtivosCount - mensalistasPagosUnicos);
 
   if (loading) {
     return (
@@ -149,8 +224,8 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-      <div style={{ padding: '0 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '0 10px', overflowX: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, background: 'linear-gradient(135deg, #ffffff, #a3a3a3)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Financeiro</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>Balanço geral de arrecadação e gastos.</p>
@@ -164,145 +239,210 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         </div>
       )}
 
-      {/* SELETORES DE MÊS E ANO */}
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <div style={{ position: 'relative', width: '140px' }}>
-          <button 
-            onClick={() => setShowMonthSelect(!showMonthSelect)}
-            style={{ 
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-              backgroundColor: '#171717', padding: '12px 16px', borderRadius: '12px',
-              border: '1.5px solid rgba(255,255,255,0.08)', color: '#fff', fontWeight: 700, cursor: 'pointer'
-            }}
-          >
-            <span>{MONTHS_NAMES[currentDate.getMonth()]}</span>
-            <ChevronDown size={18} style={{ transform: showMonthSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-          </button>
-          
-          {showMonthSelect && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
-              backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
-              maxHeight: '240px', overflowY: 'auto', zIndex: 10, boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
-            }}>
-              {MONTHS_NAMES.map((m, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setCurrentDate(new Date(currentDate.getFullYear(), i, 1));
-                    setShowMonthSelect(false);
-                  }}
-                  style={{
-                    width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none',
-                    border: 'none', color: '#fff', fontSize: '0.9rem', cursor: 'pointer',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    backgroundColor: currentDate.getMonth() === i ? 'rgba(255,255,255,0.05)' : 'transparent'
-                  }}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={{ position: 'relative', width: '100px' }}>
-          <button 
-            onClick={() => setShowYearSelect(!showYearSelect)}
-            style={{ 
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-              backgroundColor: '#171717', padding: '12px 16px', borderRadius: '12px',
-              border: '1.5px solid rgba(255,255,255,0.08)', color: '#fff', fontWeight: 700, cursor: 'pointer'
-            }}
-          >
-            <span>{currentDate.getFullYear()}</span>
-            <ChevronDown size={18} style={{ transform: showYearSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-          </button>
-          
-          {showYearSelect && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
-              backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
-              maxHeight: '240px', overflowY: 'auto', zIndex: 10, boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
-            }}>
-              {YEARS_LIST.map((y, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setCurrentDate(new Date(y, currentDate.getMonth(), 1));
-                    setShowYearSelect(false);
-                  }}
-                  style={{
-                    width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none',
-                    border: 'none', color: '#fff', fontSize: '0.9rem', cursor: 'pointer',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    backgroundColor: currentDate.getFullYear() === y ? 'rgba(255,255,255,0.05)' : 'transparent'
-                  }}
-                >
-                  {y}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* SELETORES DE MÊS E ANO UNIFICADO */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+        <button 
+          onClick={() => setShowDateModal(true)}
+          style={{ 
+            width: 'min(82%, 320px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+            backgroundColor: 'rgba(255, 255, 255, 0.045)', padding: '0 16px', borderRadius: '15px',
+            border: '1px solid rgba(255, 255, 255, 0.16)', color: '#F8FAFC', fontWeight: 700, cursor: 'pointer',
+            height: '52px', fontSize: '15px'
+          }}
+        >
+          <CalendarDays size={19} color="#F5F5F5" />
+          <span>{MONTHS_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
+          <ChevronDown size={18} color="#E5E7EB" style={{ transform: showDateModal ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+        </button>
       </div>
 
-      {/* CARDS DO FINANCEIRO */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(34, 197, 94, 0.05)', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Mensalidades Recebidas</span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#22c55e' }}>R$ {recebidosVal.toFixed(2)}</span>
-        </div>
+      {showDateModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={() => setShowDateModal(false)}>
+          <div style={{ backgroundColor: '#171717', width: '90%', maxWidth: '340px', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid rgba(255,255,255,0.08)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, color: '#fff', fontSize: '1.1rem' }}>Selecionar Período</h3>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px' }}>
+                <select 
+                    value={currentDate.getMonth()}
+                    onChange={(e) => setCurrentDate(new Date(currentDate.getFullYear(), Number(e.target.value), 1))}
+                    style={{ flex: 1, padding: '12px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '1rem', outline: 'none' }}
+                >
+                    {MONTHS_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </select>
+                <select 
+                    value={currentDate.getFullYear()}
+                    onChange={(e) => setCurrentDate(new Date(Number(e.target.value), currentDate.getMonth(), 1))}
+                    style={{ flex: 1, padding: '12px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '1rem', outline: 'none' }}
+                >
+                    {YEARS_LIST.map((y, i) => <option key={i} value={y}>{y}</option>)}
+                </select>
+            </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(234, 179, 8, 0.05)', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Diaristas Arrecadados</span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#eab308' }}>R$ {diaristasTotalVal.toFixed(2)}</span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(168, 85, 247, 0.05)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Total de Entradas</span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#a855f7' }}>R$ {totalEntradasVal.toFixed(2)}</span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Despesas</span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#ef4444' }}>R$ {totalDespesasVal.toFixed(2)}</span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '16px', borderRadius: '16px', backgroundColor: 'rgba(34, 197, 94, 0.05)', border: '1px solid rgba(34, 197, 94, 0.2)', justifyContent: 'center' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a3a3a3', textTransform: 'uppercase' }}>Saldo Líquido</span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: saldoFinalVal >= 0 ? '#22c55e' : '#ef4444' }}>R$ {saldoFinalVal.toFixed(2)}</span>
-        </div>
-
-        {(_userRole === 'admin' || _userRole === 'treasurer' || (_userRole === 'assistant' && _can('manage_expenses'))) ? (
-          <button 
-            onClick={() => setShowExpenseModal(true)}
-            style={{ 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', 
-              backgroundColor: '#f43f5e', color: '#fff', border: 'none', borderRadius: '16px', 
-              fontSize: '1rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.3)',
-              width: '100%', height: '100%'
-            }}
-          >
-            + Adicionar gasto
-          </button>
-        ) : (
-          <div style={{ width: '100%', height: '100%' }}></div>
-        )}
-      </div>
-
-      {feedback && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', borderRadius: '12px', backgroundColor: feedback.type === 'success' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', border: feedback.type === 'success' ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(239,68,68,0.25)', color: feedback.type === 'success' ? 'var(--success)' : 'var(--danger)', fontSize: '0.85rem' }}>
-          {feedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-          <span>{feedback.message}</span>
+            <button onClick={() => setShowDateModal(false)} style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: '#f43f5e', border: 'none', color: '#fff', fontWeight: 700, marginTop: '8px', fontSize: '1rem', cursor: 'pointer' }}>OK</button>
+          </div>
         </div>
       )}
 
+      {/* CARDS DO FINANCEIRO */}
+      <style>
+        {`
+          .fin-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+          }
+          .fin-card {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 10px;
+            border-radius: 14px;
+            height: 82px;
+            justify-content: center;
+            overflow: hidden;
+          }
+          .fin-card-title {
+            font-size: 9px;
+            font-weight: 700;
+            color: #A7A7B3;
+            text-transform: uppercase;
+            line-height: 1.25;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+          }
+          .fin-card-value {
+            font-size: 19px;
+            font-weight: 800;
+            line-height: 1.1;
+            white-space: nowrap;
+          }
+          
+          .fin-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+          .fin-stat-card {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            border-radius: 14px;
+            height: 98px;
+            justify-content: center;
+            overflow: hidden;
+          }
+          .fin-stat-icon-wrap {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 4px;
+          }
+          .fin-stat-title {
+            font-size: 8.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+          }
+          .fin-stat-value {
+            font-size: 22px;
+            font-weight: 800;
+            line-height: 1;
+          }
+          .fin-stat-sub {
+            font-size: 9px;
+            color: #A7A7B3;
+            margin-top: 2px;
+          }
+        `}
+      </style>
+
+      <div className="fin-grid">
+        <div className="fin-card" style={{ backgroundColor: 'rgba(34, 197, 94, 0.06)', border: '1px solid rgba(34, 197, 94, 0.25)' }}>
+          <span className="fin-card-title"><UsersRound size={14} color="#22C55E" /> Mensalidades Recebidas</span>
+          <span className="fin-card-value" style={{ color: '#22c55e' }}>R$ {recebidosVal.toFixed(2).replace('.', ',')}</span>
+        </div>
+
+        <div className="fin-card" style={{ backgroundColor: 'rgba(245, 164, 0, 0.06)', border: '1px solid rgba(245, 164, 0, 0.25)', gridRow: 'span 2', height: 'auto', gap: '10px', paddingBottom: '14px' }}>
+          <span className="fin-card-title" style={{ fontSize: '10px', textTransform: 'uppercase' }}><UserRound size={14} color="#F5A400" /> Diaristas Arrecadados</span>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+             <span style={{ fontSize: '10px', color: '#A7A7B3' }}>Último racha: {lastMatchDiaristasCount} diarista{lastMatchDiaristasCount !== 1 ? 's' : ''}</span>
+             <span style={{ fontSize: '11px', color: '#F5A400', fontWeight: 600 }}>R$ {lastMatchDiaristasSum.toFixed(2).replace('.', ',')} no último racha</span>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: 'auto' }}>
+             <span style={{ fontSize: '9px', color: '#A7A7B3', textTransform: 'uppercase', fontWeight: 700 }}>TOTAL NO MÊS</span>
+             <span className="fin-card-value" style={{ color: '#F5A400', fontSize: '19px' }}>R$ {diaristasTotalVal.toFixed(2).replace('.', ',')}</span>
+          </div>
+        </div>
+
+        <div className="fin-card" style={{ backgroundColor: 'rgba(168, 85, 247, 0.06)', border: '1px solid rgba(168, 85, 247, 0.25)' }}>
+          <span className="fin-card-title"><CircleArrowDown size={14} color="#A855F7" /> Total de Entradas</span>
+          <span className="fin-card-value" style={{ color: '#a855f7' }}>R$ {totalEntradasVal.toFixed(2).replace('.', ',')}</span>
+        </div>
+
+        <div className="fin-card" style={{ backgroundColor: 'rgba(255, 69, 79, 0.06)', border: '1px solid rgba(255, 69, 79, 0.25)' }}>
+          <span className="fin-card-title"><CircleArrowUp size={14} color="#FF454F" /> Despesas</span>
+          <span className="fin-card-value" style={{ color: '#FF454F' }}>R$ {totalDespesasVal.toFixed(2).replace('.', ',')}</span>
+        </div>
+
+        <div className="fin-card" style={{ backgroundColor: 'rgba(34, 197, 94, 0.06)', border: '1px solid rgba(34, 197, 94, 0.25)' }}>
+          <span className="fin-card-title"><WalletCards size={14} color="#22C55E" /> Saldo Líquido</span>
+          <span className="fin-card-value" style={{ color: saldoFinalVal >= 0 ? '#22c55e' : '#FF454F' }}>R$ {saldoFinalVal.toFixed(2).replace('.', ',')}</span>
+        </div>
+      </div>
+
+      {(_userRole === 'admin' || _userRole === 'treasurer' || (_userRole === 'assistant' && _can('manage_expenses'))) && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '14px', marginBottom: '16px' }}>
+          <button 
+            onClick={() => setShowExpenseModal(true)}
+            style={{ 
+              width: 'min(82%, 310px)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+              background: 'linear-gradient(135deg, #F43F5E 0%, #FB4567 100%)', color: '#FFFFFF', border: 'none', borderRadius: '14px', 
+              fontSize: '14px', fontWeight: 700, cursor: 'pointer', height: '50px',
+              boxShadow: '0 4px 12px rgba(244, 63, 94, 0.15)'
+            }}
+          >
+            <Plus size={18} /> Adicionar gasto
+          </button>
+        </div>
+      )}
+
+      {/* CONTROLE DE PAGAMENTOS */}
+      <div className="fin-stats-grid">
+        <div className="fin-stat-card" style={{ backgroundColor: 'rgba(47, 140, 255, 0.07)', border: '1px solid rgba(47, 140, 255, 0.25)' }}>
+          <div className="fin-stat-icon-wrap" style={{ backgroundColor: 'rgba(47, 140, 255, 0.15)' }}>
+            <UserRoundCheck size={16} color="#2F8CFF" />
+          </div>
+          <span className="fin-stat-title" style={{ color: '#2F8CFF' }}>Mensalistas<br/>Pagos</span>
+          <span className="fin-stat-value" style={{ color: '#2F8CFF' }}>{mensalistasPagosUnicos}</span>
+          <span className="fin-stat-sub">de {mensalistasAtivosCount}</span>
+        </div>
+
+        <div className="fin-stat-card" style={{ backgroundColor: 'rgba(245, 158, 11, 0.07)', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+          <div className="fin-stat-icon-wrap" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)' }}>
+            <UserRoundX size={16} color="#F59E0B" />
+          </div>
+          <span className="fin-stat-title" style={{ color: '#F59E0B' }}>Mensalistas<br/>Pendentes</span>
+          <span className="fin-stat-value" style={{ color: '#F59E0B' }}>{mensalistasPendentes}</span>
+          <span className="fin-stat-sub">de {mensalistasAtivosCount}</span>
+        </div>
+      </div>
+
       {/* RELATÓRIO DE GASTOS */}
-      <section className="dashboard-card" style={{ gap: '12px' }}>
+      <section className="dashboard-card" style={{ gap: '12px', marginTop: '16px', borderRadius: '16px', padding: '12px' }}>
         <div className="card-header" style={{ marginBottom: '2px' }}>
           <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 900, fontSize: '1.15rem', color: '#fff' }}>
-            RELATÓRIO DE GASTOS DO MÊS
+            <ChartNoAxesColumnIncreasing size={18} color="#A3A3A3" /> RELATÓRIO DE GASTOS DO MÊS
           </span>
         </div>
 
