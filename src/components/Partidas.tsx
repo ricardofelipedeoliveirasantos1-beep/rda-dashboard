@@ -1777,6 +1777,11 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                         ].map(t => {
                           const isTeamChampion = match.champion_team === t.code;
                           const isTeamRunnerUp = match.runner_up_team === t.code;
+                          const isTeamRalabosta = (() => {
+                            if (match.team_count === 4) return match.fourth_place_team === t.code;
+                            if (match.team_count === 3) return match.third_place_team === t.code;
+                            return false;
+                          })();
 
                           return (
                             <div key={t.name} style={{ backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)', borderRadius: '10px', padding: '10px' }}>
@@ -1811,12 +1816,15 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                             </div>
                                           )}
                                           <span style={{ fontWeight: 500, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                            {mp.player?.name || 'Jogador Excluído'}
+                                            {(mp.player?.name || 'Jogador Excluído').replace('✅', '').trim()}
+                                            {isTeamRalabosta && (
+                                              <span style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center' }} title="Ralabosta">💩</span>
+                                            )}
                                             {isTeamChampion && mp.category_at_match === 'Mensalista' && (
                                               <Trophy size={10} style={{ color: '#fbbf24' }} />
                                             )}
                                             {mp.category_at_match === 'Diarista' && (
-                                              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginLeft: '2px' }}>(Diarista)</span>
+                                              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>(Diarista)</span>
                                             )}
                                           </span>
                                         </div>

@@ -1557,7 +1557,15 @@ export default function App() {
                                                 </div>
                                                 <div className="match-item">
                                                   <Users size={16} />
-                                                  <span>Ralabosta: {lastMatch.fourth_place_team === 'team_1' ? (lastMatch.team_1_name || 'Colete') : lastMatch.fourth_place_team === 'team_2' ? (lastMatch.team_2_name || 'S/ Colete') : (lastMatch.fourth_place_team || 'N/A')}</span>
+                                                  <span>Ralabosta: {(() => {
+                                                    const ralaVal = lastMatch.team_count === 4 ? lastMatch.fourth_place_team :
+                                                                    lastMatch.team_count === 3 ? lastMatch.third_place_team : null;
+                                                    
+                                                    if (!ralaVal) return 'N/A';
+                                                    if (ralaVal === 'team_1') return lastMatch.team_1_name || 'Colete';
+                                                    if (ralaVal === 'team_2') return lastMatch.team_2_name || 'S/ Colete';
+                                                    return ralaVal;
+                                                  })()}</span>
                                                 </div>
                                               </>
                                             )}
