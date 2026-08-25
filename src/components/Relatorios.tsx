@@ -929,7 +929,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
       </div>
 
       {/* FILTER CARD */}
-      <div className="dashboard-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', zIndex: 50 }}>
+      <div className="dashboard-card dashboard-card--neon" style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="card-title" style={{ fontSize: '0.9rem' }}>PERÍODO</span>
         </div>
@@ -1023,7 +1023,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
 
       {/* EMPTY STATE */}
       {data && !loading && !error && data.summary.matches === 0 && (
-        <div className="dashboard-card" style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-secondary)' }}>
+        <div className="dashboard-card dashboard-card--neon" style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-secondary)' }}>
           <AlertCircle size={32} style={{ margin: '0 auto 12px auto', color: 'var(--text-muted)' }} />
           <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>Nenhum dado encontrado para este período</h3>
           <p style={{ fontSize: '0.85rem', margin: 0 }}>Não foram encontradas partidas finalizadas em {getPeriodLabel()}.</p>
@@ -1053,7 +1053,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
           )}
 
           {/* 1. RESUMO GERAL */}
-          <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ padding: '0', overflow: 'hidden' }}>
             <div 
               onClick={() => setIsResumoOpen(!isResumoOpen)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}
@@ -1118,7 +1118,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
           </div>
 
           {/* 2. DESEMPENHO */}
-          <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ padding: '0', overflow: 'hidden' }}>
             <div 
               onClick={() => setIsDesempenhoOpen(!isDesempenhoOpen)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}
@@ -1197,7 +1197,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
           </div>
 
           {/* 3. RANKING DO PERÍODO */}
-          <div className="dashboard-card" style={{ padding: '0', overflow: 'visible' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ padding: '0', overflow: 'visible' }}>
             <div 
               onClick={() => setIsRankingOpen(!isRankingOpen)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}
@@ -1296,7 +1296,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
           {/* 4. FINANCEIRO */}
 
           {/* 5. JOGADORES (TOP 3 COLOCAÇÕES) */}
-          <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ padding: '0', overflow: 'hidden' }}>
             <div 
               onClick={() => setIsJogadoresOpen(!isJogadoresOpen)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}
@@ -1382,7 +1382,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
           </div>
 
           {/* 6. PARTIDAS */}
-          <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ padding: '0', overflow: 'hidden' }}>
             <div 
               onClick={() => setIsPartidasOpen(!isPartidasOpen)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}
@@ -1424,7 +1424,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
           </div>
 
           {/* 7. DESTAQUES DO PERÍODO */}
-          <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ padding: '0', overflow: 'hidden' }}>
             <div 
               onClick={() => setIsDestaquesOpen(!isDestaquesOpen)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}
@@ -1456,7 +1456,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
 
           {/* 7.5. DESTAQUES POR MÊS */}
           {(filterType === 'year' || filterType.includes('semestre')) && (
-            <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
+            <div className="dashboard-card dashboard-card--neon" style={{ padding: '0', overflow: 'hidden' }}>
               <div 
                 onClick={() => setIsDestaquesMesOpen(!isDestaquesMesOpen)}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}
@@ -1503,7 +1503,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
           )}
 
           {/* 8. COMPARAÇÃO */}
-          <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ padding: '0', overflow: 'hidden' }}>
             <div 
               onClick={() => setIsComparacaoOpen(!isComparacaoOpen)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}

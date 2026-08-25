@@ -535,7 +535,7 @@ export default function Configuracoes({
 
   if (loading) {
     return (
-      <div className="dashboard-card" style={{ padding: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+      <div className="dashboard-card dashboard-card--neon" style={{ padding: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
         <div className="loader-spinner" style={{ width: '40px', height: '40px', borderRadius: '50%', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#6366f1', animation: 'spin 1s linear infinite' }} />
         <span style={{ color: 'var(--text-secondary)', marginTop: '16px', fontSize: '0.9rem' }}>Carregando configurações...</span>
       </div>
@@ -575,7 +575,7 @@ export default function Configuracoes({
       </div>
 
       {/* CARD DE AJUSTE DE VALORES */}
-      <section className="dashboard-card" style={{ gap: isAjustesOpen ? '16px' : '0' }}>
+      <section className="dashboard-card dashboard-card--neon" style={{ gap: isAjustesOpen ? '16px' : '0' }}>
         <div 
           className="card-header" 
           onClick={() => setIsAjustesOpen(!isAjustesOpen)}
@@ -799,7 +799,7 @@ export default function Configuracoes({
 
 
       {/* SEÇÃO: LOGO DO RDA */}
-      <section className="dashboard-card" style={{ gap: '16px' }}>
+      <section className="dashboard-card dashboard-card--neon" style={{ gap: '16px' }}>
         <div className="card-header">
           <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             🖼️ Logo do RDA
@@ -902,7 +902,7 @@ export default function Configuracoes({
 
       {/* SEÇÃO: CONTROLE DE ACESSO DE ASSISTENTES (ADMIN APENAS) */}
       {_userRole === 'admin' && (
-        <section className="dashboard-card" style={{ gap: isPermissionsOpen ? '16px' : '0' }}>
+        <section className="dashboard-card dashboard-card--neon" style={{ gap: isPermissionsOpen ? '16px' : '0' }}>
           <div 
             className="card-header"
             onClick={() => setIsPermissionsOpen(!isPermissionsOpen)}
@@ -1003,7 +1003,7 @@ export default function Configuracoes({
 
       {/* ── USUÁRIOS E ACESSO (ADMIN APENAS) ── */}
       {_userRole === 'admin' && (
-        <section className="dashboard-card" style={{ gap: isUsersOpen ? '16px' : '0' }}>
+        <section className="dashboard-card dashboard-card--neon" style={{ gap: isUsersOpen ? '16px' : '0' }}>
           <div
             className="card-header"
             onClick={() => {
@@ -1348,7 +1348,7 @@ export default function Configuracoes({
 
       {/* ── FERRAMENTAS DE DADOS ── */}
 
-      <section className="dashboard-card" style={{ gap: '12px' }}>
+      <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px' }}>
         <div className="card-header">
           <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ClipboardList size={18} style={{ color: '#818cf8' }} /> Ferramentas de Dados

@@ -1855,7 +1855,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             })}
           </div>
         ) : (
-          <div className="dashboard-card" style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
             Nenhuma partida registrada.
           </div>
         )}
@@ -1898,7 +1898,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           </div>
         </div>
 
-        <section className="dashboard-card">
+        <section className="dashboard-card dashboard-card--neon">
           <div className="card-header">
             <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Calendar size={18} style={{ color: '#818cf8' }} /> Dados da Partida
@@ -2011,7 +2011,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           </div>
         </section>
 
-        <section className="dashboard-card" style={{ gap: '12px' }}>
+        <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px' }}>
           <div className="card-header" style={{ marginBottom: '4px' }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2198,7 +2198,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           )}
         </section>
 
-        <section className="dashboard-card">
+        <section className="dashboard-card dashboard-card--neon">
           <div className="card-header">
             <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <TrendingUp size={18} style={{ color: '#818cf8' }} /> Resumo
@@ -2467,7 +2467,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         )}
 
         {/* MATCH DETAILS & STATS SUMMARY BANNER */}
-        <section className="dashboard-card" style={{ gap: '12px', backgroundColor: 'rgba(99,102,241,0.01)', border: '1px solid rgba(99,102,241,0.1)' }}>
+        <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px', backgroundColor: 'rgba(99,102,241,0.01)', border: '1px solid rgba(99,102,241,0.1)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', textAlign: 'center', fontSize: '0.78rem', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '8px' }}>
             <div>
               <span style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '2px' }}>Data</span>
@@ -2732,7 +2732,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         </div>
 
         {/* CLASSIFICAÇÃO DA PARTIDA CARD */}
-        <section className="dashboard-card" style={{ gap: '12px', zIndex: 10 }}>
+        <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px', zIndex: 10 }}>
           <div className="card-header">
             <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Trophy size={18} style={{ color: '#fbbf24' }} /> Classificação da Partida
@@ -3053,7 +3053,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         </div>
       </div>
 
-      <section className="dashboard-card" style={{ gap: '12px' }}>
+      <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', textAlign: 'center' }}>
           <div>
             <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Jogadores disponíveis</span>
@@ -3155,7 +3155,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       </div>
 
       {availablePlayers.length > 0 ? (
-        <section className="dashboard-card" style={{ gap: '12px' }}>
+        <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px' }}>
           <div className="card-header">
             <span className="card-title" style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Users size={16} style={{ color: 'var(--text-secondary)' }} /> Jogadores Disponíveis ({availablePlayers.length})
@@ -3213,7 +3213,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       )}
 
       {selectedPlayerForDraw && (
-        <section className="dashboard-card" style={{ gap: '12px', borderColor: '#6366f1', boxShadow: '0 4px 20px rgba(99, 102, 241, 0.15)', animation: 'slideDown 0.2s ease-out' }}>
+        <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px', borderColor: '#6366f1', boxShadow: '0 4px 20px rgba(99, 102, 241, 0.15)', animation: 'slideDown 0.2s ease-out' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               Selecionado: <strong style={{ color: 'var(--text-primary)' }}>{selectedPlayerForDraw.name}</strong>

@@ -439,7 +439,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       </div>
 
       {/* RELATÓRIO DE GASTOS */}
-      <section className="dashboard-card" style={{ gap: '12px', marginTop: '16px', borderRadius: '16px', padding: '12px' }}>
+      <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px', marginTop: '16px', borderRadius: '16px', padding: '12px' }}>
         <div className="card-header" style={{ marginBottom: '2px' }}>
           <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 900, fontSize: '1.15rem', color: '#fff' }}>
             <ChartNoAxesColumnIncreasing size={18} color="#A3A3A3" /> RELATÓRIO DE GASTOS DO MÊS

@@ -78,16 +78,18 @@ body {
   align-items: center;
   justify-content: center;
   background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.45);
   border-radius: 12px;
   color: var(--text-primary);
   cursor: pointer;
   transition: var(--transition);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
 }
 
 .header-menu-btn:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.7);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
 }
 
 .header-center {
@@ -122,8 +124,9 @@ body {
 }
 
 .header-admin-btn:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.7);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
 }
 
 .main-content {
@@ -189,6 +192,23 @@ body {
   transform: translateY(-2px);
   border-color: #3f3f46;
   box-shadow: var(--shadow-md);
+}
+
+/* Neon azul elegante — aplicar nos containers principais */
+.dashboard-card--neon {
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.12),
+    0 0 16px rgba(59, 130, 246, 0.12),
+    var(--shadow-sm);
+}
+
+.dashboard-card--neon:hover {
+  border-color: rgba(59, 130, 246, 0.65);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.2),
+    0 0 22px rgba(59, 130, 246, 0.18),
+    var(--shadow-md);
 }
 
 .card-header {

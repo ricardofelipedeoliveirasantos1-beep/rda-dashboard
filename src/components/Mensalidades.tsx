@@ -422,7 +422,7 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
       )}
 
       {/* LISTA DE MENSALISTAS */}
-      <section className="dashboard-card" style={{ gap: '12px' }}>
+      <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px' }}>
         <div style={{ position: 'relative', width: '100%' }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input 

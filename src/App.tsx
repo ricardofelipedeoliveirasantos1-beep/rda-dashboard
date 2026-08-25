@@ -38,7 +38,6 @@ import {
   Sparkles,
   CircleCheck,
   CircleAlert,
-  Crown,
   Frown
 } from 'lucide-react';
 
@@ -819,9 +818,9 @@ export default function App() {
   }
 
   const renderPodium = (data: any[], title: string, icon: any, color: string, suffix: string, emptyMsg: string) => (
-    <div className="dashboard-card" style={{ cursor: 'pointer', transition: 'var(--transition)' }} onClick={() => setActiveTab('ranking')}>
-      <div className="card-header" style={{ marginBottom: '16px' }}>
-        <span className="card-title" style={{ color: color, display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div className="dashboard-card dashboard-card--neon" style={{ cursor: 'pointer', transition: 'var(--transition)' }} onClick={() => setActiveTab('ranking')}>
+      <div className="card-header" style={{ marginBottom: '19px' }}>
+        <span className="card-title" style={{ color: color, display: 'flex', alignItems: 'center', gap: '8px', lineHeight: 1.3, transform: 'translateY(-4px)', fontSize: '0.70rem' }}>
           {icon} {title}
         </span>
       </div>
@@ -840,7 +839,7 @@ export default function App() {
           {/* 1º Lugar */}
           {data[0] && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2, zIndex: 2, width: 0 }}>
-              <Crown size={16} color={color} style={{ marginBottom: '2px' }} />
+              <span style={{ fontSize: '1.3rem', lineHeight: 1, marginBottom: '3px', display: 'block', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }}>👑</span>
               <img src={data[0].photo || '/default.png'} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: `3px solid ${color}` }} />
               <span style={{ fontSize: '0.75rem', fontWeight: 800, marginTop: '4px', textAlign: 'center', color: color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{data[0].name.split(' ')[0]}</span>
               <span style={{ fontSize: '0.9rem', fontWeight: 900, color: '#fff' }}>{data[0].count} {suffix}</span>
@@ -888,8 +887,8 @@ export default function App() {
               objectFit: 'cover', 
               display: 'block',
               borderRadius: '50%',
-              border: '2px solid rgba(255,255,255,0.12)',
-              boxShadow: '0 0 12px rgba(99,102,241,0.3)'
+              border: '2px solid rgba(59, 130, 246, 0.45)',
+              boxShadow: '0 0 12px rgba(59, 130, 246, 0.3), 0 0 0 1px rgba(59, 130, 246, 0.12)'
             }} 
           />
         </div>
@@ -903,7 +902,8 @@ export default function App() {
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
-              border: isUserMenuOpen ? '1.5px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.08)' 
+              border: isUserMenuOpen ? '1.5px solid rgba(59, 130, 246, 0.7)' : '1.5px solid rgba(59, 130, 246, 0.45)',
+              boxShadow: isUserMenuOpen ? '0 0 16px rgba(59, 130, 246, 0.25)' : '0 0 12px rgba(59, 130, 246, 0.15)'
             }}
           >
             {currentUserRole === 'admin' ? (
@@ -1150,7 +1150,7 @@ export default function App() {
             ) : (
               <>
                 {/* CARD 01 — RESUMO DA TEMPORADA */}
-                <div className="dashboard-card">
+                <div className="dashboard-card dashboard-card--neon">
                   <div className="card-header">
                     <span className="card-title">
                       <Award size={18} /> Resumo da Temporada
@@ -1217,7 +1217,7 @@ export default function App() {
                 </div>
 
                 {dashboardNotices.length > 0 && (
-                  <div className="dashboard-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div className="dashboard-card dashboard-card--neon" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div className="card-header">
                       <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <AlertCircle size={18} /> Quadro de Avisos
@@ -1353,7 +1353,7 @@ export default function App() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
                   {/* CARD 02 — FINANCEIRO */}
-                                  <div className="dashboard-card">
+                                  <div className="dashboard-card dashboard-card--neon">
                                     <div className="card-header">
                                       <span className="card-title">
                                         <DollarSign size={18} /> Financeiro Geral
@@ -1399,7 +1399,7 @@ export default function App() {
                                     </div>
                                   </div>
                   {/* CARD 08 — RESUMO MENSAL */}
-                                  <div className="dashboard-card" style={{ padding: '16px' }}>
+                                  <div className="dashboard-card dashboard-card--neon" style={{ padding: '16px' }}>
                                     <div className="card-header" style={{ marginBottom: '16px' }}>
                                       <span className="card-title">
                                         <FileText size={18} /> Resumo Mensal (Atual)
@@ -1436,7 +1436,7 @@ export default function App() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
                   {/* CARD 03 — PRÓXIMA PARTIDA */}
-                                  <div className="dashboard-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <div className="dashboard-card dashboard-card--neon" style={{ display: 'flex', flexDirection: 'column' }}>
                                     <div className="card-header">
                                       <span className="card-title">
                                         <Calendar size={18} /> Próxima Partida
@@ -1470,7 +1470,7 @@ export default function App() {
                                     </button>
                                   </div>
                   {/* CARD 06 — ÚLTIMA PARTIDA */}
-                                  <div className="dashboard-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <div className="dashboard-card dashboard-card--neon" style={{ display: 'flex', flexDirection: 'column' }}>
                                     <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                       <span className="card-title">
                                         <Activity size={18} /> Última Partida
@@ -1584,7 +1584,7 @@ export default function App() {
                 </div>
 
                 {/* CARD 09 — ANIVERSARIANTES DO MÊS */}
-                <div className="dashboard-card">
+                <div className="dashboard-card dashboard-card--neon">
                   <div className="card-header">
                     <span className="card-title">
                       <Award size={18} /> Aniversariantes do Mês
@@ -1661,7 +1661,7 @@ export default function App() {
             setAppLogoUrl={setAppLogoUrl}
           />
         ) : (
-          <div className="dashboard-card" style={{ padding: '40px', textAlign: 'center', minHeight: '200px', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ padding: '40px', textAlign: 'center', minHeight: '200px', justifyContent: 'center', alignItems: 'center' }}>
             <span className="card-title" style={{ justifyContent: 'center' }}>Em breve</span>
             <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '0.9rem' }}>
               Este módulo estará disponível nas próximas fases do desenvolvimento do RDA.
@@ -1797,7 +1797,7 @@ export default function App() {
           zIndex: 9999,
           padding: '20px'
         }}>
-          <div className="dashboard-card" style={{ maxWidth: '400px', width: '100%', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 36px rgba(0,0,0,0.8)' }}>
+          <div className="dashboard-card dashboard-card--neon" style={{ maxWidth: '400px', width: '100%', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 36px rgba(0,0,0,0.8)' }}>
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)' }}>Editar Placar</h2>
               <button onClick={() => setEditingLastMatch(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
