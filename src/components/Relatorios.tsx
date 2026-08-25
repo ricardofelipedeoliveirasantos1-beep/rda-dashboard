@@ -482,8 +482,8 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
   const fetchPeriodStats = async (startDate: string, endDate: string) => {
     // 1. Buscar partidas finalizadas do período (omite daily_total para visitantes)
     const matchesSelect = userRole === 'visitor'
-      ? 'id, match_date, match_time, status, champion_team, runner_up_team, source'
-      : 'id, match_date, match_time, status, daily_total, champion_team, runner_up_team, source';
+      ? 'id, match_date, match_time, status, champion_team, runner_up_team, source, team_count'
+      : 'id, match_date, match_time, status, daily_total, champion_team, runner_up_team, source, team_count';
 
     const { data: matchesData, error: matchesError } = await supabase
       .from('matches')
@@ -1197,7 +1197,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
           </div>
 
           {/* 3. RANKING DO PERÍODO */}
-          <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div className="dashboard-card" style={{ padding: '0', overflow: 'visible' }}>
             <div 
               onClick={() => setIsRankingOpen(!isRankingOpen)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', cursor: 'pointer' }}

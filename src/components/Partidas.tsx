@@ -1816,13 +1816,12 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                             </div>
                                           )}
                                           <span style={{ fontWeight: 500, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                            {(mp.player?.name || 'Jogador Excluído').replace('✅', '').trim()}
-                                            {isTeamRalabosta && (
+                                            {mp.player?.name || 'Jogador Excluído'}
+                                            {isTeamChampion ? (
+                                              <span style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center' }} title="Campeão">🏆</span>
+                                            ) : isTeamRalabosta ? (
                                               <span style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center' }} title="Ralabosta">💩</span>
-                                            )}
-                                            {isTeamChampion && mp.category_at_match === 'Mensalista' && (
-                                              <Trophy size={10} style={{ color: '#fbbf24' }} />
-                                            )}
+                                            ) : null}
                                             {mp.category_at_match === 'Diarista' && (
                                               <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>(Diarista)</span>
                                             )}
@@ -1835,7 +1834,6 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                             {stats.yellow_cards > 0 && <span style={{ color: '#eab308', backgroundColor: 'rgba(234,179,8,0.1)', padding: '1px 5px', borderRadius: '4px' }}>🟨 {stats.yellow_cards}</span>}
                                             {stats.blue_cards > 0 && <span style={{ color: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', padding: '1px 5px', borderRadius: '4px' }}>🟦 {stats.blue_cards}</span>}
                                             {stats.red_cards > 0 && <span style={{ color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', padding: '1px 5px', borderRadius: '4px' }}>🟥 {stats.red_cards}</span>}
-                                            {stats.is_ralabosta && <span style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', padding: '1px 5px', borderRadius: '4px' }}>💩</span>}
                                           </div>
                                         )}
                                       </div>
