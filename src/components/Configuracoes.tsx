@@ -96,6 +96,10 @@ export default function Configuracoes({
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
 
   const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
+  const [isTreasurerPermissionsOpen, setIsTreasurerPermissionsOpen] = useState(false);
+
+  const [treasurerPermissionsMap, setTreasurerPermissionsMap] = useState<Map<string, { manage_finance: boolean; manage_monthly_payments: boolean }>>(new Map());
+
   const formatCurrencyBRL = (value: number): string => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
@@ -182,6 +186,14 @@ export default function Configuracoes({
         } else {
           setAssistants(profiles?.filter(p => p.role === 'assistant') || []);
           setTreasurers(profiles?.filter(p => p.role === 'treasurer') || []);
+
+          // Carregar permissões de tesoureiros
+          const { data: tpData } = await supabase.from('treasurer_permissions').select('*');
+          if (tpData) {
+            const tpMap = new Map();
+            tpData.forEach(tp => tpMap.set(tp.profile_id, tp));
+            setTreasurerPermissionsMap(tpMap);
+          }
         }
       } catch (err) {
         console.error('Erro ao carregar usuários:', err);
@@ -226,7 +238,7 @@ export default function Configuracoes({
         });
 
       if (error) throw error;
-      
+
       invalidateCache('settings');
 
       setFeedback({ type: 'success', message: 'Valores atualizados com sucesso.' });
@@ -523,7 +535,7 @@ export default function Configuracoes({
     if (!confirm(`Excluir ${assistant.name}? Esta ação não pode ser desfeita. O histórico do RDA não será apagado.`)) return;
     const error = await runAssistantAction('delete', assistant.id);
     if (error) { alert(error); return; }
-    
+
     if (assistant.role === 'treasurer') {
       setTreasurers((prev) => prev.filter((a) => a.id !== assistant.id));
     } else {
@@ -576,8 +588,8 @@ export default function Configuracoes({
 
       {/* CARD DE AJUSTE DE VALORES */}
       <section className="dashboard-card dashboard-card--neon" style={{ gap: isAjustesOpen ? '16px' : '0' }}>
-        <div 
-          className="card-header" 
+        <div
+          className="card-header"
           onClick={() => setIsAjustesOpen(!isAjustesOpen)}
           style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
         >
@@ -598,7 +610,7 @@ export default function Configuracoes({
                 <label htmlFor="monthly-fee" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                   Mensalidade padrão
                 </label>
-                <input 
+                <input
                   id="monthly-fee"
                   type="text"
                   value={monthlyFeeInput}
@@ -624,7 +636,7 @@ export default function Configuracoes({
                 <label htmlFor="daily-fee" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                   Diária padrão
                 </label>
-                <input 
+                <input
                   id="daily-fee"
                   type="text"
                   value={dailyFeeInput}
@@ -650,7 +662,7 @@ export default function Configuracoes({
                 <label htmlFor="default-location" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                   Local padrão
                 </label>
-                <input 
+                <input
                   id="default-location"
                   type="text"
                   value={defaultLocationInput}
@@ -672,16 +684,16 @@ export default function Configuracoes({
                   onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
                 />
               </div>
-              
+
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', marginTop: '4px' }}>
                 <h3 style={{ fontSize: '0.9rem', color: '#fff', marginBottom: '12px' }}>Padrão de Partidas</h3>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label htmlFor="default-day" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                       Dia da semana
                     </label>
-                    <select 
+                    <select
                       id="default-day"
                       value={defaultMatchDay}
                       onChange={(e) => setDefaultMatchDay(e.target.value)}
@@ -710,12 +722,12 @@ export default function Configuracoes({
                       <option value="Sábado" style={{ background: '#1a1a1a' }}>Sábado</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label htmlFor="default-time" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
                       Horário
                     </label>
-                    <input 
+                    <input
                       id="default-time"
                       type="time"
                       value={defaultMatchTime}
@@ -805,19 +817,19 @@ export default function Configuracoes({
             🖼️ Logo do RDA
           </span>
         </div>
-        
+
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.83rem', margin: 0 }}>
           Envie a imagem que será mostrada no topo de todas as telas (Formatos: PNG, JPG, JPEG, WEBP até 5MB).
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <img 
-            src={appLogoUrl || "/logo.jpg"} 
-            alt="Logo RDA" 
-            style={{ maxWidth: '120px', maxHeight: '50px', borderRadius: '8px', objectFit: 'contain', border: '1px solid rgba(255,255,255,0.08)' }} 
+          <img
+            src={appLogoUrl || "/logo.jpg"}
+            alt="Logo RDA"
+            style={{ maxWidth: '120px', maxHeight: '50px', borderRadius: '8px', objectFit: 'contain', border: '1px solid rgba(255,255,255,0.08)' }}
           />
 
-          <label 
+          <label
             style={{
               padding: '10px 14px',
               backgroundColor: 'rgba(255,255,255,0.03)',
@@ -833,7 +845,7 @@ export default function Configuracoes({
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
           >
             <span>Upload Logo</span>
-            <input 
+            <input
               type="file"
               accept="image/*"
               onChange={async (e) => {
@@ -858,7 +870,7 @@ export default function Configuracoes({
                     .update({ app_logo_url: base64 })
                     .eq('id', 'default');
                   if (settingsError) throw settingsError;
-                  
+
                   setAppLogoUrl(base64);
                   alert('Logo enviada e salva com sucesso!');
                 } catch (err: any) {
@@ -873,7 +885,7 @@ export default function Configuracoes({
           </label>
 
           {appLogoUrl && (
-            <button 
+            <button
               onClick={async () => {
                 if (!confirm('Deseja remover a logo personalizada?')) return;
                 try {
@@ -903,7 +915,7 @@ export default function Configuracoes({
       {/* SEÇÃO: CONTROLE DE ACESSO DE ASSISTENTES (ADMIN APENAS) */}
       {_userRole === 'admin' && (
         <section className="dashboard-card dashboard-card--neon" style={{ gap: isPermissionsOpen ? '16px' : '0' }}>
-          <div 
+          <div
             className="card-header"
             onClick={() => setIsPermissionsOpen(!isPermissionsOpen)}
             style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
@@ -917,7 +929,7 @@ export default function Configuracoes({
               <ChevronDown size={20} style={{ color: 'var(--text-muted)' }} />
             )}
           </div>
-          
+
           {isPermissionsOpen && (
             <>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.83rem', margin: 0 }}>
@@ -938,7 +950,7 @@ export default function Configuracoes({
             ].map((item) => {
               const isChecked = assistantPermissions[item.key];
               return (
-                <label 
+                <label
                   key={item.key}
                   style={{
                     display: 'flex',
@@ -955,7 +967,7 @@ export default function Configuracoes({
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.015)'}
                 >
-                  <input 
+                  <input
                     type="checkbox"
                     checked={isChecked}
                     onChange={async () => {
@@ -965,14 +977,14 @@ export default function Configuracoes({
                       };
                       setAssistantPermissions(updated);
                       localStorage.setItem('assistant_permissions', JSON.stringify(updated));
-                      
+
                       // Write to supabase assistant_permissions table if connected
                       try {
                         const { data: assistantProfiles } = await supabase
                           .from('profiles')
                           .select('id')
                           .eq('role', 'assistant');
-                        
+
                         if (assistantProfiles && assistantProfiles.length > 0) {
                           for (const p of assistantProfiles) {
                             await supabase
@@ -995,6 +1007,97 @@ export default function Configuracoes({
               );
             })}
             </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {/* SEÇÃO: CONTROLE DE ACESSO DE TESOUREIROS (ADMIN APENAS) */}
+      {_userRole === 'admin' && (
+        <section className="dashboard-card dashboard-card--neon" style={{ gap: isTreasurerPermissionsOpen ? '16px' : '0' }}>
+          <div
+            className="card-header"
+            onClick={() => setIsTreasurerPermissionsOpen(!isTreasurerPermissionsOpen)}
+            style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          >
+            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              💰 Permissões do Tesoureiro
+            </span>
+            {isTreasurerPermissionsOpen ? (
+              <ChevronUp size={20} style={{ color: 'var(--text-muted)' }} />
+            ) : (
+              <ChevronDown size={20} style={{ color: 'var(--text-muted)' }} />
+            )}
+          </div>
+
+          {isTreasurerPermissionsOpen && (
+            <>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.83rem', margin: 0 }}>
+                Configure as permissões específicas para cada Tesoureiro cadastrado.
+              </p>
+
+              {treasurers.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '10px' }}>
+                  Nenhum tesoureiro cadastrado.
+                </div>
+              ) : (
+                treasurers.map(treasurer => {
+                  const perms = treasurerPermissionsMap.get(treasurer.id) || { manage_finance: false, manage_monthly_payments: false };
+
+                  return (
+                    <div key={treasurer.id} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '14px', backgroundColor: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fbbf24' }}>{treasurer.name}</span>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                        {[
+                          { key: 'manage_finance' as const, label: 'Gerenciar Financeiro' },
+                          { key: 'manage_monthly_payments' as const, label: 'Gerenciar Mensalidades' }
+                        ].map(item => {
+                          const isChecked = perms[item.key];
+                          return (
+                            <label
+                              key={item.key}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px',
+                                backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
+                                borderRadius: '12px', cursor: 'pointer', userSelect: 'none', transition: 'var(--transition)'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={async () => {
+                                  const updated = { ...perms, [item.key]: !isChecked };
+
+                                  const newMap = new Map(treasurerPermissionsMap);
+                                  newMap.set(treasurer.id, updated);
+                                  setTreasurerPermissionsMap(newMap);
+
+                                  try {
+                                    await supabase
+                                      .from('treasurer_permissions')
+                                      .upsert({
+                                        profile_id: treasurer.id,
+                                        ...updated,
+                                        updated_at: new Date().toISOString()
+                                      }, { onConflict: 'profile_id' });
+                                  } catch (err) {
+                                    console.error('Erro ao salvar permissões de tesoureiro no banco:', err);
+                                  }
+                                }}
+                                style={{ width: '16px', height: '16px', accentColor: '#fbbf24', cursor: 'pointer' }}
+                              />
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isChecked ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{item.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </>
           )}
         </section>

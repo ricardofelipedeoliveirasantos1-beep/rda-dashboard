@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
-import { 
-  AlertCircle, 
+import {
+  AlertCircle,
   CalendarDays,
   ChevronDown,
   UsersRound, UserRound, CircleArrowDown, CircleArrowUp, WalletCards, Plus, UserRoundCheck, UserRoundX, ChartNoAxesColumnIncreasing
@@ -38,11 +38,15 @@ const MONTHS_NAMES = [
 export default function Financeiro({ userRole: _userRole, can: _can }: { userRole: 'admin' | 'assistant' | 'visitor' | 'treasurer'; can: (action: any) => boolean }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
+  const canManageFinance = _userRole === 'admin' ||
+    (_userRole === 'assistant' && _can('manage_finance')) ||
+    (_userRole === 'treasurer' && _can('manage_finance'));
+
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [showDateModal, setShowDateModal] = useState(false);
   const YEARS_LIST = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
-  
+
   const [payments, setPayments] = useState<MonthlyPayment[]>([]);
   const [, setMatches] = useState<Match[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -53,7 +57,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   const [, setUnknownDiariasCount] = useState(0);
   const [lastMatchDiaristasCount, setLastMatchDiaristasCount] = useState(0);
   const [lastMatchDiaristasSum, setLastMatchDiaristasSum] = useState(0);
-  
+
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editExpenseData, setEditExpenseData] = useState<{ category: string; amount: string; description: string; date: string }>({ category: 'Campo', amount: '', description: '', date: '' });
@@ -110,7 +114,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         const { data } = await supabase.from('matches').select(`id, match_date, status, daily_total`);
         return data || [];
       }, CACHE_TTL.matches);
-      
+
       const matchesRes = allMatches.filter((m: any) => m.status === 'finished' && m.match_date >= startOfMonth && m.match_date < endOfMonth);
 
       const allPayments = await getCachedData('monthly_payments', async () => {
@@ -124,7 +128,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         const { data } = await supabase.from('expenses').select('*');
         return data || [];
       }, CACHE_TTL.expenses);
-      
+
       const expensesRes = allExpenses.filter((e: any) => e.expense_date >= startOfMonth && e.expense_date < endOfMonth).sort((a: any, b: any) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
 
       const allPlayers = await getCachedData('players', async () => {
@@ -146,23 +150,23 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         const sortedMatches = [...matchesRes].sort((a: any, b: any) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime());
         lastMatchDateStr = sortedMatches[0].match_date;
         lastMatchId = sortedMatches[0].id;
-        
+
         const matchIds = matchesRes.map((m: any) => m.id);
         const { data: mpData } = await supabase.from('match_players').select('match_id, player_id, category_at_match, daily_fee_at_match, payment_status').in('match_id', matchIds);
-        
+
         if (mpData) {
           const diaristas = mpData.filter((mp: any) => mp.category_at_match === 'Diarista' || mp.category_at_match === 'diarista');
-          
+
           const paidDiaristas = diaristas.filter((mp: any) => mp.payment_status === 'paid');
           diaristasArrecadadosSum = paidDiaristas.reduce((sum, mp) => sum + Number(mp.daily_fee_at_match || 0), 0);
-          
+
           const lastMatchDiaristas = paidDiaristas.filter((mp: any) => mp.match_id === lastMatchId);
           lastMatchDCount = lastMatchDiaristas.length;
           lastMatchDSum = lastMatchDiaristas.reduce((sum, mp) => sum + Number(mp.daily_fee_at_match || 0), 0);
 
           const uniqueIds = new Set(paidDiaristas.map((mp: any) => mp.player_id));
           uniqueDiaristasCount = uniqueIds.size;
-          
+
           unknownCount = diaristas.filter((mp: any) => !mp.payment_status || mp.payment_status === 'unknown').length;
         }
       }
@@ -241,10 +245,10 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
 
       {/* SELETORES DE MÊS E ANO UNIFICADO */}
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-        <button 
+        <button
           onClick={() => setShowDateModal(true)}
-          style={{ 
-            width: 'min(82%, 320px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+          style={{
+            width: 'min(82%, 320px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             backgroundColor: 'rgba(255, 255, 255, 0.045)', padding: '0 16px', borderRadius: '15px',
             border: '1px solid rgba(255, 255, 255, 0.16)', color: '#F8FAFC', fontWeight: 700, cursor: 'pointer',
             height: '52px', fontSize: '15px'
@@ -262,16 +266,16 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0, color: '#fff', fontSize: '1.1rem' }}>Selecionar Período</h3>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '8px' }}>
-                <select 
+                <select
                     value={currentDate.getMonth()}
                     onChange={(e) => setCurrentDate(new Date(currentDate.getFullYear(), Number(e.target.value), 1))}
                     style={{ flex: 1, padding: '12px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '1rem', outline: 'none' }}
                 >
                     {MONTHS_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
                 </select>
-                <select 
+                <select
                     value={currentDate.getFullYear()}
                     onChange={(e) => setCurrentDate(new Date(Number(e.target.value), currentDate.getMonth(), 1))}
                     style={{ flex: 1, padding: '12px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '1rem', outline: 'none' }}
@@ -321,7 +325,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             line-height: 1.1;
             white-space: nowrap;
           }
-          
+
           .fin-stats-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -373,12 +377,12 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
 
         <div className="fin-card" style={{ backgroundColor: 'rgba(245, 164, 0, 0.06)', border: '1px solid rgba(245, 164, 0, 0.25)', gridRow: 'span 2', height: 'auto', gap: '10px', paddingBottom: '14px' }}>
           <span className="fin-card-title" style={{ fontSize: '10px', textTransform: 'uppercase' }}><UserRound size={14} color="#F5A400" /> Diaristas Arrecadados</span>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
              <span style={{ fontSize: '10px', color: '#A7A7B3' }}>Último racha: {lastMatchDiaristasCount} diarista{lastMatchDiaristasCount !== 1 ? 's' : ''}</span>
              <span style={{ fontSize: '11px', color: '#F5A400', fontWeight: 600 }}>R$ {lastMatchDiaristasSum.toFixed(2).replace('.', ',')} no último racha</span>
           </div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: 'auto' }}>
              <span style={{ fontSize: '9px', color: '#A7A7B3', textTransform: 'uppercase', fontWeight: 700 }}>TOTAL NO MÊS</span>
              <span className="fin-card-value" style={{ color: '#F5A400', fontSize: '19px' }}>R$ {diaristasTotalVal.toFixed(2).replace('.', ',')}</span>
@@ -401,13 +405,13 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         </div>
       </div>
 
-      {(_userRole === 'admin' || _userRole === 'treasurer' || (_userRole === 'assistant' && _can('manage_expenses'))) && (
+      {canManageFinance && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '14px', marginBottom: '16px' }}>
-          <button 
+          <button
             onClick={() => setShowExpenseModal(true)}
-            style={{ 
+            style={{
               width: 'min(82%, 310px)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-              background: 'linear-gradient(135deg, #F43F5E 0%, #FB4567 100%)', color: '#FFFFFF', border: 'none', borderRadius: '14px', 
+              background: 'linear-gradient(135deg, #F43F5E 0%, #FB4567 100%)', color: '#FFFFFF', border: 'none', borderRadius: '14px',
               fontSize: '14px', fontWeight: 700, cursor: 'pointer', height: '50px',
               boxShadow: '0 4px 12px rgba(244, 63, 94, 0.15)'
             }}
@@ -451,7 +455,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             expenses.map((expense) => {
               const formattedDate = expense.expense_date.split('-').reverse().join('/');
               const isEditing = editingExpenseId === expense.id;
-              
+
               if (isEditing) {
                 return (
                   <div key={expense.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -479,11 +483,11 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                               category: editExpenseData.category, amount: Number(editExpenseData.amount),
                               description: editExpenseData.description, expense_date: editExpenseData.date
                             }).eq('id', expense.id);
-                            
+
                             if (error) throw error;
-                            
+
                             const updatedExpense = { ...expense, category: editExpenseData.category, amount: Number(editExpenseData.amount), description: editExpenseData.description, expense_date: editExpenseData.date };
-                            
+
                             setExpenses(prev => prev.map(e => e.id === expense.id ? updatedExpense : e));
                             if (financeCache.current[currentMonthStr]) {
                               financeCache.current[currentMonthStr].expenses = financeCache.current[currentMonthStr].expenses.map(e => e.id === expense.id ? updatedExpense : e);
@@ -508,7 +512,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
 
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                     <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#f43f5e' }}>- R$ {Number(expense.amount).toFixed(2)}</span>
-                    {(_userRole === 'admin' || _userRole === 'treasurer' || (_userRole === 'assistant' && _can('delete_expense'))) && (
+                    {canManageFinance && (
                       <div style={{ display: 'flex', gap: '12px' }}>
                         <button onClick={() => {
                             setEditExpenseData({ category: expense.category, amount: String(expense.amount), description: expense.description || '', date: expense.expense_date });
@@ -542,7 +546,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             </div>
           )}
         </div>
-        
+
         {expenses.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px', marginTop: '8px' }}>
             <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '1rem' }}>Total gasto no mês:</span>
@@ -556,7 +560,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ backgroundColor: 'var(--card-bg)', width: '90%', maxWidth: '400px', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Nova Despesa</h3>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Categoria</label>
               <select value={newExpense.category} onChange={e => setNewExpense({...newExpense, category: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}>
@@ -591,14 +595,14 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                     const { data, error } = await supabase.from('expenses').insert([{ category: newExpense.category, amount: Number(newExpense.amount), description: newExpense.description, expense_date: newExpense.date }]).select();
                     if (error) throw error;
                     invalidateCache('expenses');
-                    
+
                     if (newExpense.date.startsWith(currentMonthStr)) {
                       setExpenses(prev => [data[0], ...prev].sort((a,b) => b.expense_date.localeCompare(a.expense_date)));
                       if (financeCache.current[currentMonthStr]) {
                         financeCache.current[currentMonthStr].expenses = [data[0], ...financeCache.current[currentMonthStr].expenses].sort((a,b) => b.expense_date.localeCompare(a.expense_date));
                       }
                     }
-                    
+
                     setFeedback({ type: 'success', message: 'Despesa registrada!' });
                     setShowExpenseModal(false);
                     setNewExpense({ category: 'Campo', amount: '', description: '', date: new Date().toISOString().split('T')[0] });

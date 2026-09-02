@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
-import { 
-  Search, 
-  User, 
-  AlertCircle, 
+import {
+  Search,
+  User,
+  AlertCircle,
   CheckCircle2,
   ChevronDown
 } from 'lucide-react';
@@ -33,16 +33,20 @@ const MONTHS_NAMES = [
 export default function Mensalidades({ userRole: _userRole, can: _can }: { userRole: 'admin' | 'assistant' | 'visitor' | 'treasurer'; can: (action: any) => boolean }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
+  const canManageMonthlyPayments = _userRole === 'admin' ||
+    (_userRole === 'assistant' && _can('manage_finance')) ||
+    (_userRole === 'treasurer' && _can('manage_monthly_payments'));
+
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [showMonthSelect, setShowMonthSelect] = useState(false);
   const [showYearSelect, setShowYearSelect] = useState(false);
-  
+
   const [players, setPlayers] = useState<Player[]>([]);
   const [payments, setPayments] = useState<MonthlyPayment[]>([]);
-  
+
   const [defaultMonthlyFee, setDefaultMonthlyFee] = useState<number>(60);
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>('all');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -136,11 +140,11 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
   }, [currentMonthStr, globalLoaded]);
 
   const handleTogglePayment = async (playerId: string, currentStatus: 'paid' | 'pending') => {
-    if (_userRole === 'visitor') {
+    if (!canManageMonthlyPayments) {
       setFeedback({ type: 'error', message: 'Permissão negada' });
       return;
     }
-    
+
     const nextStatus = currentStatus === 'paid' ? 'pending' : 'paid';
     setFeedback(null);
 
@@ -180,7 +184,7 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
         }, { onConflict: 'player_id, payment_month' });
 
       if (upsertError) throw upsertError;
-      
+
       invalidateCache('monthly_payments');
 
       const { data: updatedPayments } = await supabase
@@ -206,13 +210,13 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
 
   const getDisplayedPlayers = () => {
     const isPastMonth = currentDate < new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    
+
     const paymentStatusMap = new Map<string, string>();
     payments.forEach(p => paymentStatusMap.set(p.player_id, p.status));
-    
+
     return players.filter(p => {
       const pStatus = paymentStatusMap.get(p.id);
-      
+
       if (isPastMonth) {
         // Para meses passados: mostra todos que têm algum registro de pagamento (pago ou pendente)
         // Isso preserva o histórico de quem era mensalista na época.
@@ -290,15 +294,15 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
       <div style={{ display: 'flex', gap: '8px' }}>
         {/* Dropdown Mês */}
         <div style={{ position: 'relative', flex: 1 }}>
-          <button 
+          <button
             onClick={() => { setShowMonthSelect(!showMonthSelect); setShowYearSelect(false); }}
-            style={{ 
+            style={{
               width: '100%',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between', 
-              backgroundColor: '#171717', 
-              padding: '12px 16px', 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: '#171717',
+              padding: '12px 16px',
               borderRadius: '12px',
               border: '1.5px solid rgba(255,255,255,0.08)',
               color: '#fff',
@@ -309,7 +313,7 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
             <span>{MONTHS_NAMES[currentDate.getMonth()]}</span>
             <ChevronDown size={18} style={{ transform: showMonthSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
           </button>
-          
+
           {showMonthSelect && (
             <div style={{
               position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
@@ -340,15 +344,15 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
 
         {/* Dropdown Ano */}
         <div style={{ position: 'relative', width: '120px' }}>
-          <button 
+          <button
             onClick={() => { setShowYearSelect(!showYearSelect); setShowMonthSelect(false); }}
-            style={{ 
+            style={{
               width: '100%',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between', 
-              backgroundColor: '#171717', 
-              padding: '12px 16px', 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: '#171717',
+              padding: '12px 16px',
               borderRadius: '12px',
               border: '1.5px solid rgba(255,255,255,0.08)',
               color: '#fff',
@@ -359,7 +363,7 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
             <span>{currentDate.getFullYear()}</span>
             <ChevronDown size={18} style={{ transform: showYearSelect ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
           </button>
-          
+
           {showYearSelect && (
             <div style={{
               position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px',
@@ -425,9 +429,9 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
       <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px' }}>
         <div style={{ position: 'relative', width: '100%' }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input 
-            type="text" 
-            placeholder="Buscar mensalista..." 
+          <input
+            type="text"
+            placeholder="Buscar mensalista..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -452,7 +456,7 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
           {filteredMensalistas.length > 0 ? (
             filteredMensalistas.map((player) => (
-              <div 
+              <div
                 key={player.id}
                 style={{
                   display: 'flex',
@@ -466,9 +470,9 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {player.photo_url ? (
-                    <img 
-                      src={player.photo_url} 
-                      alt={player.name} 
+                    <img
+                      src={player.photo_url}
+                      alt={player.name}
                       loading="lazy"
                       decoding="async"
                       style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, aspectRatio: '1/1' }}
@@ -501,22 +505,24 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
                     {player.payment_status === 'paid' ? 'PAGO' : 'PENDENTE'}
                   </span>
 
-                  <button
-                    onClick={() => handleTogglePayment(player.id, player.payment_status)}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      backgroundColor: player.payment_status === 'paid' ? 'rgba(255,255,255,0.03)' : '#22c55e',
-                      border: player.payment_status === 'paid' ? '1px solid rgba(255,255,255,0.08)' : 'none',
-                      color: player.payment_status === 'paid' ? 'var(--text-primary)' : '#ffffff',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      transition: 'var(--transition)'
-                    }}
-                  >
-                    {player.payment_status === 'paid' ? 'Marcar Pendente' : 'Marcar Pago'}
-                  </button>
+                  {canManageMonthlyPayments && (
+                    <button
+                      onClick={() => handleTogglePayment(player.id, player.payment_status)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        backgroundColor: player.payment_status === 'paid' ? 'rgba(255,255,255,0.03)' : '#22c55e',
+                        border: player.payment_status === 'paid' ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                        color: player.payment_status === 'paid' ? 'var(--text-primary)' : '#ffffff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'var(--transition)'
+                      }}
+                    >
+                      {player.payment_status === 'paid' ? 'Marcar Pendente' : 'Marcar Pago'}
+                    </button>
+                  )}
                 </div>
               </div>
             ))

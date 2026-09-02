@@ -9,15 +9,15 @@ const Relatorios = lazy(() => import('./components/Relatorios'));
 const Mensalidades = lazy(() => import('./components/Mensalidades'));
 import { supabase } from './lib/supabase';
 import { getCachedData, clearCache, CACHE_TTL } from './services/dataCache';
-import { 
-  Users, 
-  Calendar, 
-  Trophy, 
-  DollarSign, 
-  Clock, 
-  MapPin, 
+import {
+  Users,
+  Calendar,
+  Trophy,
+  DollarSign,
+  Clock,
+  MapPin,
   User,
-  Award, 
+  Award,
   Activity,
   FileText,
   AlertCircle,
@@ -67,11 +67,16 @@ export interface AssistantPermissions {
   import_history: boolean;
 }
 
+export interface TreasurerPermissions {
+  manage_finance: boolean;
+  manage_monthly_payments: boolean;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'inicio' | 'jogadores' | 'ranking' | 'partidas' | 'historico' | 'mensalidades' | 'financeiro' | 'relatorios' | 'avisos' | 'configuracoes'>('inicio');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [dashboardNotices, setDashboardNotices] = useState<Notice[]>([]);
-  
+
   // Dashboard Edit Last Match
   const [editingLastMatch, setEditingLastMatch] = useState<any | null>(null);
   const [editFinalTeam1, setEditFinalTeam1] = useState('');
@@ -100,7 +105,7 @@ export default function App() {
     submitting: false,
     visitorSubmitting: false,
   });
-  
+
   const [assistantPermissions, setAssistantPermissions] = useState<AssistantPermissions>(() => {
     const saved = localStorage.getItem('rda_assistant_permissions');
     if (saved) {
@@ -120,17 +125,33 @@ export default function App() {
     };
   });
 
+  const [treasurerPermissions, setTreasurerPermissions] = useState<TreasurerPermissions>(() => {
+    const saved = localStorage.getItem('rda_treasurer_permissions');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {
+      manage_finance: false,
+      manage_monthly_payments: false,
+    };
+  });
+
   // Save permissions to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('rda_assistant_permissions', JSON.stringify(assistantPermissions));
   }, [assistantPermissions]);
 
+  useEffect(() => {
+    localStorage.setItem('rda_treasurer_permissions', JSON.stringify(treasurerPermissions));
+  }, [treasurerPermissions]);
 
 
-  const can = (action: keyof AssistantPermissions): boolean => {
+
+  const can = (action: any): boolean => {
     if (currentUserRole === 'admin') return true;
     if (currentUserRole === 'visitor' || currentUserRole === null) return false;
-    return assistantPermissions[action] || false;
+    if (currentUserRole === 'treasurer') return (treasurerPermissions as any)[action] || false;
+    return (assistantPermissions as any)[action] || false;
   };
 
   // Carrega perfil (role/permissões) do usuário autenticado via Supabase Auth.
@@ -144,7 +165,7 @@ export default function App() {
       setAuthLoading(false);
       return;
     }
-    
+
     // Tratamento para Visitante Anônimo
     if (session.user.is_anonymous) {
       clearCache();
@@ -157,7 +178,7 @@ export default function App() {
 
     setCurrentEmail(session.user.email || null);
     setCurrentUserId(session.user.id);
-    
+
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('id, name, photo_url, role')
@@ -202,6 +223,21 @@ export default function App() {
           edit_notices: perms.edit_notices,
           delete_notices: perms.delete_notices,
           import_history: perms.import_history,
+        });
+      }
+    }
+
+    // Se treasurer, carrega permissões reais do banco
+    if (role === 'treasurer') {
+      const { data: perms } = await supabase
+        .from('treasurer_permissions')
+        .select('*')
+        .eq('profile_id', session.user.id)
+        .single();
+      if (perms) {
+        setTreasurerPermissions({
+          manage_finance: perms.manage_finance,
+          manage_monthly_payments: perms.manage_monthly_payments,
         });
       }
     }
@@ -290,7 +326,7 @@ export default function App() {
   // DASHBOARD DYNAMIC DATA
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
-  
+
   // Dashboard Aggregations
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [totalMensalistas, setTotalMensalistas] = useState(0);
@@ -303,17 +339,17 @@ export default function App() {
   const [topPoints, setTopPoints] = useState<any[]>([]);
   const [topRalabosta, setTopRalabosta] = useState<any[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
-  
+
   const [lastMatch, setLastMatch] = useState<any>(null);
   const [nextMatch, setNextMatch] = useState<any>(null);
-  
+
   // Financeiro Aggregations
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
-  
+
 
   const [totalMonthlyPaid, setTotalMonthlyPaid] = useState(0);
   const [totalMonthlyPending, setTotalMonthlyPending] = useState(0);
@@ -391,7 +427,7 @@ export default function App() {
     try {
       setLoadingDashboard(true);
       setDashboardError(null);
-      
+
       const now = new Date();
       const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 //       const currentMonthIndex = now.getMonth() + 1; // 1-12
@@ -418,22 +454,22 @@ export default function App() {
         const { data } = await supabase.from('players').select('*').eq('is_active', true);
         return data;
       }, CACHE_TTL.players);
-      
+
       const activePlayers = playersData || [];
       setTotalPlayers(activePlayers.length);
       setTotalMensalistas(activePlayers.filter((p: any) => p.category === 'Mensalista').length);
       setTotalDiaristas(activePlayers.filter((p: any) => p.category === 'Diarista').length);
-      
+
       // Birthdays (closest 3 upcoming)
       const bdays = activePlayers.filter((p: any) => p.birth_date).map((p: any) => {
         const [y, m, d] = p.birth_date.split('-');
         let bdayThisYear = new Date(now.getFullYear(), parseInt(m, 10) - 1, parseInt(d, 10));
-        
+
         // If birthday has passed this year, next one is next year
         if (bdayThisYear.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) {
           bdayThisYear = new Date(now.getFullYear() + 1, parseInt(m, 10) - 1, parseInt(d, 10));
         }
-        
+
         let age = bdayThisYear.getFullYear() - parseInt(y, 10);
         return {
           name: p.name,
@@ -467,7 +503,7 @@ export default function App() {
 
       // Next and Last match
       const pendingMatch = matches.find(m => m.status === 'in_progress' || (m.status !== 'finished' && new Date(m.match_date) >= new Date(now.toDateString())));
-      
+
       if (pendingMatch) {
         setNextMatch(pendingMatch);
       } else {
@@ -478,7 +514,7 @@ export default function App() {
         const targetDay = daysMap[defDay] !== undefined ? daysMap[defDay] : 5;
         const currentDay = now.getDay();
         let daysToAdd = targetDay - currentDay;
-        
+
         // If today is targetDay, check time. If time passed, add 7 days.
         if (daysToAdd < 0) {
           daysToAdd += 7;
@@ -488,10 +524,10 @@ export default function App() {
             daysToAdd += 7;
           }
         }
-        
+
         const nextDate = new Date(now);
         nextDate.setDate(now.getDate() + daysToAdd);
-        
+
         setNextMatch({
           is_calculated: true,
           match_date: nextDate.toISOString().split('T')[0],
@@ -499,7 +535,7 @@ export default function App() {
           location: defLocation
         });
       }
-      
+
       const latestMatch = finishedMatches.length > 0 ? finishedMatches[0] : null;
       setLastMatch(latestMatch);
 
@@ -513,13 +549,13 @@ export default function App() {
       // Aggregate Stats
       let tGoals = 0;
       let tAssists = 0;
-      
-      
+
+
       const playerStatsMap: Record<string, any> = {};
 
       finishedMatches.forEach(match => {
         const isHistorical = match.source === 'historical_manual' || match.source === 'historical_import';
-        
+
         // Calculate biggest score
         // Removing biggestScore calculation as it's no longer displayed
 
@@ -547,7 +583,7 @@ export default function App() {
           }
 
           const stats = match.match_player_stats?.find((s: any) => s.player_id === pId);
-          
+
           let isChamp = false;
           let isVice = false;
           let isRala = false;
@@ -582,7 +618,7 @@ export default function App() {
 
 
       const allPlayersList = Object.values(playerStatsMap);
-      
+
       allPlayersList.forEach(ps => {
         ps.points = ps.goals + ps.assists + (ps.champion * 3) + (ps.vice * 1);
       });
@@ -593,14 +629,14 @@ export default function App() {
         if (a.games !== b.games) return a.games - b.games;
         return a.name.localeCompare(b.name);
       }).slice(0, 3).map((p, i) => ({ ...p, rank: i+1, count: p.goals }));
-      
+
       const assisters = [...allPlayersList].sort((a, b) => {
         if (b.assists !== a.assists) return b.assists - a.assists;
         if (b.goals !== a.goals) return b.goals - a.goals;
         if (a.games !== b.games) return a.games - b.games;
         return a.name.localeCompare(b.name);
       }).slice(0, 3).map((p, i) => ({ ...p, rank: i+1, count: p.assists }));
-      
+
       const pointsList = [...allPlayersList].sort((a, b) => {
         if (b.points !== a.points) return b.points - a.points;
         if (b.goals !== a.goals) return b.goals - a.goals;
@@ -615,7 +651,7 @@ export default function App() {
         if (a.games !== b.games) return a.games - b.games;
         return a.name.localeCompare(b.name);
       }).slice(0, 3).map((p, i) => ({ ...p, rank: i+1, count: p.ralabosta }));
-      
+
       setTopScorers(scorers);
       setTopAssists(assisters);
       setTopPoints(pointsList);
@@ -627,7 +663,7 @@ export default function App() {
         return data;
       }, CACHE_TTL.monthly_payments);
       const payments = paymentsData || [];
-      
+
       const currentMonthPayments = payments.filter((p: any) => p.competence_month === currentMonthStr);
       setTotalMonthlyPaid(currentMonthPayments.filter((p: any) => p.status === 'paid').length);
       setTotalMonthlyPending(currentMonthPayments.filter((p: any) => p.status === 'pending').length);
@@ -638,7 +674,7 @@ export default function App() {
         return data;
       }, CACHE_TTL.expenses);
       const expenses = expensesData || [];
-      
+
       let allTimeRevenue = 0;
       let monthRevenue = 0;
       let monthPending = 0;
@@ -656,7 +692,7 @@ export default function App() {
 
       // Diárias (All time)
       const totalDailyFees = finishedMatches.reduce((acc, m) => acc + Number(m.daily_total || 0), 0);
-      
+
       // Diárias (Current month)
       const currentMonthMatches = finishedMatches.filter(m => {
         const mMonth = m.match_date.substring(0, 7);
@@ -677,10 +713,10 @@ export default function App() {
       // Mensalidades - Pendências e Contadores (Sincronizado com a tela Mensalidades)
       const defMonthlyFee = settings.monthly_fee ? Number(settings.monthly_fee) : 60;
       const currentPayments = payments.filter(p => p.payment_month === currentMonthStr);
-      
+
       activePlayers.forEach(player => {
         const record = currentPayments.find(p => p.player_id === player.id);
-        
+
         if (player.category === 'Mensalista') {
           if (record) {
             if (record.status === 'paid') {
@@ -729,7 +765,7 @@ export default function App() {
   if (!currentUserId) {
     return (
       <div style={{
-        display: 'flex', justifyContent: 'center', alignItems: 'center', 
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
         height: '100vh', backgroundColor: '#121212', color: '#fff',
         padding: '20px', boxSizing: 'border-box'
       }}>
@@ -802,11 +838,11 @@ export default function App() {
             type="button"
             onClick={handleAnonymousSignIn}
             disabled={loginForm.submitting || loginForm.visitorSubmitting}
-            style={{ 
-              width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)', 
-              backgroundColor: 'transparent', color: '#e5e7eb', fontSize: '0.95rem', fontWeight: 700, 
-              cursor: 'pointer', opacity: loginForm.visitorSubmitting ? 0.7 : 1, 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'opacity 0.2s' 
+            style={{
+              width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)',
+              backgroundColor: 'transparent', color: '#e5e7eb', fontSize: '0.95rem', fontWeight: 700,
+              cursor: 'pointer', opacity: loginForm.visitorSubmitting ? 0.7 : 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'opacity 0.2s'
             }}
           >
             <span style={{ fontSize: '1.2rem' }}>👁</span>
@@ -869,8 +905,8 @@ export default function App() {
     <div className="app-container" onClick={() => isUserMenuOpen && setIsUserMenuOpen(false)}>
       {/* CABEÇALHO FIXO */}
       <header className="header" onClick={(e) => e.stopPropagation()}>
-        <button 
-          className="header-menu-btn" 
+        <button
+          className="header-menu-btn"
           onClick={() => setIsSidebarOpen(true)}
           aria-label="Abrir menu"
         >
@@ -878,41 +914,45 @@ export default function App() {
         </button>
 
         <div className="header-center">
-          <img 
-            src={appLogoUrl || "/logo.jpg"} 
-            alt="Logo RDA" 
-            style={{ 
-              height: '40px', 
+          <img
+            src={appLogoUrl || "/logo.jpg"}
+            alt="Logo RDA"
+            style={{
+              height: '40px',
               width: '40px',
-              objectFit: 'cover', 
+              objectFit: 'cover',
               display: 'block',
               borderRadius: '50%',
               border: '2px solid rgba(59, 130, 246, 0.45)',
               boxShadow: '0 0 12px rgba(59, 130, 246, 0.3), 0 0 0 1px rgba(59, 130, 246, 0.12)'
-            }} 
+            }}
           />
         </div>
 
         <div style={{ position: 'relative', justifySelf: 'end' }}>
-          <button 
-            className="header-admin-btn" 
+          <button
+            className="header-admin-btn"
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
             aria-label="Painel administrativo"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
               border: isUserMenuOpen ? '1.5px solid rgba(59, 130, 246, 0.7)' : '1.5px solid rgba(59, 130, 246, 0.45)',
               boxShadow: isUserMenuOpen ? '0 0 16px rgba(59, 130, 246, 0.25)' : '0 0 12px rgba(59, 130, 246, 0.15)'
             }}
           >
             {currentUserRole === 'admin' ? (
-              <span style={{ fontSize: '18px', fontWeight: 700, color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>A</span>
+              <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>👑</span>
+            ) : currentUserRole === 'assistant' ? (
+              <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>🤝</span>
+            ) : currentUserRole === 'treasurer' ? (
+              <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>💰</span>
             ) : (
               <UserRound size={22} />
             )}
           </button>
-          
+
           {isUserMenuOpen && (
             <div style={{
               position: 'absolute',
@@ -942,7 +982,15 @@ export default function App() {
                     : 'linear-gradient(135deg,#374151,#4b5563)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <UserRound size={18} style={{ color: '#fff' }} />
+                  {currentUserRole === 'admin' ? (
+                    <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>👑</span>
+                  ) : currentUserRole === 'assistant' ? (
+                    <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>🤝</span>
+                  ) : currentUserRole === 'treasurer' ? (
+                    <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>💰</span>
+                  ) : (
+                    <UserRound size={18} style={{ color: '#fff' }} />
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
                   {(() => {
@@ -1018,12 +1066,12 @@ export default function App() {
 
       {/* MENU LATERAL (SIDEBAR) & OVERLAY */}
       <div className={`sidebar-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(false)} />
-      
+
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <span className="sidebar-title">RDA</span>
-          <button 
-            className="sidebar-close-btn" 
+          <button
+            className="sidebar-close-btn"
             onClick={() => setIsSidebarOpen(false)}
             aria-label="Fechar menu"
           >
@@ -1032,40 +1080,40 @@ export default function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <a 
-            href="#" 
+          <a
+            href="#"
             className={`sidebar-item ${activeTab === 'inicio' ? 'active' : ''}`}
             onClick={(e) => { e.preventDefault(); setActiveTab('inicio'); setIsSidebarOpen(false); }}
           >
             <span className="sidebar-emoji-container">🏠</span>
             <span>Início</span>
           </a>
-          <a 
-            href="#" 
+          <a
+            href="#"
             className={`sidebar-item ${activeTab === 'jogadores' ? 'active' : ''}`}
             onClick={(e) => { e.preventDefault(); setActiveTab('jogadores'); setIsSidebarOpen(false); }}
           >
             <span className="sidebar-emoji-container">👥</span>
             <span>Jogadores</span>
           </a>
-          <a 
-            href="#" 
+          <a
+            href="#"
             className={`sidebar-item ${activeTab === 'ranking' ? 'active' : ''}`}
             onClick={(e) => { e.preventDefault(); setActiveTab('ranking'); setIsSidebarOpen(false); }}
           >
             <span className="sidebar-emoji-container">🏆</span>
             <span>Ranking</span>
           </a>
-          <a 
-            href="#" 
+          <a
+            href="#"
             className={`sidebar-item ${activeTab === 'partidas' ? 'active' : ''}`}
             onClick={(e) => { e.preventDefault(); setActiveTab('partidas'); setIsSidebarOpen(false); }}
           >
             <span className="sidebar-emoji-container">⚽</span>
             <span>Partidas</span>
           </a>
-          <a 
-            href="#" 
+          <a
+            href="#"
             className={`sidebar-item ${activeTab === 'historico' ? 'active' : ''}`}
             onClick={(e) => { e.preventDefault(); setActiveTab('historico'); setIsSidebarOpen(false); }}
           >
@@ -1074,40 +1122,40 @@ export default function App() {
           </a>
           {currentUserRole !== 'visitor' && (
             <>
-              <a 
-                href="#" 
+              <a
+                href="#"
                 className={`sidebar-item ${activeTab === 'mensalidades' ? 'active' : ''}`}
                 onClick={(e) => { e.preventDefault(); setActiveTab('mensalidades'); setIsSidebarOpen(false); }}
               >
                 <span className="sidebar-emoji-container">💵</span>
                 <span>Mensalidades</span>
               </a>
-              <a 
-                href="#" 
+              <a
+                href="#"
                 className={`sidebar-item ${activeTab === 'financeiro' ? 'active' : ''}`}
                 onClick={(e) => { e.preventDefault(); setActiveTab('financeiro'); setIsSidebarOpen(false); }}
               >
                 <span className="sidebar-emoji-container">💰</span>
                 <span>Financeiro</span>
               </a>
-              <a 
-                href="#" 
+              <a
+                href="#"
                 className={`sidebar-item ${activeTab === 'relatorios' ? 'active' : ''}`}
                 onClick={(e) => { e.preventDefault(); setActiveTab('relatorios'); setIsSidebarOpen(false); }}
               >
                 <span className="sidebar-emoji-container">📊</span>
                 <span>Relatórios</span>
               </a>
-              <a 
-                href="#" 
+              <a
+                href="#"
                 className={`sidebar-item ${activeTab === 'avisos' ? 'active' : ''}`}
                 onClick={(e) => { e.preventDefault(); setActiveTab('avisos'); setIsSidebarOpen(false); }}
               >
                 <span className="sidebar-emoji-container">🔔</span>
                 <span>Avisos</span>
               </a>
-              <a 
-                href="#" 
+              <a
+                href="#"
                 className={`sidebar-item ${activeTab === 'configuracoes' ? 'active' : ''}`}
                 onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); setIsSidebarOpen(false); }}
               >
@@ -1119,8 +1167,8 @@ export default function App() {
 
           <div className="sidebar-divider"></div>
 
-          <a 
-            href="#" 
+          <a
+            href="#"
             className="sidebar-item"
             style={{ color: '#f87171', marginTop: '10px' }}
             onClick={(e) => { e.preventDefault(); handleLogout(); setIsSidebarOpen(false); }}
@@ -1174,7 +1222,7 @@ export default function App() {
                       </div>
                       <Users size={36} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.15, color: '#3b82f6', zIndex: 0 }} />
                     </div>
-                    
+
                     <div style={{
                       backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(249,115,22,0.35)',
                       borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '2px',
@@ -1233,7 +1281,7 @@ export default function App() {
                           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                         });
                         const top5 = sorted.slice(0, 5);
-  
+
                         if (top5.length === 0) {
                           return (
                             <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '16px' }}>
@@ -1241,36 +1289,36 @@ export default function App() {
                             </div>
                           );
                         }
-  
+
                         const getRemainingText = (expiresAtStr: string): string => {
                           const now = new Date();
                           const expiresAt = new Date(expiresAtStr);
                           const diffMs = expiresAt.getTime() - now.getTime();
                           if (diffMs <= 0) return 'Expirado';
-  
+
                           const diffMins = Math.floor(diffMs / 60000);
                           const diffHours = Math.floor(diffMins / 60);
                           const diffDays = Math.floor(diffHours / 24);
-  
+
                           if (diffDays > 0) return `Expira em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`;
                           if (diffHours > 0) return `Expira em ${diffHours}h ${diffMins % 60}min`;
                           return `Expira em ${diffMins}min`;
                         };
-  
+
                         const getImportanceConfig = (imp: string) => {
                           if (imp === 'urgent') return { label: 'URGENTE', color: '#ef4444', border: '1.5px solid rgba(239,68,68,0.3)' };
                           if (imp === 'important') return { label: 'IMPORTANTE', color: '#f97316', border: '1px solid rgba(249,115,22,0.2)' };
                           if (imp === 'attention') return { label: 'ATENÇÃO', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' };
                           return { label: 'NORMAL', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' };
                         };
-  
+
                         return (
                           <>
                             {top5.map((aviso) => {
                               const conf = getImportanceConfig(aviso.importance);
                               const isUrgent = aviso.importance === 'urgent';
                               return (
-                                <div 
+                                <div
                                   key={aviso.id}
                                   className={isUrgent ? 'card-urgent-animated' : ''}
                                   style={{
@@ -1412,18 +1460,18 @@ export default function App() {
                                         <span style={{ fontSize: '22px', fontWeight: 900, color: '#22c55e', lineHeight: 1 }}>{totalMonthlyPaid}</span>
                                         <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pagos</span>
                                       </div>
-                                      
+
                                       <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
-                
+
                                       {/* Pendentes */}
                                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
                                         <div style={{ color: '#ef4444', marginBottom: '2px' }}><CircleAlert size={26} strokeWidth={1.5} /></div>
                                         <span style={{ fontSize: '22px', fontWeight: 900, color: '#ef4444', lineHeight: 1 }}>{totalMonthlyPending}</span>
                                         <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pendentes</span>
                                       </div>
-                
+
                                       <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
-                
+
                                       {/* Diaristas */}
                                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
                                         <div style={{ color: '#f97316', marginBottom: '2px' }}><Users size={26} strokeWidth={1.5} /></div>
@@ -1476,7 +1524,7 @@ export default function App() {
                                         <Activity size={18} /> Última Partida
                                       </span>
                                       {lastMatch && can('edit_match') && (
-                                        <button 
+                                        <button
                                           onClick={() => {
                                             setEditingLastMatch(lastMatch);
                                             let parsed = null;
@@ -1487,13 +1535,13 @@ export default function App() {
                                                 if (temp.isDashboardDetail) parsed = temp;
                                               } catch(e) {}
                                             }
-                                            
+
                                             setEditFinalTeam1(parsed?.finalTeam1 || '');
                                             setEditFinalScore1(parsed?.finalScore1 || '');
                                             setEditFinalTeam2(parsed?.finalTeam2 || '');
                                             setEditFinalScore2(parsed?.finalScore2 || '');
                                             setEditFinalPenalties(parsed?.finalPenalties || false);
-                                            
+
                                             setEditRalabostaTeam1(parsed?.ralaTeam1 || '');
                                             setEditRalabostaScore1(parsed?.ralaScore1 || '');
                                             setEditRalabostaTeam2(parsed?.ralaTeam2 || '');
@@ -1517,7 +1565,7 @@ export default function App() {
                                             if (parsed.isDashboardDetail) detail = parsed;
                                           } catch(e) {}
                                         }
-                                        
+
                                         return (
                                           <div className="match-info">
                                             <div className="match-item">
@@ -1560,7 +1608,7 @@ export default function App() {
                                                   <span>Ralabosta: {(() => {
                                                     const ralaVal = lastMatch.team_count === 4 ? lastMatch.fourth_place_team :
                                                                     lastMatch.team_count === 3 ? lastMatch.third_place_team : null;
-                                                    
+
                                                     if (!ralaVal) return 'N/A';
                                                     if (ralaVal === 'team_1') return lastMatch.team_1_name || 'Colete';
                                                     if (ralaVal === 'team_2') return lastMatch.team_2_name || 'S/ Colete';
@@ -1652,9 +1700,9 @@ export default function App() {
         ) : activeTab === 'avisos' ? (
           <Avisos userRole={currentUserRole!} can={can} />
         ) : activeTab === 'configuracoes' ? (
-          <Configuracoes 
-            userRole={currentUserRole!} 
-            can={can} 
+          <Configuracoes
+            userRole={currentUserRole!}
+            can={can}
             assistantPermissions={assistantPermissions}
             setAssistantPermissions={setAssistantPermissions}
             appLogoUrl={appLogoUrl}
@@ -1674,8 +1722,8 @@ export default function App() {
 
       {/* BARRA DE NAVEGAÇÃO INFERIOR FIXA */}
       <nav className="nav-bar">
-        <a 
-          href="#" 
+        <a
+          href="#"
           className="nav-item"
           style={{
             color: '#3b82f6',
@@ -1696,8 +1744,8 @@ export default function App() {
           </div>
           <span>Início</span>
         </a>
-        <a 
-          href="#" 
+        <a
+          href="#"
           className="nav-item"
           style={{
             color: '#22c55e',
@@ -1718,8 +1766,8 @@ export default function App() {
           </div>
           <span>Jogadores</span>
         </a>
-        <a 
-          href="#" 
+        <a
+          href="#"
           className="nav-item"
           style={{
             color: '#f97316',
@@ -1740,8 +1788,8 @@ export default function App() {
           </div>
           <span>Partidas</span>
         </a>
-        <a 
-          href="#" 
+        <a
+          href="#"
           className="nav-item"
           style={{
             color: '#eab308',
@@ -1763,8 +1811,8 @@ export default function App() {
           <span>Ranking</span>
         </a>
         {currentUserRole !== 'visitor' && (
-          <a 
-            href="#" 
+          <a
+            href="#"
             className="nav-item"
             style={{
               color: '#a855f7',
@@ -1805,10 +1853,10 @@ export default function App() {
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '4px' }}>
-              
+
               <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                 <h3 style={{ fontSize: '1rem', marginTop: 0, marginBottom: '16px', color: '#fbbf24' }}>Placar da Final</h3>
-                
+
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                   <div style={{ flex: 1 }}>
                     <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Time 1</label>
@@ -1851,7 +1899,7 @@ export default function App() {
 
               <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                 <h3 style={{ fontSize: '1rem', marginTop: 0, marginBottom: '16px', color: '#94a3b8' }}>Placar do Ralabosta</h3>
-                
+
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                   <div style={{ flex: 1 }}>
                     <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Time 1</label>
