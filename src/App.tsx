@@ -38,7 +38,8 @@ import {
   Sparkles,
   CircleCheck,
   CircleAlert,
-  Frown
+  Frown,
+  BarChart2
 } from 'lucide-react';
 
 
@@ -357,6 +358,10 @@ export default function App() {
   const [totalMonthlyPending, setTotalMonthlyPending] = useState(0);
   const [lastMatchDiarists, setLastMatchDiarists] = useState(0);
 
+  // States exclusive for Visitor Financeiro
+  const [visitorMensalistasPaid, setVisitorMensalistasPaid] = useState(0);
+  const [visitorDiaristsCount, setVisitorDiaristsCount] = useState(0);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -376,7 +381,7 @@ export default function App() {
   // REDIRECT VISITANTE DE ABAS PROIBIDAS
   useEffect(() => {
     if (currentUserRole === 'visitor') {
-      if (['financeiro', 'mensalidades', 'avisos', 'configuracoes', 'relatorios'].includes(activeTab)) {
+      if (['partidas', 'financeiro', 'mensalidades', 'avisos', 'configuracoes'].includes(activeTab)) {
         setActiveTab('inicio');
       }
     }
@@ -732,12 +737,39 @@ export default function App() {
             monthPendingCount++;
           }
         } else {
-          // Diarista: entra na contagem apenas se tiver pago pelo módulo de Mensalidades
+          // Diarista: entra na contagem do Admin apenas se tiver pago pelo módulo de Mensalidades
           if (record && record.status === 'paid') {
             monthPaidCount++;
           }
         }
       });
+      
+      // LOGIC FOR VISITOR VIEW:
+      // Diaristas únicos que pagaram na ÚLTIMA partida finalizada
+      const uniqueLastMatchDiaristIds = new Set<string>();
+      const latestFinishedMatch = finishedMatches.length > 0 ? finishedMatches[0] : null;
+      if (latestFinishedMatch) {
+        latestFinishedMatch.match_players?.forEach((mp: any) => {
+          if (mp.category_at_match === 'Diarista' && mp.payment_status === 'paid' && mp.player?.id) {
+            uniqueLastMatchDiaristIds.add(mp.player.id);
+          }
+        });
+      }
+      const uniqueLastMatchDiarists = uniqueLastMatchDiaristIds.size;
+      
+      // Mensalistas únicos ativos que pagaram no mês atual (exclusivo para visitantes)
+      let mensalistasUnicosPagos = 0;
+      activePlayers.forEach(player => {
+        if (player.category === 'Mensalista') {
+          const record = currentPayments.find(p => p.player_id === player.id);
+          if (record && record.status === 'paid') {
+            mensalistasUnicosPagos++;
+          }
+        }
+      });
+      
+      setVisitorDiaristsCount(uniqueLastMatchDiarists);
+      setVisitorMensalistasPaid(mensalistasUnicosPagos);
 
       setTotalRevenue(allTimeRevenue + totalDailyFees);
       setMonthlyRevenue(monthRevenue + monthDailyFees);
@@ -1108,14 +1140,16 @@ export default function App() {
             <span className="sidebar-emoji-container">🏆</span>
             <span>Ranking</span>
           </a>
-          <a
-            href="#"
-            className={`sidebar-item ${activeTab === 'partidas' ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); setActiveTab('partidas'); setIsSidebarOpen(false); }}
-          >
-            <span className="sidebar-emoji-container">⚽</span>
-            <span>Partidas</span>
-          </a>
+          {currentUserRole !== 'visitor' && (
+            <a
+              href="#"
+              className={`sidebar-item ${activeTab === 'partidas' ? 'active' : ''}`}
+              onClick={(e) => { e.preventDefault(); setActiveTab('partidas'); setIsSidebarOpen(false); }}
+            >
+              <span className="sidebar-emoji-container">⚽</span>
+              <span>Partidas</span>
+            </a>
+          )}
           <a
             href="#"
             className={`sidebar-item ${activeTab === 'historico' ? 'active' : ''}`}
@@ -1123,6 +1157,14 @@ export default function App() {
           >
             <span className="sidebar-emoji-container">🕐</span>
             <span>Histórico</span>
+          </a>
+          <a
+            href="#"
+            className={`sidebar-item ${activeTab === 'relatorios' ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); setActiveTab('relatorios'); setIsSidebarOpen(false); }}
+          >
+            <span className="sidebar-emoji-container">📊</span>
+            <span>Relatórios</span>
           </a>
           {currentUserRole !== 'visitor' && (
             <>
@@ -1141,14 +1183,6 @@ export default function App() {
               >
                 <span className="sidebar-emoji-container">💰</span>
                 <span>Financeiro</span>
-              </a>
-              <a
-                href="#"
-                className={`sidebar-item ${activeTab === 'relatorios' ? 'active' : ''}`}
-                onClick={(e) => { e.preventDefault(); setActiveTab('relatorios'); setIsSidebarOpen(false); }}
-              >
-                <span className="sidebar-emoji-container">📊</span>
-                <span>Relatórios</span>
               </a>
               <a
                 href="#"
@@ -1406,37 +1440,54 @@ export default function App() {
                 {currentUserRole === 'visitor' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                   {/* VISITOR CARD 1 — ARRECADADO NO MÊS ATUAL */}
-                  <div className="dashboard-card dashboard-card--neon">
-                    <div className="card-header">
+                  <div className="dashboard-card dashboard-card--neon" style={{ padding: '16px' }}>
+                    <div className="card-header" style={{ marginBottom: '4px' }}>
                       <span className="card-title">
                         <DollarSign size={18} /> Arrecadado no Mês Atual
                       </span>
                     </div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0 0 20px 0' }}>
-                      Inclui valores de mensalistas + diaristas.
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: '0 0 12px 0' }}>
+                      Inclui valores de mensalistas + diaristas, com desconto das despesas.
                     </p>
-                    <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                      <span style={{ fontSize: '2.5rem', fontWeight: 800, color: '#22c55e', letterSpacing: '-1px' }}>
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyRevenue)}
+                    <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '2.2rem', fontWeight: 800, color: '#22c55e', letterSpacing: '-1px', lineHeight: 1 }}>
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((monthlyMensalistasRevenue + monthlyDiaristasRevenue) - monthlyExpenses)}
                       </span>
                     </div>
-                    <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
-                      <div style={{ flex: 1, paddingRight: '12px', borderRight: '1px solid rgba(255,255,255,0.06)', minWidth: 0 }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Mensalistas:</div>
-                        <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#22c55e' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
+                      <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Users size={12} color="#3b82f6" />
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Mensalistas</span>
+                        </div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#22c55e' }}>
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyMensalistasRevenue)}
                         </div>
                       </div>
-                      <div style={{ flex: 1, paddingLeft: '16px', minWidth: 0 }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Diaristas:</div>
-                        <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#22c55e' }}>
+                      
+                      <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <User size={12} color="#3b82f6" />
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Diaristas</span>
+                        </div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#22c55e' }}>
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyDiaristasRevenue)}
                         </div>
                       </div>
+
+                      <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <FileText size={12} color="#ef4444" />
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Despesas</span>
+                        </div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#ef4444' }}>
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyExpenses)}
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.7, marginTop: '16px' }}>
-                      <AlertCircle size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Visitantes veem apenas a arrecadação do mês atual.</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.7, marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                      <AlertCircle size={12} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Visitantes veem apenas a arrecadação líquida do mês atual.</span>
                     </div>
                   </div>
 
@@ -1448,12 +1499,11 @@ export default function App() {
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                      {/* Pagos */}
+                      {/* Mensalistas Pagos */}
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
                         <div style={{ color: '#22c55e', marginBottom: '2px' }}><CircleCheck size={26} strokeWidth={1.5} /></div>
-                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#22c55e', lineHeight: 1 }}>{totalMonthlyPaid}</span>
-                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Pessoas que<br/>pagaram</span>
-                        <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: '4px' }}>Mensalistas + diaristas<br/>pagos no mês.</span>
+                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#22c55e', lineHeight: 1 }}>{visitorMensalistasPaid}</span>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pagos</span>
                       </div>
 
                       <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
@@ -1470,8 +1520,9 @@ export default function App() {
                       {/* Diaristas */}
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
                         <div style={{ color: '#f97316', marginBottom: '2px' }}><Users size={26} strokeWidth={1.5} /></div>
-                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#f97316', lineHeight: 1 }}>{lastMatchDiarists}</span>
+                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#f97316', lineHeight: 1 }}>{visitorDiaristsCount}</span>
                         <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Diaristas</span>
+                        <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: '4px' }}>(Últ. Partida)</span>
                       </div>
                     </div>
                   </div>
@@ -1801,118 +1852,55 @@ export default function App() {
 
       {/* BARRA DE NAVEGAÇÃO INFERIOR FIXA */}
       <nav className="nav-bar">
-        <a
-          href="#"
-          className="nav-item"
-          style={{
-            color: '#3b82f6',
-            opacity: activeTab === 'inicio' ? 1 : 0.65,
-            textShadow: activeTab === 'inicio' ? '0 0 8px rgba(59, 130, 246, 0.5)' : 'none',
-            fontWeight: activeTab === 'inicio' ? 700 : 500,
-          }}
-          onClick={(e) => { e.preventDefault(); setActiveTab('inicio'); }}
-        >
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '40px', height: '40px', borderRadius: '50%',
-            backgroundColor: activeTab === 'inicio' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-            marginBottom: '4px',
-            transition: '0.2s ease-in-out'
-          }}>
-            <Home size={22} style={{ filter: activeTab === 'inicio' ? 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))' : 'none' }} />
-          </div>
-          <span>Início</span>
-        </a>
-        <a
-          href="#"
-          className="nav-item"
-          style={{
-            color: '#22c55e',
-            opacity: activeTab === 'jogadores' ? 1 : 0.65,
-            textShadow: activeTab === 'jogadores' ? '0 0 8px rgba(34, 197, 94, 0.5)' : 'none',
-            fontWeight: activeTab === 'jogadores' ? 700 : 500,
-          }}
-          onClick={(e) => { e.preventDefault(); setActiveTab('jogadores'); }}
-        >
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '40px', height: '40px', borderRadius: '50%',
-            backgroundColor: activeTab === 'jogadores' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-            marginBottom: '4px',
-            transition: '0.2s ease-in-out'
-          }}>
-            <Users size={22} style={{ filter: activeTab === 'jogadores' ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))' : 'none' }} />
-          </div>
-          <span>Jogadores</span>
-        </a>
-        <a
-          href="#"
-          className="nav-item"
-          style={{
-            color: '#f97316',
-            opacity: activeTab === 'partidas' ? 1 : 0.65,
-            textShadow: activeTab === 'partidas' ? '0 0 8px rgba(249, 115, 22, 0.5)' : 'none',
-            fontWeight: activeTab === 'partidas' ? 700 : 500,
-          }}
-          onClick={(e) => { e.preventDefault(); setActiveTab('partidas'); }}
-        >
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '40px', height: '40px', borderRadius: '50%',
-            backgroundColor: activeTab === 'partidas' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-            marginBottom: '4px',
-            transition: '0.2s ease-in-out'
-          }}>
-            <Trophy size={22} style={{ filter: activeTab === 'partidas' ? 'drop-shadow(0 0 4px rgba(249, 115, 22, 0.5))' : 'none' }} />
-          </div>
-          <span>Partidas</span>
-        </a>
-        <a
-          href="#"
-          className="nav-item"
-          style={{
-            color: '#eab308',
-            opacity: activeTab === 'ranking' ? 1 : 0.65,
-            textShadow: activeTab === 'ranking' ? '0 0 8px rgba(234, 179, 8, 0.5)' : 'none',
-            fontWeight: activeTab === 'ranking' ? 700 : 500,
-          }}
-          onClick={(e) => { e.preventDefault(); setActiveTab('ranking'); }}
-        >
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '40px', height: '40px', borderRadius: '50%',
-            backgroundColor: activeTab === 'ranking' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-            marginBottom: '4px',
-            transition: '0.2s ease-in-out'
-          }}>
-            <Award size={22} style={{ filter: activeTab === 'ranking' ? 'drop-shadow(0 0 4px rgba(234, 179, 8, 0.5))' : 'none' }} />
-          </div>
-          <span>Ranking</span>
-        </a>
-        {currentUserRole !== 'visitor' && (
-          <a
-            href="#"
-            className="nav-item"
-            style={{
-              color: '#a855f7',
-              opacity: activeTab === 'configuracoes' ? 1 : 0.65,
-              textShadow: activeTab === 'configuracoes' ? '0 0 8px rgba(168, 85, 247, 0.5)' : 'none',
-              fontWeight: activeTab === 'configuracoes' ? 700 : 500,
-            }}
-            onClick={(e) => { e.preventDefault(); setActiveTab('configuracoes'); }}
-          >
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: '40px', height: '40px', borderRadius: '50%',
-              backgroundColor: activeTab === 'configuracoes' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-              marginBottom: '4px',
-              transition: '0.2s ease-in-out'
-            }}>
-              <Settings size={22} style={{ filter: activeTab === 'configuracoes' ? 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.5))' : 'none' }} />
-            </div>
-            <span>Configuração</span>
-          </a>
-        )}
+        {(() => {
+          const visitorNav = [
+            { id: 'inicio', label: 'Início', icon: Home, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.2)', shadow: 'rgba(59, 130, 246, 0.5)' },
+            { id: 'jogadores', label: 'Jogadores', icon: Users, color: '#22c55e', bg: 'rgba(34, 197, 94, 0.2)', shadow: 'rgba(34, 197, 94, 0.5)' },
+            { id: 'ranking', label: 'Ranking', icon: Award, color: '#eab308', bg: 'rgba(234, 179, 8, 0.2)', shadow: 'rgba(234, 179, 8, 0.5)' },
+            { id: 'historico', label: 'Histórico', icon: Clock, color: '#64748b', bg: 'rgba(100, 116, 139, 0.2)', shadow: 'rgba(100, 116, 139, 0.5)' },
+            { id: 'relatorios', label: 'Relatórios', icon: BarChart2, color: '#ec4899', bg: 'rgba(236, 72, 153, 0.2)', shadow: 'rgba(236, 72, 153, 0.5)' }
+          ];
+
+          const adminNav = [
+            { id: 'inicio', label: 'Início', icon: Home, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.2)', shadow: 'rgba(59, 130, 246, 0.5)' },
+            { id: 'jogadores', label: 'Jogadores', icon: Users, color: '#22c55e', bg: 'rgba(34, 197, 94, 0.2)', shadow: 'rgba(34, 197, 94, 0.5)' },
+            { id: 'partidas', label: 'Partidas', icon: Trophy, color: '#f97316', bg: 'rgba(249, 115, 22, 0.2)', shadow: 'rgba(249, 115, 22, 0.5)' },
+            { id: 'ranking', label: 'Ranking', icon: Award, color: '#eab308', bg: 'rgba(234, 179, 8, 0.2)', shadow: 'rgba(234, 179, 8, 0.5)' },
+            { id: 'configuracoes', label: 'Configuração', icon: Settings, color: '#a855f7', bg: 'rgba(168, 85, 247, 0.2)', shadow: 'rgba(168, 85, 247, 0.5)' }
+          ];
+
+          const currentNav = currentUserRole === 'visitor' ? visitorNav : adminNav;
+
+          return currentNav.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <a
+                key={item.id}
+                href="#"
+                className="nav-item"
+                style={{
+                  color: item.color,
+                  opacity: isActive ? 1 : 0.65,
+                  textShadow: isActive ? `0 0 8px ${item.shadow}` : 'none',
+                  fontWeight: isActive ? 700 : 500,
+                }}
+                onClick={(e) => { e.preventDefault(); setActiveTab(item.id as any); }}
+              >
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '40px', height: '40px', borderRadius: '50%',
+                  backgroundColor: isActive ? item.bg : 'rgba(255, 255, 255, 0.05)',
+                  marginBottom: '4px',
+                  transition: '0.2s ease-in-out'
+                }}>
+                  <Icon size={22} style={{ filter: isActive ? `drop-shadow(0 0 4px ${item.shadow})` : 'none' }} />
+                </div>
+                <span>{item.label}</span>
+              </a>
+            );
+          });
+        })()}
       </nav>
       {/* EDIT LAST MATCH MODAL */}
       {editingLastMatch && (
