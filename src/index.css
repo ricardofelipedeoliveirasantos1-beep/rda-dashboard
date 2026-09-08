@@ -944,3 +944,17 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+/* Responsive Grid for Comparison Card */
+.responsive-comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .responsive-comparison-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+

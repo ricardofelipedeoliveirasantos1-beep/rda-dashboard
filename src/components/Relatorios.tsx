@@ -1545,7 +1545,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
                       </span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="responsive-comparison-grid">
                       {[
                         { label: 'Gols', metric: data.comparison.goals, unit: 'gols' },
                         { label: 'Assistências', metric: data.comparison.assists, unit: 'asts' },
@@ -1604,37 +1604,37 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
 
                         return (
                           <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span>{item.label}</span>
-                              {showAverageAsPrimary && <span style={{ fontSize: '0.65rem', color: '#fbbf24', fontWeight: 500, textTransform: 'none' }}>(Média/partida)</span>}
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                              <span style={{ minWidth: 0, flex: '1 1 auto', wordBreak: 'break-word' }}>{item.label}</span>
+                              {showAverageAsPrimary && <span style={{ fontSize: '0.65rem', color: '#fbbf24', fontWeight: 500, textTransform: 'none', flexShrink: 0 }}>(Média/partida)</span>}
                             </span>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{data.comparison?.prevLabel}:</span>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: 0, flex: '1 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.comparison?.prevLabel}:</span>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{formatVal(displayPrev)}</span>
                                 {!isMatches && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{secondaryPrevText}</span>}
                               </div>
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{data.comparison?.currLabel}:</span>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', gap: '8px' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: 0, flex: '1 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.comparison?.currLabel}:</span>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#38bdf8' }}>{formatVal(displayCurr)}</span>
                                 {!isMatches && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{secondaryCurrText}</span>}
                               </div>
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed rgba(255,255,255,0.1)', marginTop: '6px', paddingTop: '6px' }}>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Diferença:</span>
-                              <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed rgba(255,255,255,0.1)', marginTop: '6px', paddingTop: '6px', gap: '8px' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: 0, flex: '1 1 auto' }}>Diferença:</span>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 600, flexShrink: 0, textAlign: 'right' }}>
                                 {diff > 0 ? `+${formatVal(diff)}` : formatVal(diff)}
                               </span>
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Variação:</span>
-                              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: diff === 0 ? 'var(--text-muted)' : color }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px', gap: '8px' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: 0, flex: '1 1 auto' }}>Variação:</span>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: diff === 0 ? 'var(--text-muted)' : color, flexShrink: 0, textAlign: 'right' }}>
                                 {diff === 0 ? (pctText === 'Sem alteração' ? pctText : '→ 0%') : `${arrow} ${pctText}`}
                               </span>
                             </div>

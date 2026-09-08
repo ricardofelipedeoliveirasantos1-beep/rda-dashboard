@@ -8,8 +8,11 @@ import {
   UsersRound, UserRound, CircleArrowDown, CircleArrowUp, WalletCards, Plus, UserRoundCheck, UserRoundX, ChartNoAxesColumnIncreasing
 } from 'lucide-react';
 
+import FinanceiroVisitante from './FinanceiroVisitante';
+
 interface MonthlyPayment {
   id?: string;
+  player_id?: string;
   payment_month: string;
   amount: number;
   status: 'paid' | 'pending';
@@ -51,7 +54,8 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   const [, setMatches] = useState<Match[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [mensalistasAtivosCount, setMensalistasAtivosCount] = useState<number>(0);
-  const [, setDiaristasPagosCount] = useState<number>(0);
+  const [diaristasPagosCount, setDiaristasPagosCount] = useState<number>(0);
+  const [diaristasPagosIds, setDiaristasPagosIds] = useState<string[]>([]);
   const [, setLastMatchDate] = useState<string | null>(null);
   const [diaristasTotalVal, setDiaristasTotalVal] = useState(0);
   const [, setUnknownDiariasCount] = useState(0);
@@ -79,7 +83,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
     }
   }, [feedback]);
 
-  const financeCache = useRef<Record<string, { payments: MonthlyPayment[]; matches: Match[]; expenses: Expense[]; mensalistasAtivosCount: number; diaristasPagosCount: number; lastMatchDate: string | null; diaristasTotalVal: number; unknownDiariasCount: number; lastMatchDiaristasCount: number; lastMatchDiaristasSum: number; }>>({});
+  const financeCache = useRef<Record<string, { payments: MonthlyPayment[]; matches: Match[]; expenses: Expense[]; mensalistasAtivosCount: number; diaristasPagosCount: number; diaristasPagosIds: string[]; lastMatchDate: string | null; diaristasTotalVal: number; unknownDiariasCount: number; lastMatchDiaristasCount: number; lastMatchDiaristasSum: number; }>>({});
 
   const getYearMonthString = (date: Date): string => {
     const yyyy = date.getFullYear();
@@ -96,6 +100,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       setExpenses(financeCache.current[monthStr].expenses);
       setMensalistasAtivosCount(financeCache.current[monthStr].mensalistasAtivosCount);
       setDiaristasPagosCount(financeCache.current[monthStr].diaristasPagosCount);
+      setDiaristasPagosIds(financeCache.current[monthStr].diaristasPagosIds);
       setLastMatchDate(financeCache.current[monthStr].lastMatchDate);
       setDiaristasTotalVal(financeCache.current[monthStr].diaristasTotalVal);
       setUnknownDiariasCount(financeCache.current[monthStr].unknownDiariasCount);
@@ -118,7 +123,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       const matchesRes = allMatches.filter((m: any) => m.status === 'finished' && m.match_date >= startOfMonth && m.match_date < endOfMonth);
 
       const allPayments = await getCachedData('monthly_payments', async () => {
-        const { data } = await supabase.from('monthly_payments').select('id, payment_month, amount, status');
+        const { data } = await supabase.from('monthly_payments').select('id, player_id, payment_month, amount, status');
         return data || [];
       }, CACHE_TTL.monthly_payments);
 
@@ -139,6 +144,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       const activeMensalistasCount = activeMensalistas.length;
 
       let uniqueDiaristasCount = 0;
+      let diaristasIdsArray: string[] = [];
       let lastMatchDateStr = null;
       let lastMatchId: string | null = null;
       let diaristasArrecadadosSum = 0;
@@ -164,8 +170,9 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
           lastMatchDCount = lastMatchDiaristas.length;
           lastMatchDSum = lastMatchDiaristas.reduce((sum, mp) => sum + Number(mp.daily_fee_at_match || 0), 0);
 
-          const uniqueIds = new Set(paidDiaristas.map((mp: any) => mp.player_id));
+          const uniqueIds = new Set<string>(paidDiaristas.map((mp: any) => mp.player_id));
           uniqueDiaristasCount = uniqueIds.size;
+          diaristasIdsArray = Array.from(uniqueIds);
 
           unknownCount = diaristas.filter((mp: any) => !mp.payment_status || mp.payment_status === 'unknown').length;
         }
@@ -177,6 +184,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         expenses: expensesRes,
         mensalistasAtivosCount: activeMensalistasCount,
         diaristasPagosCount: uniqueDiaristasCount,
+        diaristasPagosIds: diaristasIdsArray,
         lastMatchDate: lastMatchDateStr,
         diaristasTotalVal: diaristasArrecadadosSum,
         unknownDiariasCount: unknownCount,
@@ -189,6 +197,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       setExpenses(expensesRes);
       setMensalistasAtivosCount(activeMensalistasCount);
       setDiaristasPagosCount(uniqueDiaristasCount);
+      setDiaristasPagosIds(diaristasIdsArray);
       setLastMatchDate(lastMatchDateStr);
       setDiaristasTotalVal(diaristasArrecadadosSum);
       setUnknownDiariasCount(unknownCount);
@@ -213,9 +222,12 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   const totalEntradasVal = recebidosVal + diaristasTotalVal;
   const saldoFinalVal = totalEntradasVal - totalDespesasVal;
 
-  // @ts-ignore
-  const mensalistasPagos = payments.filter(p => p.status === 'paid' && p.amount > 0).length;
-  const uniqueMensalistasPagosIds = new Set(payments.filter(p => p.status === 'paid').map((p: any) => p.player_id || p.id));
+  const paidMensalistasIds = payments.filter(p => p.status === 'paid' && p.player_id).map((p: any) => p.player_id);
+  const uniquePessoasPagaramIds = new Set([...diaristasPagosIds, ...paidMensalistasIds]);
+  const pessoasPagaramCount = uniquePessoasPagaramIds.size;
+  
+  // For the admin page we still want just the mensalistas únicos to compute pendentes
+  const uniqueMensalistasPagosIds = new Set(paidMensalistasIds);
   const mensalistasPagosUnicos = uniqueMensalistasPagosIds.size;
   const mensalistasPendentes = Math.max(0, mensalistasAtivosCount - mensalistasPagosUnicos);
 
@@ -224,6 +236,18 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', color: 'var(--text-secondary)' }}>
         Carregando financeiro...
       </div>
+    );
+  }
+
+  if (_userRole === 'visitor') {
+    return (
+      <FinanceiroVisitante
+        mensalistasValor={recebidosVal}
+        diaristasValor={diaristasTotalVal}
+        pessoasPagaramCount={pessoasPagaramCount}
+        mensalistasPendentesCount={mensalistasPendentes}
+        diaristasUnicosCount={diaristasPagosCount}
+      />
     );
   }
 
