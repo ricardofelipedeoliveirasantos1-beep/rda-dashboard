@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { invalidateCache } from '../services/dataCache';
 import { 
@@ -34,6 +34,7 @@ interface Player {
   fee: number | null;
   photo_url: string | null;
   is_active: boolean;
+  shirt_number?: number | null;
 }
 
 interface MatchPlayer {
@@ -45,6 +46,7 @@ interface MatchPlayer {
   daily_fee_at_match: number;
   payment_status?: "paid" | "pending" | "unknown" | null;
   paid_at?: string | null;
+  shirt_number?: number | null;
   player: {
     name: string;
     photo_url: string | null;
@@ -112,7 +114,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   // Database lists
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [lastChampionInfo, setLastChampionInfo] = useState<{ team: string, playerIds: Set<string> } | null>(null);
+  const [lastChampionInfo, setLastChampionInfo] = useState<{ team: string, playerIds: Set<string>, playerShirts: Map<string, number> } | null>(null);
   const [defaultDailyFee, setDefaultDailyFee] = useState(20);
   
   // Loading & feedback states
@@ -140,6 +142,53 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   const [teamPortugal, setTeamPortugal] = useState<Player[]>([]);
   const [teamJapao, setTeamJapao] = useState<Player[]>([]);
   const [teamUruguai, setTeamUruguai] = useState<Player[]>([]);
+
+  const teamsWithShirts = useMemo(() => {
+    const SHIRT_NUMBERS: Record<string, number[]> = {
+      brasil: [22, 23, 25, 26, 27, 28],
+      uruguai: [31, 32, 33, 34, 35, 36],
+      portugal: [15, 16, 17, 18, 19, 20],
+      japao: [8, 9, 10, 11, 13, 14],
+    };
+
+    const getTeamWithShirts = (teamStr: string, list: Player[]) => {
+      const shirts = SHIRT_NUMBERS[teamStr] || [];
+      const champTeamStr = lastChampionInfo?.team;
+      const champPlayerShirts = lastChampionInfo?.playerShirts || new Map<string, number>();
+
+      const usedShirts = new Set<number>();
+      const mapped = list.map(p => {
+        if (champTeamStr === teamStr && champPlayerShirts.has(p.id)) {
+          const shirt = champPlayerShirts.get(p.id)!;
+          usedShirts.add(shirt);
+          return { ...p, shirt_number: shirt };
+        }
+        if (p.shirt_number != null && shirts.includes(p.shirt_number) && !usedShirts.has(p.shirt_number)) {
+          usedShirts.add(p.shirt_number);
+          return { ...p, shirt_number: p.shirt_number };
+        }
+        return { ...p, shirt_number: null };
+      });
+
+      const availableShirts = shirts.filter(s => !usedShirts.has(s)).sort((a, b) => a - b);
+      let shirtIdx = 0;
+      
+      return mapped.map(p => {
+        if (p.shirt_number !== null) return p;
+        if (shirtIdx < availableShirts.length) {
+          return { ...p, shirt_number: availableShirts[shirtIdx++] };
+        }
+        return p;
+      });
+    };
+
+    return {
+      brasil: getTeamWithShirts('brasil', teamBrasil),
+      portugal: getTeamWithShirts('portugal', teamPortugal),
+      japao: getTeamWithShirts('japao', teamJapao),
+      uruguai: getTeamWithShirts('uruguai', teamUruguai),
+    };
+  }, [teamBrasil, teamPortugal, teamJapao, teamUruguai, lastChampionInfo]);
 
   // Manual Draw selection state
   const [selectedPlayerForDraw, setSelectedPlayerForDraw] = useState<Player | null>(null);
@@ -453,6 +502,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     if (isSelectionChanged) {
       let champTeamStr: string | null = null;
       let champPlayerIds = new Set<string>();
+      let champPlayerShirts = new Map<string, number>();
 
       try {
         const { data: matchesData, error: matchesError } = await supabase
@@ -470,19 +520,24 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           
           const { data: playersData, error: playersError } = await supabase
             .from('match_players')
-            .select('player_id')
+            .select('player_id, shirt_number')
             .eq('match_id', lastMatch.id)
             .eq('team', champTeamStr);
 
           if (!playersError && playersData) {
             champPlayerIds = new Set(playersData.map(p => p.player_id));
+            playersData.forEach(p => {
+              if (p.shirt_number) {
+                champPlayerShirts.set(p.player_id, p.shirt_number);
+              }
+            });
           }
         }
       } catch (err) {
         console.error("Erro ao buscar último campeão:", err);
       }
 
-      const championInfo = champTeamStr ? { team: champTeamStr, playerIds: champPlayerIds } : null;
+      const championInfo = champTeamStr ? { team: champTeamStr, playerIds: champPlayerIds, playerShirts: champPlayerShirts } : null;
       setLastChampionInfo(championInfo);
 
       // We pass championInfo locally here since state won't update synchronously for getActiveTeams below
@@ -692,7 +747,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       setValidationError('Por favor, informe o local da partida.');
       return;
     }
-    const allAssigned = [...teamBrasil, ...teamPortugal, ...teamJapao, ...teamUruguai];
+    const allAssigned = [...teamsWithShirts.brasil, ...teamsWithShirts.portugal, ...teamsWithShirts.japao, ...teamsWithShirts.uruguai];
     const uniqueIds = new Set(allAssigned.map(p => p.id));
     if (uniqueIds.size !== allAssigned.length) {
       setValidationError('Erro de integridade: Existem jogadores duplicados nos times.');
@@ -728,41 +783,45 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         const newMatchId = matchData.id;
 
         const matchPlayersRows = [
-          ...teamBrasil.map(p => ({
+          ...teamsWithShirts.brasil.map(p => ({
             match_id: newMatchId,
             player_id: p.id,
             team: 'brasil',
             category_at_match: p.category,
             daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0,
             payment_status: p.category === 'Diarista' ? 'paid' : 'unknown',
-            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null
+            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null,
+            shirt_number: p.shirt_number
           })),
-          ...teamPortugal.map(p => ({
+          ...teamsWithShirts.portugal.map(p => ({
             match_id: newMatchId,
             player_id: p.id,
             team: 'portugal',
             category_at_match: p.category,
             daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0,
             payment_status: p.category === 'Diarista' ? 'paid' : 'unknown',
-            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null
+            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null,
+            shirt_number: p.shirt_number
           })),
-          ...teamJapao.map(p => ({
+          ...teamsWithShirts.japao.map(p => ({
             match_id: newMatchId,
             player_id: p.id,
             team: 'japao',
             category_at_match: p.category,
             daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0,
             payment_status: p.category === 'Diarista' ? 'paid' : 'unknown',
-            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null
+            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null,
+            shirt_number: p.shirt_number
           })),
-          ...teamUruguai.map(p => ({
+          ...teamsWithShirts.uruguai.map(p => ({
             match_id: newMatchId,
             player_id: p.id,
             team: 'uruguai',
             category_at_match: p.category,
             daily_fee_at_match: p.category === 'Diarista' ? (p.fee && p.fee > 0 ? p.fee : defaultDailyFee) : 0,
             payment_status: p.category === 'Diarista' ? 'paid' : 'unknown',
-            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null
+            paid_at: p.category === 'Diarista' ? new Date().toISOString() : null,
+            shirt_number: p.shirt_number
           })),
           ...availablePlayers.map(p => ({
             match_id: newMatchId,
@@ -840,41 +899,45 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           };
 
         const matchPlayersRows = [
-          ...teamBrasil.map(p => ({
+          ...teamsWithShirts.brasil.map(p => ({
             match_id: editingMatchId,
             player_id: p.id,
             team: 'brasil',
             category_at_match: p.category,
             daily_fee_at_match: getPlayerFee(p),
             payment_status: getPlayerPaymentStatus(p),
-            paid_at: getPlayerPaidAt(p)
+            paid_at: getPlayerPaidAt(p),
+            shirt_number: p.shirt_number
           })),
-          ...teamPortugal.map(p => ({
+          ...teamsWithShirts.portugal.map(p => ({
             match_id: editingMatchId,
             player_id: p.id,
             team: 'portugal',
             category_at_match: p.category,
             daily_fee_at_match: getPlayerFee(p),
             payment_status: getPlayerPaymentStatus(p),
-            paid_at: getPlayerPaidAt(p)
+            paid_at: getPlayerPaidAt(p),
+            shirt_number: p.shirt_number
           })),
-          ...teamJapao.map(p => ({
+          ...teamsWithShirts.japao.map(p => ({
             match_id: editingMatchId,
             player_id: p.id,
             team: 'japao',
             category_at_match: p.category,
             daily_fee_at_match: getPlayerFee(p),
             payment_status: getPlayerPaymentStatus(p),
-            paid_at: getPlayerPaidAt(p)
+            paid_at: getPlayerPaidAt(p),
+            shirt_number: p.shirt_number
           })),
-          ...teamUruguai.map(p => ({
+          ...teamsWithShirts.uruguai.map(p => ({
             match_id: editingMatchId,
             player_id: p.id,
             team: 'uruguai',
             category_at_match: p.category,
             daily_fee_at_match: getPlayerFee(p),
             payment_status: getPlayerPaymentStatus(p),
-            paid_at: getPlayerPaidAt(p)
+            paid_at: getPlayerPaidAt(p),
+            shirt_number: p.shirt_number
           })),
           ...availablePlayers.map(p => ({
             match_id: editingMatchId,
@@ -2603,9 +2666,30 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                     <User size={16} style={{ color: 'var(--text-muted)' }} />
                                   </div>
                                 )}
+
+                                {mp.shirt_number && (
+                                  <div style={{ 
+                                    backgroundColor: '#fff', 
+                                    color: '#000', 
+                                    fontSize: '0.75rem', 
+                                    fontWeight: 800, 
+                                    padding: '2px 6px', 
+                                    borderRadius: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minWidth: '24px'
+                                  }}>
+                                    {String(mp.shirt_number).padStart(2, '0')}
+                                  </div>
+                                )}
+
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                     {mp.player?.name}
+                                    {isDiarista && (
+                                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>(Diarista)</span>
+                                    )}
                                     {isChampion && !isDiarista && (
                                       <Trophy size={12} style={{ color: '#fbbf24' }} />
                                     )}
@@ -3278,10 +3362,10 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         marginTop: '8px'
       }}>
         {[
-          { id: 'team-brasil', name: 'brasil', label: 'BRASIL', color: '#22c55e', bg: 'rgba(34,197,94,0.02)', players: teamBrasil },
-          { id: 'team-portugal', name: 'portugal', label: 'PORTUGAL', color: '#ef4444', bg: 'rgba(239,68,68,0.02)', players: teamPortugal },
-          { id: 'team-japao', name: 'japao', label: 'JAPÃO', color: '#ffffff', bg: 'rgba(255,255,255,0.01)', players: teamJapao },
-          { id: 'team-uruguai', name: 'uruguai', label: 'URUGUAI', color: '#38bdf8', bg: 'rgba(56,189,248,0.02)', players: teamUruguai }
+          { id: 'team-brasil', name: 'brasil', label: 'BRASIL', color: '#22c55e', bg: 'rgba(34,197,94,0.02)', players: teamsWithShirts.brasil },
+          { id: 'team-portugal', name: 'portugal', label: 'PORTUGAL', color: '#ef4444', bg: 'rgba(239,68,68,0.02)', players: teamsWithShirts.portugal },
+          { id: 'team-japao', name: 'japao', label: 'JAPÃO', color: '#ffffff', bg: 'rgba(255,255,255,0.01)', players: teamsWithShirts.japao },
+          { id: 'team-uruguai', name: 'uruguai', label: 'URUGUAI', color: '#38bdf8', bg: 'rgba(56,189,248,0.02)', players: teamsWithShirts.uruguai }
         ].filter(team => getActiveTeams().includes(team.name)).map((team) => {
           return (
             <div 
@@ -3338,8 +3422,33 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                               <User size={14} style={{ color: 'var(--text-muted)' }} />
                             </div>
                           )}
+
+                          {p.shirt_number && (
+                            <div style={{ 
+                              backgroundColor: '#fff', 
+                              color: '#000', 
+                              fontSize: '0.7rem', 
+                              fontWeight: 800, 
+                              padding: '2px 5px', 
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: '22px'
+                            }}>
+                              {String(p.shirt_number).padStart(2, '0')}
+                            </div>
+                          )}
+
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {p.name}
+                              </span>
+                              {p.category === 'Diarista' && (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>(Diarista)</span>
+                              )}
+                            </div>
                             <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.position || 'Sem posição'}</span>
                           </div>
                         </div>
