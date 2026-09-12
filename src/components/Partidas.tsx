@@ -1073,7 +1073,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       const originalPlayer = players.find(pl => pl.id === mp.player_id);
       const mappedPlayer: Player = originalPlayer ? {
         ...originalPlayer,
-        category: mp.category_at_match
+        category: mp.category_at_match,
+        shirt_number: mp.shirt_number
       } : {
         id: mp.player_id,
         name: mp.player?.name || 'Jogador Excluído',
@@ -1082,7 +1083,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         category: mp.category_at_match,
         fee: mp.daily_fee_at_match,
         photo_url: mp.player?.photo_url || null,
-        is_active: true
+        is_active: true,
+        shirt_number: mp.shirt_number
       };
 
       if (mp.team === 'brasil') brasilList.push(mappedPlayer);
@@ -1804,6 +1806,22 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                         <User size={13} style={{ color: 'var(--text-muted)' }} />
                                       </div>
                                     )}
+                                    {mp.shirt_number && (
+                                      <div style={{
+                                        backgroundColor: '#fff',
+                                        color: '#000',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 800,
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        minWidth: '24px'
+                                      }}>
+                                        {String(mp.shirt_number).padStart(2, '0')}
+                                      </div>
+                                    )}
                                     <span style={{ fontWeight: 600, color: 'var(--text-primary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {mp.player?.name || 'Jogador'}
                                     </span>
@@ -2418,7 +2436,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                   const uruguaiList: Player[] = [];
                   (activeMatchForStats.match_players || []).forEach(mp => {
                     const originalPlayer = players.find(pl => pl.id === mp.player_id);
-                    const mappedPlayer: Player = originalPlayer ? { ...originalPlayer, category: mp.category_at_match } : {
+                    const mappedPlayer: Player = originalPlayer ? { ...originalPlayer, category: mp.category_at_match, shirt_number: mp.shirt_number } : {
                       id: mp.player_id,
                       name: mp.player?.name || 'Jogador Excluído',
                       birth_date: '',
@@ -2426,7 +2444,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                       category: mp.category_at_match,
                       fee: mp.daily_fee_at_match,
                       photo_url: mp.player?.photo_url || null,
-                      is_active: true
+                      is_active: true,
+                      shirt_number: mp.shirt_number
                     };
                     if (mp.team === 'brasil') brasilList.push(mappedPlayer);
                     if (mp.team === 'portugal') portugalList.push(mappedPlayer);
@@ -2480,7 +2499,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                   const uruguaiList: Player[] = [];
                   (activeMatchForStats.match_players || []).forEach(mp => {
                     const originalPlayer = players.find(pl => pl.id === mp.player_id);
-                    const mappedPlayer: Player = originalPlayer ? { ...originalPlayer, category: mp.category_at_match } : {
+                    const mappedPlayer: Player = originalPlayer ? { ...originalPlayer, category: mp.category_at_match, shirt_number: mp.shirt_number } : {
                       id: mp.player_id,
                       name: mp.player?.name || 'Jogador Excluído',
                       birth_date: '',
@@ -2488,7 +2507,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                       category: mp.category_at_match,
                       fee: mp.daily_fee_at_match,
                       photo_url: mp.player?.photo_url || null,
-                      is_active: true
+                      is_active: true,
+                      shirt_number: mp.shirt_number
                     };
                     if (mp.team === 'brasil') brasilList.push(mappedPlayer);
                     if (mp.team === 'portugal') portugalList.push(mappedPlayer);
