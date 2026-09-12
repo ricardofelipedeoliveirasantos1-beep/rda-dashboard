@@ -1806,7 +1806,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                         <User size={13} style={{ color: 'var(--text-muted)' }} />
                                       </div>
                                     )}
-                                    {mp.shirt_number && (
+                                    {mp.shirt_number != null && (
                                       <div style={{
                                         backgroundColor: '#fff',
                                         color: '#000',
@@ -1894,6 +1894,22 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                           ) : (
                                             <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#262626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                               <User size={10} style={{ color: 'var(--text-muted)' }} />
+                                            </div>
+                                          )}
+                                          {mp.shirt_number != null && (
+                                            <div style={{
+                                              backgroundColor: '#fff',
+                                              color: '#000',
+                                              fontSize: '0.7rem',
+                                              fontWeight: 800,
+                                              padding: '2px 5px',
+                                              borderRadius: '4px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              minWidth: '22px'
+                                            }}>
+                                              {String(mp.shirt_number).padStart(2, '0')}
                                             </div>
                                           )}
                                           <span style={{ fontWeight: 500, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -2687,7 +2703,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                   </div>
                                 )}
 
-                                {mp.shirt_number && (
+                                {mp.shirt_number != null && (
                                   <div style={{ 
                                     backgroundColor: '#fff', 
                                     color: '#000', 
