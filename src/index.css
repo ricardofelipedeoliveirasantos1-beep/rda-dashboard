@@ -612,51 +612,110 @@ body {
 }
 
 /* Classification Grid & Item styling */
-.classification-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  text-align: center;
+.classification-container {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 10px 8px;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: rgba(34,197,94,0.02);
+  border: 1px solid rgba(34,197,94,0.1);
 }
 
-@media (min-width: 600px) {
+.classification-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
   .classification-grid {
-    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
   }
 }
 
 .classification-item {
+  width: 100%;
+  min-width: 0;
+  min-height: 60px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 8px 6px;
-  border-radius: 10px;
-  height: 58px;
+  padding: 6px 2px;
+  border-radius: 8px;
+  border-style: solid;
+  border-width: 1px;
   box-sizing: border-box;
   text-align: center;
-  flex: 1;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .classification-item {
+    min-height: 70px;
+    padding: 8px 4px;
+  }
+}
+
+.classification-pos {
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 3px;
+}
+
+@media (min-width: 768px) {
+  .classification-pos {
+    font-size: 11px;
+  }
 }
 
 .classification-title {
-  display: block;
-  font-size: 0.64rem;
+  font-size: 8px;
   font-weight: 800;
-  letter-spacing: 0.3px;
+  line-height: 1.1;
+  text-transform: uppercase;
   margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+@media (max-width: 375px) {
+  .classification-title.ralabosta {
+    font-size: 6px;
+  }
+}
+
+@media (min-width: 768px) {
+  .classification-title {
+    font-size: 10px;
+  }
+  .classification-title.ralabosta {
+    font-size: 10px;
+  }
 }
 
 .classification-team {
-  font-size: 0.85rem;
+  font-size: 8px;
   font-weight: 800;
+  line-height: 1.1;
   text-transform: uppercase;
   color: #ffffff;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  text-align: center;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .classification-team {
+    font-size: 10px;
+  }
 }
 
 /* Finance Grid Topo & Mini Cards */

@@ -1712,41 +1712,43 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                             border: '1px solid rgba(34,197,94,0.1)'
                           }}>
                              {/* CLASSIFICAÇÃO FINAL */}
-                             <div className="classification-grid" style={{
-                               display: 'grid',
-                               gridTemplateColumns: `repeat(${match.team_count || 4}, 1fr)`,
-                               gap: '8px'
-                             }}>
-                               <div className="classification-item" style={{ backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)' }}>
-                                 <span className="classification-title" style={{ color: '#fbbf24' }}>1º CAMPEÃO</span>
-                                 <strong className="classification-team">{match.champion_team ? match.champion_team.toUpperCase() : '—'}</strong>
-                               </div>
-                               <div className="classification-item" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.2)' }}>
-                                 <span className="classification-title" style={{ color: '#94a3b8' }}>2º VICE</span>
-                                 <strong className="classification-team">{match.runner_up_team ? match.runner_up_team.toUpperCase() : '—'}</strong>
-                               </div>
-                               {(match.team_count || 4) >= 3 && (
-                                 <div className="classification-item" style={{ 
-                                   backgroundColor: match.team_count === 3 ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)', 
-                                   border: match.team_count === 3 ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(180,83,9,0.2)' 
-                                 }}>
-                                   <span className="classification-title" style={{ color: match.team_count === 3 ? '#ef4444' : '#b45309' }}>
-                                     {match.team_count === 3 ? '3º RALABOSTA' : '3º LUGAR'}
-                                   </span>
-                                   <strong className="classification-team">{match.third_place_team ? match.third_place_team.toUpperCase() : '—'}</strong>
+                             <div className="classification-container">
+                               <div className="classification-grid" style={{
+                                 gridTemplateColumns: `repeat(${match.team_count || 4}, minmax(0, 1fr))`
+                               }}>
+                                 <div className="classification-item" style={{ backgroundColor: 'rgba(251,191,36,0.08)', borderColor: 'rgba(251,191,36,0.3)' }}>
+                                   <span className="classification-pos" style={{ color: '#fbbf24' }}>1º</span>
+                                   <span className="classification-title" style={{ color: '#fbbf24' }}>CAMPEÃO</span>
+                                   <strong className="classification-team">{match.champion_team ? match.champion_team.toUpperCase() : '—'}</strong>
                                  </div>
-                               )}
-                               {(match.team_count || 4) >= 4 && (
-                                 <div className="classification-item" style={{ 
-                                   backgroundColor: match.team_count === 4 ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)', 
-                                   border: match.team_count === 4 ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(56,189,248,0.2)' 
-                                 }}>
-                                   <span className="classification-title" style={{ color: match.team_count === 4 ? '#ef4444' : '#38bdf8' }}>
-                                     {match.team_count === 4 ? '4º RALABOSTA' : '4º LUGAR'}
-                                   </span>
-                                   <strong className="classification-team">{match.fourth_place_team ? match.fourth_place_team.toUpperCase() : '—'}</strong>
+                                 <div className="classification-item" style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(148,163,184,0.2)' }}>
+                                   <span className="classification-pos" style={{ color: '#94a3b8' }}>2º</span>
+                                   <span className="classification-title" style={{ color: '#94a3b8' }}>VICE</span>
+                                   <strong className="classification-team">{match.runner_up_team ? match.runner_up_team.toUpperCase() : '—'}</strong>
                                  </div>
-                               )}
+                                 {(match.team_count || 4) >= 3 && (
+                                   <div className="classification-item" style={{ 
+                                     backgroundColor: match.team_count === 3 ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)', 
+                                     borderColor: match.team_count === 3 ? 'rgba(239,68,68,0.3)' : 'rgba(180,83,9,0.2)' 
+                                   }}>
+                                     <span className="classification-pos" style={{ color: match.team_count === 3 ? '#ef4444' : '#b45309' }}>3º</span>
+                                     <span className={`classification-title ${match.team_count === 3 ? 'ralabosta' : ''}`} style={{ color: match.team_count === 3 ? '#ef4444' : '#b45309' }}>
+                                       {match.team_count === 3 ? 'RALABOSTA' : 'LUGAR'}
+                                     </span>
+                                     <strong className="classification-team">{match.third_place_team ? match.third_place_team.toUpperCase() : '—'}</strong>
+                                   </div>
+                                 )}
+                                 {(match.team_count || 4) >= 4 && (
+                                   <div className="classification-item" style={{ 
+                                     backgroundColor: 'rgba(239,68,68,0.08)', 
+                                     borderColor: 'rgba(239,68,68,0.3)' 
+                                   }}>
+                                     <span className="classification-pos" style={{ color: '#ef4444' }}>4º</span>
+                                     <span className="classification-title ralabosta" style={{ color: '#ef4444' }}>RALABOSTA</span>
+                                     <strong className="classification-team">{match.fourth_place_team ? match.fourth_place_team.toUpperCase() : '—'}</strong>
+                                   </div>
+                                 )}
+                               </div>
                              </div>
 
                             {/* RESUMO DE NÚMEROS */}
