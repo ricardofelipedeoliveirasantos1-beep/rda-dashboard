@@ -13,6 +13,7 @@ export const CACHE_TTL = {
   matches: 3 * 60 * 1000,
   monthly_payments: 2 * 60 * 1000,
   expenses: 2 * 60 * 1000,
+  public_monthly_summary: 2 * 60 * 1000,
   notices: 1 * 60 * 1000,
   settings: 10 * 60 * 1000,
 };
@@ -44,7 +45,12 @@ export async function getCachedData<T>(key: string, fetcher: Fetcher<T>, ttl: nu
 
 export function invalidateCache(prefix: string) {
   for (const key of cache.keys()) {
-    if (key.startsWith(prefix)) {
+    if (
+      key.startsWith(prefix) ||
+      (prefix === 'monthly_payments' && key.startsWith('public_monthly_summary')) ||
+      (prefix === 'expenses' && key.startsWith('public_monthly_summary')) ||
+      (prefix === 'players' && key.startsWith('public_monthly_summary'))
+    ) {
       cache.delete(key);
     }
   }

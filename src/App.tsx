@@ -60,6 +60,7 @@ export interface AssistantPermissions {
   edit_match: boolean;
   insert_stats: boolean;
   edit_players: boolean;
+  delete_players: boolean;
   manage_finance: boolean;
   manage_expenses: boolean;
   create_notices: boolean;
@@ -117,6 +118,7 @@ export default function App() {
       edit_match: true,
       insert_stats: true,
       edit_players: true,
+      delete_players: false,
       manage_finance: false,
       manage_expenses: false,
       create_notices: false,
@@ -218,6 +220,7 @@ export default function App() {
           edit_match: perms.edit_match,
           insert_stats: perms.insert_stats,
           edit_players: perms.edit_players,
+          delete_players: perms.delete_players ?? false,
           manage_finance: perms.manage_finance,
           manage_expenses: perms.manage_expenses,
           create_notices: perms.create_notices,
@@ -671,10 +674,6 @@ export default function App() {
       }, CACHE_TTL.monthly_payments);
       const payments = paymentsData || [];
 
-      const currentMonthPayments = payments.filter((p: any) => p.competence_month === currentMonthStr);
-      setTotalMonthlyPaid(currentMonthPayments.filter((p: any) => p.status === 'paid').length);
-      setTotalMonthlyPending(currentMonthPayments.filter((p: any) => p.status === 'pending').length);
-
       // 6. Fetch Expenses
       const expensesData = await getCachedData('expenses', async () => {
         const { data } = await supabase.from('expenses').select('*');
@@ -767,6 +766,34 @@ export default function App() {
           }
         }
       });
+
+      // Se pagamentos ou despesas vieram vazios (ex: perfil visitor bloqueado por RLS),
+      // busca o consolidado financeiro do mês através da RPC segura get_public_monthly_financial_summary
+      if (payments.length === 0 || expenses.length === 0) {
+        try {
+          const summaryData = await getCachedData(`public_monthly_summary_${currentMonthStr}`, async () => {
+            const { data, error } = await supabase.rpc('get_public_monthly_financial_summary', { p_month: currentMonthStr });
+            if (error) {
+              console.error('Error in get_public_monthly_financial_summary RPC:', error);
+              return null;
+            }
+            return data;
+          }, CACHE_TTL.public_monthly_summary);
+
+          if (summaryData) {
+            if (payments.length === 0) {
+              monthRevenue = Number(summaryData.monthly_mensalistas_revenue || 0);
+              mensalistasUnicosPagos = Number(summaryData.mensalistas_paid_count || 0);
+              monthPendingCount = Number(summaryData.mensalistas_pending_count || 0);
+            }
+            if (expenses.length === 0) {
+              monthExpenses = Number(summaryData.monthly_expenses || 0);
+            }
+          }
+        } catch (rpcErr) {
+          console.error('Error fetching public monthly summary:', rpcErr);
+        }
+      }
       
       setVisitorDiaristsCount(uniqueLastMatchDiarists);
       setVisitorMensalistasPaid(mensalistasUnicosPagos);
@@ -1450,7 +1477,7 @@ export default function App() {
                       Inclui valores de mensalistas + diaristas, com desconto das despesas.
                     </p>
                     <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-                      <span style={{ fontSize: '2.2rem', fontWeight: 800, color: '#22c55e', letterSpacing: '-1px', lineHeight: 1 }}>
+                      <span style={{ fontSize: '2.2rem', fontWeight: 800, color: ((monthlyMensalistasRevenue + monthlyDiaristasRevenue) - monthlyExpenses) >= 0 ? '#22c55e' : '#ef4444', letterSpacing: '-1px', lineHeight: 1 }}>
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((monthlyMensalistasRevenue + monthlyDiaristasRevenue) - monthlyExpenses)}
                       </span>
                     </div>
@@ -1487,7 +1514,7 @@ export default function App() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.7, marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
                       <AlertCircle size={12} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Visitantes veem apenas a arrecadação líquida do mês atual.</span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Visitantes veem apenas os valores consolidados do mês atual.</span>
                     </div>
                   </div>
 

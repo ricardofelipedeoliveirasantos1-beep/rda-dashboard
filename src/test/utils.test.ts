@@ -202,6 +202,7 @@ describe('Utility Functions', () => {
         edit_match: false,
         insert_stats: true,
         edit_players: false,
+        delete_players: false,
         manage_finance: false,
         create_notices: false,
         edit_notices: false,

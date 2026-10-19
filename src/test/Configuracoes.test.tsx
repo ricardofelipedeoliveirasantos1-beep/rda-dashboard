@@ -11,6 +11,7 @@ describe('Configuracoes Component', () => {
       edit_match: true,
       insert_stats: true,
       edit_players: true,
+      delete_players: false,
       manage_finance: true, manage_expenses: false,
       create_notices: false,
       edit_notices: false,

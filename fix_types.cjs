@@ -1,0 +1,28 @@
+const fs = require('fs');
+let content = fs.readFileSync('src/components/Partidas.tsx', 'utf8');
+
+// 1. Add to MatchPlayer interface
+content = content.replace(
+  '  daily_fee_at_match: number;',
+  '  daily_fee_at_match: number;\n  payment_status?: "paid" | "pending" | "unknown" | null;\n  paid_at?: string | null;'
+);
+
+// 2. Add paymentUpdatingId state
+content = content.replace(
+  '  const [activeTeamMenu, setActiveTeamMenu] = useState<{ playerId: string; teamName: string } | null>(null);',
+  '  const [activeTeamMenu, setActiveTeamMenu] = useState<{ playerId: string; teamName: string } | null>(null);\n  const [paymentUpdatingId, setPaymentUpdatingId] = useState<string | null>(null);'
+);
+
+// 3. Use currentStatus properly by replacing 'currentStatus: string' with '_'
+content = content.replace(
+  'const handleToggleDiaristaPayment = async (playerId: string, matchId: string, currentStatus: string, newStatus: string) => {',
+  'const handleToggleDiaristaPayment = async (playerId: string, matchId: string, _currentStatus: string, newStatus: string) => {'
+);
+
+// 4. Update the history view stats render
+content = content.replace(
+  `{isDiarista ? (\n                                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontStyle: 'italic', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.03)', padding: '2px 8px', borderRadius: '6px' }}>\n                                  Diarista — não contabiliza estatísticas\n                                </span>\n                              ) : (`,
+  `{isDiarista ? (\n                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>\n                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontStyle: 'italic', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.03)', padding: '2px 8px', borderRadius: '6px' }}>\n                                    Diarista — não contabiliza estatísticas\n                                  </span>\n                                  {mp.payment_status === 'paid' ? (\n                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700, color: '#22c55e', backgroundColor: 'rgba(34,197,94,0.15)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(34,197,94,0.3)' }}>\n                                      <CheckCircle2 size={12} /> PAGO\n                                    </span>\n                                  ) : (\n                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>\n                                      {mp.payment_status === 'pending' ? (\n                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.3)' }}>\n                                          PENDENTE\n                                        </span>\n                                      ) : (\n                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(245,158,11,0.3)' }}>\n                                          ? DESCONHECIDO\n                                        </span>\n                                      )}\n                                      \n                                      <div style={{ display: 'flex', gap: '4px' }}>\n                                        <button\n                                          onClick={(e) => { e.stopPropagation(); handleToggleDiaristaPayment(mp.player_id, mp.match_id, mp.payment_status || 'unknown', 'paid'); }}\n                                          disabled={paymentUpdatingId === mp.player_id}\n                                          style={{ padding: '4px 10px', borderRadius: '6px', backgroundColor: '#22c55e', border: 'none', color: '#ffffff', fontSize: '0.7rem', fontWeight: 700, cursor: paymentUpdatingId === mp.player_id ? 'not-allowed' : 'pointer', opacity: paymentUpdatingId === mp.player_id ? 0.5 : 1 }}\n                                        >\n                                          {paymentUpdatingId === mp.player_id ? '...' : 'MARCAR PAGO'}\n                                        </button>\n                                        \n                                        {mp.payment_status !== 'pending' && (\n                                          <button\n                                            onClick={(e) => { e.stopPropagation(); handleToggleDiaristaPayment(mp.player_id, mp.match_id, mp.payment_status || 'unknown', 'pending'); }}\n                                            disabled={paymentUpdatingId === mp.player_id}\n                                            style={{ padding: '4px 10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-primary)', fontSize: '0.7rem', fontWeight: 700, cursor: paymentUpdatingId === mp.player_id ? 'not-allowed' : 'pointer', opacity: paymentUpdatingId === mp.player_id ? 0.5 : 1 }}\n                                          >\n                                            PENDENTE\n                                        </button>\n                                        )}\n                                      </div>\n                                    </div>\n                                  )}\n                                </div>\n                              ) : (`
+);
+
+fs.writeFileSync('src/components/Partidas.tsx', content);

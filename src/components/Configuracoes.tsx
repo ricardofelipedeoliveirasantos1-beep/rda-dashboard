@@ -13,6 +13,7 @@ interface AssistantPermissions {
   edit_match: boolean;
   insert_stats: boolean;
   edit_players: boolean;
+  delete_players: boolean;
   manage_finance: boolean;
   manage_expenses: boolean;
   import_history: boolean;
@@ -74,7 +75,7 @@ export default function Configuracoes({
   const [editingAssistantName, setEditingAssistantName] = useState('');
   const [editPerms, setEditPerms] = useState<AssistantPermissions>({
     create_match: false, edit_match: false, insert_stats: false,
-    edit_players: false, manage_finance: false,
+    edit_players: false, delete_players: false, manage_finance: false,
     manage_expenses: false, create_notices: false,
     edit_notices: false, delete_notices: false, import_history: false,
   });
@@ -363,6 +364,7 @@ export default function Configuracoes({
         edit_match: perms.edit_match ?? false,
         insert_stats: perms.insert_stats ?? false,
         edit_players: perms.edit_players ?? false,
+        delete_players: perms.delete_players ?? false,
         manage_finance: perms.manage_finance ?? false,
         manage_expenses: perms.manage_expenses ?? false,
         create_notices: perms.create_notices ?? false,
@@ -373,7 +375,7 @@ export default function Configuracoes({
     } else {
       setEditPerms({
         create_match: false, edit_match: false, insert_stats: false,
-        edit_players: false, manage_finance: false, manage_expenses: false, create_notices: false,
+        edit_players: false, delete_players: false, manage_finance: false, manage_expenses: false, create_notices: false,
         edit_notices: false, delete_notices: false, import_history: false,
       });
     }
@@ -945,6 +947,7 @@ export default function Configuracoes({
               { key: 'edit_match' as const, label: 'Editar/Excluir Partidas' },
               { key: 'insert_stats' as const, label: 'Lançar/Editar Estatísticas' },
               { key: 'edit_players' as const, label: 'Editar Jogadores' },
+              { key: 'delete_players' as const, label: 'Excluir Jogadores' },
               { key: 'manage_finance' as const, label: 'Gerenciar Financeiro' },
               { key: 'import_history' as const, label: 'Importar Histórico' }
             ].map((item) => {
@@ -1598,6 +1601,7 @@ export default function Configuracoes({
                 { key: 'edit_match' as const, label: 'Editar Partida' },
                 { key: 'insert_stats' as const, label: 'Lançar Estatísticas' },
                 { key: 'edit_players' as const, label: 'Editar Jogadores' },
+                { key: 'delete_players' as const, label: 'Excluir Jogadores' },
                 { key: 'manage_finance' as const, label: 'Gerenciar Financeiro' },
                 { key: 'create_notices' as const, label: 'Criar Avisos' },
                 { key: 'edit_notices' as const, label: 'Editar Avisos' },

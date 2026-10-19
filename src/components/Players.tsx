@@ -80,19 +80,20 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
 
   // Estado de salvamento/carregamento do botão Salvar
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [updatingPlayerId, setUpdatingPlayerId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
-  // Limpar toast de confirmação após 2 segundos
+  // Limpar toast de confirmação após 2 segundos (erros ficam mais tempo)
   useEffect(() => {
     if (toastMessage) {
       const timer = setTimeout(() => {
         setToastMessage(null);
-      }, 2000);
+      }, toastType === 'error' ? 4000 : 2000);
       return () => clearTimeout(timer);
     }
-  }, [toastMessage]);
+  }, [toastMessage, toastType]);
 
   // Perfil Visualizado
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
@@ -139,10 +140,13 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
       if (error) throw error;
       
       // Mapeamento defensivo para garantir formato Capitalizado
-      const mappedData = (data || []).map((p: any) => ({
-        ...p,
-        category: (p.category === 'mensalista' || p.category === 'Mensalista') ? 'Mensalista' : 'Diarista'
-      }));
+      // Jogadores ocultados (is_active = false) não aparecem na lista
+      const mappedData = (data || [])
+        .filter((p: any) => p.is_active !== false)
+        .map((p: any) => ({
+          ...p,
+          category: (p.category === 'mensalista' || p.category === 'Mensalista') ? 'Mensalista' : 'Diarista'
+        }));
 
       setPlayers(mappedData);
     } catch (error) {
@@ -390,24 +394,75 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
 
   // Excluir Jogador
   const handleDeletePlayer = async () => {
-    if (!deleteConfirmId) return;
+    if (!deleteConfirmId || isDeleting) return;
+    setIsDeleting(true);
+    const idToDelete = deleteConfirmId;
+    const playerToDelete = players.find(p => p.id === idToDelete);
+
+    console.log('[DELETE] Iniciando exclusão. Jogador:', playerToDelete?.name, '| ID:', idToDelete);
+
     try {
-      const playerToDelete = players.find(p => p.id === deleteConfirmId);
+      const { data: deletedRows, error: deleteError } = await supabase
+        .from('players')
+        .delete()
+        .eq('id', idToDelete)
+        .select('id');
+
+      console.log('[DELETE] Resposta do delete:', { deletedRows, deleteError });
+
+      const isFkError = !!deleteError &&
+        (deleteError.code === '23503' || /foreign key/i.test(deleteError.message || ''));
+
+      if (deleteError && !isFkError) throw deleteError;
+
+      if (isFkError || !deletedRows || deletedRows.length === 0) {
+        // Vinculado a partidas/estatísticas/pagamentos (chave estrangeira):
+        // oculta o jogador preservando o histórico.
+        console.log('[DELETE] Fallback: ocultando jogador (is_active = false)');
+        const { data: hiddenRows, error: hideError } = await supabase
+          .from('players')
+          .update({ is_active: false })
+          .eq('id', idToDelete)
+          .select('id');
+
+        console.log('[DELETE] Resposta do hide:', { hiddenRows, hideError });
+
+        if (hideError) throw hideError;
+        if (!hiddenRows || hiddenRows.length === 0) {
+          throw new Error('O banco não permitiu a exclusão. Verifique suas permissões (somente Admin pode excluir).');
+        }
+
+        // Atualização otimista: remove da lista local imediatamente
+        setPlayers(prev => prev.filter(p => p.id !== idToDelete));
+        invalidateCache('players');
+        setDeleteConfirmId(null);
+        setToastType('success');
+        setToastMessage('Jogador ocultado da lista. Histórico preservado.');
+        fetchPlayers();
+        return;
+      }
+
+      // Atualização otimista: remove da lista local imediatamente
+      setPlayers(prev => prev.filter(p => p.id !== idToDelete));
+      invalidateCache('players');
+      setDeleteConfirmId(null);
+      setToastType('success');
+      setToastMessage('Jogador excluído com sucesso.');
       if (playerToDelete?.photo_url) {
         await deleteOldPhoto(playerToDelete.photo_url);
       }
-
-      const { error } = await supabase
-        .from('players')
-        .delete()
-        .eq('id', deleteConfirmId);
-
-      if (error) throw error;
-      invalidateCache('players');
-      setDeleteConfirmId(null);
       fetchPlayers();
-    } catch (error) {
-      console.error('Erro ao deletar jogador:', error);
+    } catch (error: any) {
+      console.error('[DELETE] Erro ao deletar jogador:', error);
+      setDeleteConfirmId(null);
+      setToastType('error');
+      setToastMessage(
+        error?.message
+          ? `Não foi possível excluir: ${error.message}`
+          : 'Não foi possível excluir o jogador. Tente novamente.'
+      );
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -816,6 +871,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
                     <Edit size={16} />
                     <span>Editar</span>
                   </button>
+                  {(_userRole === 'admin' || _can('delete_players')) && (
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -843,6 +899,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
                     <Trash2 size={16} style={{ color: 'var(--danger)' }} />
                     <span>Excluir</span>
                   </button>
+                  )}
                 </div>
               )}
             </div>
@@ -876,6 +933,14 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
             textAlign: 'center',
             boxShadow: 'var(--shadow-md)'
           }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '16px' }}>
+              <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '1rem' }}>
+                Excluir {players.find(p => p.id === deleteConfirmId)?.name}?
+              </span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', lineHeight: 1.4 }}>
+                Se ele tiver histórico de partidas ou pagamentos, será ocultado da lista e o histórico será preservado.
+              </span>
+            </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button 
                 onClick={() => setDeleteConfirmId(null)}
@@ -895,6 +960,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
               </button>
               <button 
                 onClick={handleDeletePlayer}
+                disabled={isDeleting}
                 style={{
                   flex: 1,
                   padding: '12px 16px',
@@ -902,12 +968,24 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
                   border: 'none',
                   color: '#ffffff',
                   borderRadius: '10px',
-                  cursor: 'pointer',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
                   fontWeight: 600,
-                  fontSize: '0.85rem'
+                  fontSize: '0.85rem',
+                  opacity: isDeleting ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
                 }}
               >
-                Excluir
+                {isDeleting ? (
+                  <>
+                    <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span>Excluindo...</span>
+                  </>
+                ) : (
+                  'Excluir'
+                )}
               </button>
             </div>
           </div>
