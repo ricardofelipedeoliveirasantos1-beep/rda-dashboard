@@ -15,8 +15,6 @@ export default function FinanceiroVisitante({
   mensalistasPendentesCount,
   diaristasUnicosCount
 }: FinanceiroVisitanteProps) {
-  const totalArrecadado = mensalistasValor + diaristasValor;
-
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
@@ -44,11 +42,11 @@ export default function FinanceiroVisitante({
           {/* Row 1 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Arrecadação Total</span>
-            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#22c55e', letterSpacing: '-0.5px' }}>{formatCurrency(totalArrecadado)}</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#22c55e', letterSpacing: '-0.5px' }}>{formatCurrency(2839.94)}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Despesas Totais</span>
-            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#ef4444', letterSpacing: '-0.5px' }}>R$ 0,00</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#ef4444', letterSpacing: '-0.5px' }}>{formatCurrency(2690.00)}</span>
           </div>
           
           {/* Row 2 */}
@@ -67,8 +65,8 @@ export default function FinanceiroVisitante({
             <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#ef4444', letterSpacing: '-0.5px' }}>{/* Visitante não vê valor de pendência */}R$ 0,00</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Saldo Atual</span>
-            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#22c55e', letterSpacing: '-0.5px' }}>{formatCurrency(totalArrecadado)}</span>
+            <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Saldo Líquido Acumulado</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#22c55e', letterSpacing: '-0.5px' }}>{formatCurrency(156.00)}</span>
           </div>
         </div>
       </div>

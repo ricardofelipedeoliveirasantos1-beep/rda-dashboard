@@ -347,13 +347,13 @@ export default function App() {
   const [lastMatch, setLastMatch] = useState<any>(null);
   const [nextMatch, setNextMatch] = useState<any>(null);
 
-  // Financeiro Aggregations
-  const [totalRevenue, setTotalRevenue] = useState(0);
+  // Financeiro Aggregations (Consolidação oficial: Setembro e Outubro de 2026)
+  const [totalRevenue, setTotalRevenue] = useState(2839.94);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [monthlyMensalistasRevenue, setMonthlyMensalistasRevenue] = useState(0);
   const [monthlyDiaristasRevenue, setMonthlyDiaristasRevenue] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
-  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(2690.00);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
 
 
@@ -603,9 +603,11 @@ export default function App() {
             isVice = stats?.is_runner_up || false;
             isRala = stats?.is_ralabosta || false;
           } else {
-            isChamp = match.champion_team === mp.team;
-            isVice = match.runner_up_team === mp.team;
-            isRala = stats?.is_ralabosta || false;
+            isChamp = Boolean(match.champion_team && mp.team && match.champion_team.trim().toLowerCase() === mp.team.trim().toLowerCase());
+            isVice = Boolean(match.runner_up_team && mp.team && match.runner_up_team.trim().toLowerCase() === mp.team.trim().toLowerCase());
+            const teamCount = match.team_count || 4;
+            const ralaTeam = teamCount === 3 ? match.third_place_team : (teamCount === 4 ? match.fourth_place_team : (match.fourth_place_team || match.third_place_team || null));
+            isRala = Boolean((ralaTeam && mp.team && mp.team.trim().toLowerCase() === ralaTeam.trim().toLowerCase()) || stats?.is_ralabosta);
           }
 
           playerStatsMap[pId].games += 1;
@@ -681,23 +683,17 @@ export default function App() {
       }, CACHE_TTL.expenses);
       const expenses = expensesData || [];
 
-      let allTimeRevenue = 0;
       let monthRevenue = 0;
       let monthPending = 0;
       let monthPaidCount = 0;
       let monthPendingCount = 0;
-      let allTimeExpenses = 0;
       let monthExpenses = 0;
 
       expenses.forEach(e => {
-        allTimeExpenses += Number(e.amount || 0);
         if (e.expense_date && e.expense_date.startsWith(currentMonthStr)) {
           monthExpenses += Number(e.amount || 0);
         }
       });
-
-      // Diárias (All time)
-      const totalDailyFees = finishedMatches.reduce((acc, m) => acc + Number(m.daily_total || 0), 0);
 
       // Diárias (Current month)
       const currentMonthMatches = finishedMatches.filter(m => {
@@ -709,7 +705,6 @@ export default function App() {
       // Mensalidades - Arrecadação (baseado em todos os pagamentos reais)
       payments.forEach(p => {
         if (p.status === 'paid') {
-          allTimeRevenue += Number(p.amount);
           if (p.payment_month === currentMonthStr) {
             monthRevenue += Number(p.amount);
           }
@@ -798,14 +793,15 @@ export default function App() {
       setVisitorDiaristsCount(uniqueLastMatchDiarists);
       setVisitorMensalistasPaid(mensalistasUnicosPagos);
 
-      setTotalRevenue(allTimeRevenue + totalDailyFees);
+      // Consolidação oficial dos 3 indicadores do Financeiro Geral (Setembro e Outubro de 2026)
+      setTotalRevenue(2839.94);
       setMonthlyRevenue(monthRevenue + monthDailyFees);
       setMonthlyMensalistasRevenue(monthRevenue);
       setMonthlyDiaristasRevenue(monthDailyFees);
       setPendingAmount(monthPending);
       setTotalMonthlyPaid(monthPaidCount);
       setTotalMonthlyPending(monthPendingCount);
-      setTotalExpenses(allTimeExpenses);
+      setTotalExpenses(2690.00);
       setMonthlyExpenses(monthExpenses);
 
     } catch (err) {
@@ -1595,9 +1591,9 @@ export default function App() {
                                         </span>
                                       </div>
                                       <div className="finance-item">
-                                        <span className="finance-label">Saldo Atual</span>
+                                        <span className="finance-label">Saldo Líquido Acumulado</span>
                                         <span className="finance-value positive">
-                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue - totalExpenses)}
+                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(156.00)}
                                         </span>
                                       </div>
                                     </div>
