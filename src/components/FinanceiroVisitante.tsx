@@ -6,6 +6,10 @@ interface FinanceiroVisitanteProps {
   pessoasPagaramCount: number;
   mensalistasPendentesCount: number;
   diaristasUnicosCount: number;
+  totalRevenue?: number;
+  totalExpenses?: number;
+  saldoAcumulado?: number;
+  despesasMes?: number;
 }
 
 export default function FinanceiroVisitante({
@@ -13,7 +17,11 @@ export default function FinanceiroVisitante({
   diaristasValor,
   pessoasPagaramCount,
   mensalistasPendentesCount,
-  diaristasUnicosCount
+  diaristasUnicosCount,
+  totalRevenue,
+  totalExpenses,
+  saldoAcumulado,
+  despesasMes
 }: FinanceiroVisitanteProps) {
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -42,11 +50,11 @@ export default function FinanceiroVisitante({
           {/* Row 1 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Arrecadação Total</span>
-            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#22c55e', letterSpacing: '-0.5px' }}>{formatCurrency(2839.94)}</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#22c55e', letterSpacing: '-0.5px' }}>{formatCurrency(totalRevenue ?? 3079.94)}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Despesas Totais</span>
-            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#ef4444', letterSpacing: '-0.5px' }}>{formatCurrency(2690.00)}</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#ef4444', letterSpacing: '-0.5px' }}>{formatCurrency(totalExpenses ?? 2870.00)}</span>
           </div>
           
           {/* Row 2 */}
@@ -56,7 +64,7 @@ export default function FinanceiroVisitante({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Despesas (mês)</span>
-            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#ef4444', letterSpacing: '-0.5px' }}>R$ 0,00</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#ef4444', letterSpacing: '-0.5px' }}>{formatCurrency(despesasMes ?? 0)}</span>
           </div>
 
           {/* Row 3 */}
@@ -66,7 +74,7 @@ export default function FinanceiroVisitante({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Saldo Líquido Acumulado</span>
-            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#22c55e', letterSpacing: '-0.5px' }}>{formatCurrency(156.00)}</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 700, color: (saldoAcumulado ?? 296.00) >= 0 ? '#22c55e' : '#ef4444', letterSpacing: '-0.5px' }}>{formatCurrency(saldoAcumulado ?? 296.00)}</span>
           </div>
         </div>
       </div>

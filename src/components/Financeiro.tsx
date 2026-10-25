@@ -62,6 +62,10 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   const [lastMatchDiaristasCount, setLastMatchDiaristasCount] = useState(0);
   const [lastMatchDiaristasSum, setLastMatchDiaristasSum] = useState(0);
 
+  const [accumulatedBalance, setAccumulatedBalance] = useState(296.00);
+  const [totalRevenue, setTotalRevenue] = useState(3079.94);
+  const [totalExpenses, setTotalExpenses] = useState(2870.00);
+
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editExpenseData, setEditExpenseData] = useState<{ category: string; amount: string; description: string; date: string }>({ category: 'Campo', amount: '', description: '', date: '' });
@@ -204,6 +208,30 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       setLastMatchDiaristasCount(lastMatchDCount);
       setLastMatchDiaristasSum(lastMatchDSum);
 
+      const settingsData = await getCachedData('settings', async () => {
+        const { data } = await supabase.from('settings').select('*').eq('id', 'default').single();
+        return data || {};
+      }, CACHE_TTL.settings);
+
+      const initialBalance = Number(settingsData?.initial_accumulated_balance ?? 236.00);
+      const initialDate = String(settingsData?.initial_balance_date ?? '2026-10-23');
+      const initialRevenue = Number(settingsData?.initial_accumulated_revenue ?? 2839.94);
+      const initialExpenses = Number(settingsData?.initial_accumulated_expenses ?? 2690.00);
+
+      const finishedMatchesSinceCutoff = (allMatches || []).filter((m: any) => m.status === 'finished' && m.match_date >= initialDate);
+      const dailyFeesSinceCutoff = finishedMatchesSinceCutoff.reduce((acc: number, m: any) => acc + Number(m.daily_total || 0), 0);
+      const expensesSinceCutoff = (allExpenses || [])
+        .filter((e: any) => e.expense_date && e.expense_date >= initialDate)
+        .reduce((acc: number, e: any) => acc + Number(e.amount || 0), 0);
+
+      const dynamicSaldoAcumulado = initialBalance + dailyFeesSinceCutoff - expensesSinceCutoff;
+      const dynamicTotalRev = initialRevenue + dailyFeesSinceCutoff;
+      const dynamicTotalExp = initialExpenses + expensesSinceCutoff;
+
+      setAccumulatedBalance(dynamicSaldoAcumulado);
+      setTotalRevenue(dynamicTotalRev);
+      setTotalExpenses(dynamicTotalExp);
+
       setLoading(false);
     } catch (err) {
       console.error(`Erro ao carregar dados do mês ${monthStr}:`, err);
@@ -247,6 +275,10 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         pessoasPagaramCount={pessoasPagaramCount}
         mensalistasPendentesCount={mensalistasPendentes}
         diaristasUnicosCount={diaristasPagosCount}
+        totalRevenue={totalRevenue}
+        totalExpenses={totalExpenses}
+        saldoAcumulado={accumulatedBalance}
+        despesasMes={totalDespesasVal}
       />
     );
   }
@@ -498,19 +530,25 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
                       <button onClick={() => setEditingExpenseId(null)} style={{ padding: '6px 12px', borderRadius: '6px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#a3a3a3', fontSize: '0.75rem', cursor: 'pointer' }}>Cancelar</button>
                       <button onClick={async () => {
-                          if (!editExpenseData.amount || isNaN(Number(editExpenseData.amount))) {
+                          if (!editExpenseData.amount || isNaN(Number(editExpenseData.amount)) || Number(editExpenseData.amount) <= 0) {
                             alert('Digite um valor válido.');
+                            return;
+                          }
+                          const trimmedDesc = editExpenseData.description?.trim();
+                          if (!trimmedDesc) {
+                            alert('Por favor, informe a descrição da despesa.');
                             return;
                           }
                           try {
                             const { error } = await supabase.from('expenses').update({
                               category: editExpenseData.category, amount: Number(editExpenseData.amount),
-                              description: editExpenseData.description, expense_date: editExpenseData.date
+                              description: trimmedDesc, expense_date: editExpenseData.date
                             }).eq('id', expense.id);
 
                             if (error) throw error;
+                            invalidateCache('expenses');
 
-                            const updatedExpense = { ...expense, category: editExpenseData.category, amount: Number(editExpenseData.amount), description: editExpenseData.description, expense_date: editExpenseData.date };
+                            const updatedExpense = { ...expense, category: editExpenseData.category, amount: Number(editExpenseData.amount), description: trimmedDesc, expense_date: editExpenseData.date };
 
                             setExpenses(prev => prev.map(e => e.id === expense.id ? updatedExpense : e));
                             if (financeCache.current[currentMonthStr]) {
@@ -604,19 +642,24 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
               <input type="date" value={newExpense.date} onChange={e => setNewExpense({...newExpense, date: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Descrição (Opcional)</label>
-              <input type="text" placeholder="Detalhes..." value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Descrição <span style={{ color: '#f43f5e' }}>*</span></label>
+              <input type="text" required placeholder="Informe o motivo ou detalhe do gasto..." value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
               <button onClick={() => setShowExpenseModal(false)} style={{ flex: 1, padding: '10px', borderRadius: '8px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
               <button onClick={async () => {
-                  if (!newExpense.amount || isNaN(Number(newExpense.amount))) {
+                  if (!newExpense.amount || isNaN(Number(newExpense.amount)) || Number(newExpense.amount) <= 0) {
                     alert('Digite um valor válido.');
                     return;
                   }
+                  const trimmedDesc = newExpense.description?.trim();
+                  if (!trimmedDesc) {
+                    alert('Por favor, informe a descrição da despesa.');
+                    return;
+                  }
                   try {
-                    const { data, error } = await supabase.from('expenses').insert([{ category: newExpense.category, amount: Number(newExpense.amount), description: newExpense.description, expense_date: newExpense.date }]).select();
+                    const { data, error } = await supabase.from('expenses').insert([{ category: newExpense.category, amount: Number(newExpense.amount), description: trimmedDesc, expense_date: newExpense.date }]).select();
                     if (error) throw error;
                     invalidateCache('expenses');
 
@@ -625,6 +668,11 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                       if (financeCache.current[currentMonthStr]) {
                         financeCache.current[currentMonthStr].expenses = [data[0], ...financeCache.current[currentMonthStr].expenses].sort((a,b) => b.expense_date.localeCompare(a.expense_date));
                       }
+                    }
+
+                    if (newExpense.date >= '2026-10-23') {
+                      setAccumulatedBalance(prev => prev - Number(newExpense.amount));
+                      setTotalExpenses(prev => prev + Number(newExpense.amount));
                     }
 
                     setFeedback({ type: 'success', message: 'Despesa registrada!' });

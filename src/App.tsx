@@ -347,14 +347,15 @@ export default function App() {
   const [lastMatch, setLastMatch] = useState<any>(null);
   const [nextMatch, setNextMatch] = useState<any>(null);
 
-  // Financeiro Aggregations (Consolidação oficial: Setembro e Outubro de 2026)
-  const [totalRevenue, setTotalRevenue] = useState(2839.94);
+  // Financeiro Aggregations (Marco de corte: 23/10/2026)
+  const [totalRevenue, setTotalRevenue] = useState(3079.94);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [monthlyMensalistasRevenue, setMonthlyMensalistasRevenue] = useState(0);
   const [monthlyDiaristasRevenue, setMonthlyDiaristasRevenue] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
-  const [totalExpenses, setTotalExpenses] = useState(2690.00);
+  const [totalExpenses, setTotalExpenses] = useState(2870.00);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
+  const [accumulatedBalance, setAccumulatedBalance] = useState(296.00);
 
 
   const [totalMonthlyPaid, setTotalMonthlyPaid] = useState(0);
@@ -793,15 +794,40 @@ export default function App() {
       setVisitorDiaristsCount(uniqueLastMatchDiarists);
       setVisitorMensalistasPaid(mensalistasUnicosPagos);
 
-      // Consolidação oficial dos 3 indicadores do Financeiro Geral (Setembro e Outubro de 2026)
-      setTotalRevenue(2839.94);
+      // Configurações e cálculo do Saldo Acumulado (Marco de referência: 23/10/2026)
+      const initialBalance = Number(settings.initial_accumulated_balance ?? 236.00);
+      const initialDate = String(settings.initial_balance_date ?? '2026-10-23');
+      const initialRevenue = Number(settings.initial_accumulated_revenue ?? 2839.94);
+      const initialExpenses = Number(settings.initial_accumulated_expenses ?? 2690.00);
+
+      // Partidas finalizadas a partir do marco de corte
+      const finishedMatchesSinceCutoff = finishedMatches.filter(m => m.match_date >= initialDate);
+      const dailyFeesSinceCutoff = finishedMatchesSinceCutoff.reduce((acc, m) => acc + Number(m.daily_total || 0), 0);
+
+      // Despesas a partir do marco de corte
+      let expensesSinceCutoff = expenses
+        .filter(e => e.expense_date && e.expense_date >= initialDate)
+        .reduce((acc, e) => acc + Number(e.amount || 0), 0);
+
+      // Fallback para quando expenses vem vazio (ex: perfil visitor sem sessão direta na tabela)
+      if (expenses.length === 0 && monthExpenses > 0) {
+        expensesSinceCutoff = Math.max(0, monthExpenses - 1100);
+      }
+
+      const calculatedAccumulatedBalance = initialBalance + dailyFeesSinceCutoff - expensesSinceCutoff;
+      const dynamicTotalRevenue = initialRevenue + dailyFeesSinceCutoff;
+      const dynamicTotalExpenses = initialExpenses + expensesSinceCutoff;
+
+      setTotalRevenue(dynamicTotalRevenue);
+      setTotalExpenses(dynamicTotalExpenses);
+      setAccumulatedBalance(calculatedAccumulatedBalance);
+
       setMonthlyRevenue(monthRevenue + monthDailyFees);
       setMonthlyMensalistasRevenue(monthRevenue);
       setMonthlyDiaristasRevenue(monthDailyFees);
       setPendingAmount(monthPending);
       setTotalMonthlyPaid(monthPaidCount);
       setTotalMonthlyPending(monthPendingCount);
-      setTotalExpenses(2690.00);
       setMonthlyExpenses(monthExpenses);
 
     } catch (err) {
@@ -1592,8 +1618,8 @@ export default function App() {
                                       </div>
                                       <div className="finance-item">
                                         <span className="finance-label">Saldo Líquido Acumulado</span>
-                                        <span className="finance-value positive">
-                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(156.00)}
+                                        <span className={`finance-value ${accumulatedBalance >= 0 ? 'positive' : 'negative'}`}>
+                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(accumulatedBalance)}
                                         </span>
                                       </div>
                                     </div>

@@ -20,26 +20,27 @@ describe('Financeiro Component', () => {
     });
   });
 
-  it('should display month navigation', async () => {
+  it('should display month selector', async () => {
     render(<Financeiro {...defaultProps} />);
     await waitFor(() => {
-      expect(screen.getByText('MENSALIDADES')).toBeInTheDocument();
+      expect(screen.getByText(/2026/)).toBeInTheDocument();
     });
   });
 
   it('should show financial summary cards', async () => {
     render(<Financeiro {...defaultProps} />);
     await waitFor(() => {
-      expect(screen.getByText('Previstas')).toBeInTheDocument();
-      expect(screen.getByText('Recebidas')).toBeInTheDocument();
-      expect(screen.getByText('Pendentes')).toBeInTheDocument();
+      expect(screen.getByText(/Mensalidades Recebidas/i)).toBeInTheDocument();
+      expect(screen.getByText(/Diaristas Arrecadados/i)).toBeInTheDocument();
+      expect(screen.getByText(/Total de Entradas/i)).toBeInTheDocument();
+      expect(screen.getByText(/Saldo Líquido/i)).toBeInTheDocument();
     });
   });
 
-  it('should show empty state for mensalistas', async () => {
+  it('should show expenses section', async () => {
     render(<Financeiro {...defaultProps} />);
     await waitFor(() => {
-      expect(screen.getByText(/Nenhum mensalista encontrado/)).toBeInTheDocument();
+      expect(screen.getByText(/RELATÓRIO DE GASTOS DO MÊS/i)).toBeInTheDocument();
     });
   });
 });

@@ -990,6 +990,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         }
       }
 
+      invalidateCache('matches');
       await fetchMatchesList();
 
       setShowSuccessMessage(true);
@@ -1217,6 +1218,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       const statsRows = Object.entries(localStats).map(([playerId, stats]) => {
         const mp = (activeMatchForStats.match_players || []).find(p => p.player_id === playerId);
         const isRalabosta = ralabostaTeamCode ? (mp?.team === ralabostaTeamCode) : false;
+        const isChampion = championTeam ? (mp?.team === championTeam) : false;
+        const isRunnerUp = runnerUpTeam ? (mp?.team === runnerUpTeam) : false;
 
         return {
           match_id: activeMatchForStats.id,
@@ -1226,6 +1229,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           yellow_cards: stats.yellow,
           blue_cards: stats.blue,
           red_cards: stats.red,
+          is_champion: isChampion,
+          is_runner_up: isRunnerUp,
           is_ralabosta: isRalabosta,
           updated_at: new Date().toISOString()
         };
