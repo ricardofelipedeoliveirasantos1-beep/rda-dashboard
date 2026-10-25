@@ -17,6 +17,7 @@ interface AssistantPermissions {
   manage_finance: boolean;
   manage_expenses: boolean;
   import_history: boolean;
+  adjust_balance?: boolean;
 }
 
 interface ConfiguracoesProps {
@@ -78,6 +79,7 @@ export default function Configuracoes({
     edit_players: false, delete_players: false, manage_finance: false,
     manage_expenses: false, create_notices: false,
     edit_notices: false, delete_notices: false, import_history: false,
+    adjust_balance: false,
   });
   const [savingPerms, setSavingPerms] = useState(false);
 
@@ -99,10 +101,10 @@ export default function Configuracoes({
   const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
   const [isTreasurerPermissionsOpen, setIsTreasurerPermissionsOpen] = useState(false);
 
-  const [treasurerPermissionsMap, setTreasurerPermissionsMap] = useState<Map<string, { manage_finance: boolean; manage_monthly_payments: boolean }>>(new Map());
+  const [treasurerPermissionsMap, setTreasurerPermissionsMap] = useState<Map<string, { manage_finance: boolean; manage_monthly_payments: boolean; adjust_balance?: boolean }>>(new Map());
 
   const formatCurrencyBRL = (value: number): string => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return (value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
   const parseCurrencyBRL = (formattedValue: string): number => {
@@ -371,12 +373,14 @@ export default function Configuracoes({
         edit_notices: perms.edit_notices ?? false,
         delete_notices: perms.delete_notices ?? false,
         import_history: perms.import_history ?? false,
+        adjust_balance: perms.adjust_balance ?? false,
       });
     } else {
       setEditPerms({
         create_match: false, edit_match: false, insert_stats: false,
         edit_players: false, delete_players: false, manage_finance: false, manage_expenses: false, create_notices: false,
         edit_notices: false, delete_notices: false, import_history: false,
+        adjust_balance: false,
       });
     }
   };
@@ -949,15 +953,16 @@ export default function Configuracoes({
               { key: 'edit_players' as const, label: 'Editar Jogadores' },
               { key: 'delete_players' as const, label: 'Excluir Jogadores' },
               { key: 'manage_finance' as const, label: 'Gerenciar Financeiro' },
-              { key: 'import_history' as const, label: 'Importar Histórico' }
+              { key: 'import_history' as const, label: 'Importar Histórico' },
+              { key: 'adjust_balance' as const, label: 'Ajustar Saldo Acumulado', description: 'Permite adicionar valores ou corrigir o saldo acumulado do caixa na área Financeira.' }
             ].map((item) => {
-              const isChecked = assistantPermissions[item.key];
+              const isChecked = Boolean(assistantPermissions[item.key]);
               return (
                 <label
                   key={item.key}
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                     gap: '10px',
                     padding: '12px 16px',
                     backgroundColor: 'rgba(255,255,255,0.015)',
@@ -1003,9 +1008,14 @@ export default function Configuracoes({
                         console.error('Erro ao salvar permissões no banco:', err);
                       }
                     }}
-                    style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                    style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer', marginTop: '2px' }}
                   />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isChecked ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{item.label}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isChecked ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{item.label}</span>
+                    {(item as any).description && (
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.25 }}>{(item as any).description}</span>
+                    )}
+                  </div>
                 </label>
               );
             })}
@@ -1054,9 +1064,10 @@ export default function Configuracoes({
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
                         {[
                           { key: 'manage_finance' as const, label: 'Gerenciar Financeiro' },
-                          { key: 'manage_monthly_payments' as const, label: 'Gerenciar Mensalidades' }
+                          { key: 'manage_monthly_payments' as const, label: 'Gerenciar Mensalidades' },
+                          { key: 'adjust_balance' as const, label: 'Ajustar Saldo Acumulado' }
                         ].map(item => {
-                          const isChecked = perms[item.key];
+                          const isChecked = Boolean(perms[item.key]);
                           return (
                             <label
                               key={item.key}
@@ -1603,6 +1614,7 @@ export default function Configuracoes({
                 { key: 'edit_players' as const, label: 'Editar Jogadores' },
                 { key: 'delete_players' as const, label: 'Excluir Jogadores' },
                 { key: 'manage_finance' as const, label: 'Gerenciar Financeiro' },
+                { key: 'adjust_balance' as const, label: 'Ajustar Saldo Acumulado' },
                 { key: 'create_notices' as const, label: 'Criar Avisos' },
                 { key: 'edit_notices' as const, label: 'Editar Avisos' },
                 { key: 'delete_notices' as const, label: 'Excluir Avisos' },

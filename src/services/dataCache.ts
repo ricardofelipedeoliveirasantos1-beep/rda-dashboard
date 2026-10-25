@@ -13,6 +13,7 @@ export const CACHE_TTL = {
   matches: 3 * 60 * 1000,
   monthly_payments: 2 * 60 * 1000,
   expenses: 2 * 60 * 1000,
+  balance_adjustments: 2 * 60 * 1000,
   public_monthly_summary: 2 * 60 * 1000,
   notices: 1 * 60 * 1000,
   settings: 10 * 60 * 1000,

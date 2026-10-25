@@ -67,11 +67,13 @@ export interface AssistantPermissions {
   edit_notices: boolean;
   delete_notices: boolean;
   import_history: boolean;
+  adjust_balance?: boolean;
 }
 
 export interface TreasurerPermissions {
   manage_finance: boolean;
   manage_monthly_payments: boolean;
+  adjust_balance?: boolean;
 }
 
 export default function App() {
@@ -125,6 +127,7 @@ export default function App() {
       edit_notices: false,
       delete_notices: false,
       import_history: false,
+      adjust_balance: false,
     };
   });
 
@@ -136,6 +139,7 @@ export default function App() {
     return {
       manage_finance: false,
       manage_monthly_payments: false,
+      adjust_balance: false,
     };
   });
 
@@ -227,6 +231,7 @@ export default function App() {
           edit_notices: perms.edit_notices,
           delete_notices: perms.delete_notices,
           import_history: perms.import_history,
+          adjust_balance: perms.adjust_balance ?? false,
         });
       }
     }
@@ -242,6 +247,7 @@ export default function App() {
         setTreasurerPermissions({
           manage_finance: perms.manage_finance,
           manage_monthly_payments: perms.manage_monthly_payments,
+          adjust_balance: perms.adjust_balance ?? false,
         });
       }
     }
@@ -814,21 +820,51 @@ export default function App() {
         expensesSinceCutoff = Math.max(0, monthExpenses - 1100);
       }
 
-      const calculatedAccumulatedBalance = initialBalance + dailyFeesSinceCutoff - expensesSinceCutoff;
-      const dynamicTotalRevenue = initialRevenue + dailyFeesSinceCutoff;
-      const dynamicTotalExpenses = initialExpenses + expensesSinceCutoff;
+      // Ajustes de saldo (balance_adjustments)
+      const adjustmentsData = await getCachedData('balance_adjustments', async () => {
+        try {
+          const { data, error } = await supabase.from('balance_adjustments').select('*');
+          if (!error && data && data.length > 0) return data;
+          const local = typeof window !== 'undefined' ? localStorage.getItem('rda_local_adjustments') : null;
+          return local ? JSON.parse(local) : (data || []);
+        } catch {
+          const local = typeof window !== 'undefined' ? localStorage.getItem('rda_local_adjustments') : null;
+          return local ? JSON.parse(local) : [];
+        }
+      }, CACHE_TTL.balance_adjustments);
+      const adjustments = adjustmentsData || [];
+
+      const adjustmentsSinceCutoff = adjustments.filter((a: any) => a.adjustment_date && a.adjustment_date >= initialDate);
+      const adjustmentEntriesSinceCutoff = adjustmentsSinceCutoff
+        .filter((a: any) => a.type === 'entry')
+        .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
+      const adjustmentExitsSinceCutoff = adjustmentsSinceCutoff
+        .filter((a: any) => a.type === 'exit')
+        .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
+
+      const calculatedAccumulatedBalance = initialBalance + dailyFeesSinceCutoff - expensesSinceCutoff + adjustmentEntriesSinceCutoff - adjustmentExitsSinceCutoff;
+      const dynamicTotalRevenue = initialRevenue + dailyFeesSinceCutoff + adjustmentEntriesSinceCutoff;
+      const dynamicTotalExpenses = initialExpenses + expensesSinceCutoff + adjustmentExitsSinceCutoff;
+
+      const currentMonthAdjustments = adjustments.filter((a: any) => a.adjustment_date && a.adjustment_date.startsWith(currentMonthStr));
+      const currentMonthAdjEntries = currentMonthAdjustments
+        .filter((a: any) => a.type === 'entry')
+        .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
+      const currentMonthAdjExits = currentMonthAdjustments
+        .filter((a: any) => a.type === 'exit')
+        .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
 
       setTotalRevenue(dynamicTotalRevenue);
       setTotalExpenses(dynamicTotalExpenses);
       setAccumulatedBalance(calculatedAccumulatedBalance);
 
-      setMonthlyRevenue(monthRevenue + monthDailyFees);
+      setMonthlyRevenue(monthRevenue + monthDailyFees + currentMonthAdjEntries);
       setMonthlyMensalistasRevenue(monthRevenue);
       setMonthlyDiaristasRevenue(monthDailyFees);
       setPendingAmount(monthPending);
       setTotalMonthlyPaid(monthPaidCount);
       setTotalMonthlyPending(monthPendingCount);
-      setMonthlyExpenses(monthExpenses);
+      setMonthlyExpenses(monthExpenses + currentMonthAdjExits);
 
     } catch (err) {
       console.error('Error fetching dashboard data:', err);

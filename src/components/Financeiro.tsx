@@ -26,6 +26,21 @@ interface Expense {
   expense_date: string;
 }
 
+export interface BalanceAdjustment {
+  id: string;
+  type: 'entry' | 'exit';
+  operation_type: 'add' | 'reconcile';
+  amount: number;
+  description: string;
+  adjustment_date: string;
+  previous_balance: number;
+  new_balance: number;
+  target_balance?: number | null;
+  created_by?: string | null;
+  created_by_name?: string | null;
+  created_at?: string;
+}
+
 interface Match {
   id: string;
   match_date: string;
@@ -45,6 +60,10 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   const canManageFinance = _userRole === 'admin' ||
     (_userRole === 'assistant' && _can('manage_finance')) ||
     (_userRole === 'treasurer' && _can('manage_finance'));
+
+  const canAdjustBalance = _userRole === 'admin' ||
+    (_userRole === 'assistant' && _can('adjust_balance')) ||
+    (_userRole === 'treasurer' && _can('adjust_balance'));
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [showDateModal, setShowDateModal] = useState(false);
@@ -76,6 +95,14 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
     date: new Date().toISOString().split('T')[0]
   });
 
+  const [adjustments, setAdjustments] = useState<BalanceAdjustment[]>([]);
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [adjustOpType, setAdjustOpType] = useState<'add' | 'reconcile'>('add');
+  const [adjustAmountInput, setAdjustAmountInput] = useState('');
+  const [adjustDescription, setAdjustDescription] = useState('');
+  const [adjustDate, setAdjustDate] = useState(new Date().toISOString().split('T')[0]);
+  const [submittingAdjust, setSubmittingAdjust] = useState(false);
+
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
@@ -87,7 +114,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
     }
   }, [feedback]);
 
-  const financeCache = useRef<Record<string, { payments: MonthlyPayment[]; matches: Match[]; expenses: Expense[]; mensalistasAtivosCount: number; diaristasPagosCount: number; diaristasPagosIds: string[]; lastMatchDate: string | null; diaristasTotalVal: number; unknownDiariasCount: number; lastMatchDiaristasCount: number; lastMatchDiaristasSum: number; }>>({});
+  const financeCache = useRef<Record<string, { payments: MonthlyPayment[]; matches: Match[]; expenses: Expense[]; adjustments: BalanceAdjustment[]; mensalistasAtivosCount: number; diaristasPagosCount: number; diaristasPagosIds: string[]; lastMatchDate: string | null; diaristasTotalVal: number; unknownDiariasCount: number; lastMatchDiaristasCount: number; lastMatchDiaristasSum: number; }>>({});
 
   const getYearMonthString = (date: Date): string => {
     const yyyy = date.getFullYear();
@@ -102,6 +129,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       setPayments(financeCache.current[monthStr].payments);
       setMatches(financeCache.current[monthStr].matches);
       setExpenses(financeCache.current[monthStr].expenses);
+      setAdjustments(financeCache.current[monthStr].adjustments || []);
       setMensalistasAtivosCount(financeCache.current[monthStr].mensalistasAtivosCount);
       setDiaristasPagosCount(financeCache.current[monthStr].diaristasPagosCount);
       setDiaristasPagosIds(financeCache.current[monthStr].diaristasPagosIds);
@@ -182,10 +210,28 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         }
       }
 
+      const allAdjustments = await getCachedData('balance_adjustments', async () => {
+        try {
+          const { data, error } = await supabase.from('balance_adjustments').select('*').order('created_at', { ascending: false });
+          if (!error && data && data.length > 0) return data;
+          const local = typeof window !== 'undefined' ? localStorage.getItem('rda_local_adjustments') : null;
+          return local ? JSON.parse(local) : (data || []);
+        } catch {
+          const local = typeof window !== 'undefined' ? localStorage.getItem('rda_local_adjustments') : null;
+          return local ? JSON.parse(local) : [];
+        }
+      }, CACHE_TTL.balance_adjustments);
+
+      const adjustmentsList: BalanceAdjustment[] = allAdjustments || [];
+      const monthAdjustments = adjustmentsList.filter((a: any) =>
+        a.adjustment_date && (a.adjustment_date.startsWith(monthStr) || (a.adjustment_date >= startOfMonth && a.adjustment_date < endOfMonth))
+      );
+
       financeCache.current[monthStr] = {
         payments: paymentsRes,
         matches: matchesRes,
         expenses: expensesRes,
+        adjustments: monthAdjustments,
         mensalistasAtivosCount: activeMensalistasCount,
         diaristasPagosCount: uniqueDiaristasCount,
         diaristasPagosIds: diaristasIdsArray,
@@ -199,6 +245,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       setPayments(paymentsRes);
       setMatches(matchesRes);
       setExpenses(expensesRes);
+      setAdjustments(monthAdjustments);
       setMensalistasAtivosCount(activeMensalistasCount);
       setDiaristasPagosCount(uniqueDiaristasCount);
       setDiaristasPagosIds(diaristasIdsArray);
@@ -224,9 +271,17 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         .filter((e: any) => e.expense_date && e.expense_date >= initialDate)
         .reduce((acc: number, e: any) => acc + Number(e.amount || 0), 0);
 
-      const dynamicSaldoAcumulado = initialBalance + dailyFeesSinceCutoff - expensesSinceCutoff;
-      const dynamicTotalRev = initialRevenue + dailyFeesSinceCutoff;
-      const dynamicTotalExp = initialExpenses + expensesSinceCutoff;
+      const adjustmentsSinceCutoff = adjustmentsList.filter((a: any) => a.adjustment_date && a.adjustment_date >= initialDate);
+      const adjustmentEntriesSinceCutoff = adjustmentsSinceCutoff
+        .filter((a: any) => a.type === 'entry')
+        .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
+      const adjustmentExitsSinceCutoff = adjustmentsSinceCutoff
+        .filter((a: any) => a.type === 'exit')
+        .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
+
+      const dynamicSaldoAcumulado = initialBalance + dailyFeesSinceCutoff - expensesSinceCutoff + adjustmentEntriesSinceCutoff - adjustmentExitsSinceCutoff;
+      const dynamicTotalRev = initialRevenue + dailyFeesSinceCutoff + adjustmentEntriesSinceCutoff;
+      const dynamicTotalExp = initialExpenses + expensesSinceCutoff + adjustmentExitsSinceCutoff;
 
       setAccumulatedBalance(dynamicSaldoAcumulado);
       setTotalRevenue(dynamicTotalRev);
@@ -244,10 +299,16 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
   }, [currentMonthStr]);
 
   // Cálculos Financeiros
+  const monthAdjustmentEntries = adjustments
+    .filter(a => a.type === 'entry')
+    .reduce((sum, a) => sum + Number(a.amount || 0), 0);
+  const monthAdjustmentExits = adjustments
+    .filter(a => a.type === 'exit')
+    .reduce((sum, a) => sum + Number(a.amount || 0), 0);
 
-  const totalDespesasVal = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalDespesasVal = expenses.reduce((sum, e) => sum + e.amount, 0) + monthAdjustmentExits;
   const recebidosVal = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
-  const totalEntradasVal = recebidosVal + diaristasTotalVal;
+  const totalEntradasVal = recebidosVal + diaristasTotalVal + monthAdjustmentEntries;
   const saldoFinalVal = totalEntradasVal - totalDespesasVal;
 
   const paidMensalistasIds = payments.filter(p => p.status === 'paid' && p.player_id).map((p: any) => p.player_id);
@@ -461,19 +522,41 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         </div>
       </div>
 
-      {canManageFinance && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '14px', marginBottom: '16px' }}>
-          <button
-            onClick={() => setShowExpenseModal(true)}
-            style={{
-              width: 'min(82%, 310px)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-              background: 'linear-gradient(135deg, #F43F5E 0%, #FB4567 100%)', color: '#FFFFFF', border: 'none', borderRadius: '14px',
-              fontSize: '14px', fontWeight: 700, cursor: 'pointer', height: '50px',
-              boxShadow: '0 4px 12px rgba(244, 63, 94, 0.15)'
-            }}
-          >
-            <Plus size={18} /> Adicionar gasto
-          </button>
+      {(canManageFinance || canAdjustBalance) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px', marginTop: '14px', marginBottom: '16px' }}>
+          {canManageFinance && (
+            <button
+              onClick={() => setShowExpenseModal(true)}
+              style={{
+                width: canAdjustBalance ? 'min(48%, 180px)' : 'min(82%, 310px)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                background: 'linear-gradient(135deg, #F43F5E 0%, #FB4567 100%)', color: '#FFFFFF', border: 'none', borderRadius: '14px',
+                fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', height: '48px',
+                boxShadow: '0 4px 12px rgba(244, 63, 94, 0.15)'
+              }}
+            >
+              <Plus size={17} /> Adicionar gasto
+            </button>
+          )}
+
+          {canAdjustBalance && (
+            <button
+              onClick={() => {
+                setAdjustOpType('add');
+                setAdjustAmountInput('');
+                setAdjustDescription('');
+                setAdjustDate(new Date().toISOString().split('T')[0]);
+                setShowAdjustModal(true);
+              }}
+              style={{
+                width: canManageFinance ? 'min(48%, 180px)' : 'min(82%, 310px)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#FFFFFF', border: '1px solid rgba(255, 255, 255, 0.18)', borderRadius: '14px',
+                fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', height: '48px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)', transition: 'all 0.2s'
+              }}
+            >
+              <WalletCards size={17} color="#38bdf8" /> Ajustar Saldo Acumulado
+            </button>
+          )}
         </div>
       )}
 
@@ -507,8 +590,40 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {expenses.length > 0 ? (
-            expenses.map((expense) => {
+          {(expenses.length > 0 || adjustments.length > 0) ? (
+            [
+              ...expenses.map(e => ({ kind: 'expense' as const, date: e.expense_date, data: e })),
+              ...adjustments.map(a => ({ kind: 'adjustment' as const, date: a.adjustment_date, data: a }))
+            ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(item => {
+              if (item.kind === 'adjustment') {
+                const adj = item.data;
+                const formattedDate = adj.adjustment_date.split('-').reverse().join('/');
+                const isEntry = adj.type === 'entry';
+                return (
+                  <div key={adj.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-primary)' }}>Ajuste de caixa</span>
+                        <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: isEntry ? 'rgba(34,197,94,0.15)' : 'rgba(244,63,94,0.15)', color: isEntry ? '#22c55e' : '#f43f5e', fontWeight: 700 }}>
+                          {adj.operation_type === 'add' ? 'Aporte' : 'Conciliação'}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{formattedDate} {adj.description ? `• ${adj.description}` : ''}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                      <span style={{ fontSize: '1.1rem', fontWeight: 900, color: isEntry ? '#22c55e' : '#f43f5e' }}>
+                        {isEntry ? `+ R$ ${Number(adj.amount).toFixed(2).replace('.', ',')}` : `− R$ ${Number(adj.amount).toFixed(2).replace('.', ',')}`}
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        Saldo: R$ {Number(adj.new_balance).toFixed(2).replace('.', ',')}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+
+              const expense = item.data;
               const formattedDate = expense.expense_date.split('-').reverse().join('/');
               const isEditing = editingExpenseId === expense.id;
 
@@ -604,15 +719,23 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             })
           ) : (
             <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Nenhuma despesa registrada no mês.
+              Nenhuma despesa ou ajuste registrado no mês.
             </div>
           )}
         </div>
 
-        {expenses.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px', marginTop: '8px' }}>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '1rem' }}>Total gasto no mês:</span>
-            <strong style={{ color: '#f43f5e', fontWeight: 900, fontSize: '1.3rem' }}>R$ {totalDespesasVal.toFixed(2)}</strong>
+        {(expenses.length > 0 || adjustments.length > 0) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px', marginTop: '8px' }}>
+            {monthAdjustmentEntries > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.9rem' }}>Aportes de ajuste no mês:</span>
+                <strong style={{ color: '#22c55e', fontWeight: 800, fontSize: '1.1rem' }}>+ R$ {monthAdjustmentEntries.toFixed(2).replace('.', ',')}</strong>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '1rem' }}>Total despesas/saídas no mês:</span>
+              <strong style={{ color: '#f43f5e', fontWeight: 900, fontSize: '1.3rem' }}>R$ {totalDespesasVal.toFixed(2).replace('.', ',')}</strong>
+            </div>
           </div>
         )}
       </section>
@@ -683,6 +806,284 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                   }
                 }} style={{ flex: 1, padding: '10px', borderRadius: '8px', backgroundColor: '#f43f5e', border: 'none', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Salvar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL AJUSTAR SALDO ACUMULADO */}
+      {showAdjustModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ backgroundColor: '#171717', width: '92%', maxWidth: '420px', borderRadius: '16px', padding: '22px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fff' }}>Ajustar Saldo Acumulado</h3>
+            </div>
+
+            {/* Saldo Atual */}
+            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: '#a1a1aa', fontWeight: 600 }}>Saldo acumulado atual:</span>
+              <span style={{ fontSize: '1.1rem', fontWeight: 800, color: accumulatedBalance >= 0 ? '#22c55e' : '#f43f5e' }}>
+                R$ {accumulatedBalance.toFixed(2).replace('.', ',')}
+              </span>
+            </div>
+
+            {/* Tipo de Operação */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Tipo de operação</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setAdjustOpType('add')}
+                  style={{
+                    padding: '10px 8px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
+                    backgroundColor: adjustOpType === 'add' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                    border: adjustOpType === 'add' ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    color: adjustOpType === 'add' ? '#22c55e' : '#a1a1aa'
+                  }}
+                >
+                  <span>Adicionar valor</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.85 }}>+ Aporte ao caixa</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAdjustOpType('reconcile')}
+                  style={{
+                    padding: '10px 8px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
+                    backgroundColor: adjustOpType === 'reconcile' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                    border: adjustOpType === 'reconcile' ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    color: adjustOpType === 'reconcile' ? '#38bdf8' : '#a1a1aa'
+                  }}
+                >
+                  <span>Corrigir saldo total</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 400, opacity: 0.85 }}>Conferência real</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Campo de Valor */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                {adjustOpType === 'add' ? 'Valor a adicionar (R$)' : 'Saldo real conferido (R$)'} <span style={{ color: '#f43f5e' }}>*</span>
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder={adjustOpType === 'add' ? 'Ex: 50,00' : 'Ex: 310,00'}
+                value={adjustAmountInput}
+                onChange={e => setAdjustAmountInput(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.95rem' }}
+              />
+            </div>
+
+            {/* Prévia dinâmica do ajuste */}
+            {(() => {
+              const cleanStr = adjustAmountInput.trim().replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+              const numVal = Number(cleanStr);
+              if (adjustAmountInput.trim() && !isNaN(numVal) && numVal >= 0) {
+                if (adjustOpType === 'add') {
+                  const newBal = accumulatedBalance + numVal;
+                  return (
+                    <div style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.2)', fontSize: '0.78rem', color: '#22c55e', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Ajuste: + R$ {numVal.toFixed(2).replace('.', ',')}</span>
+                      <span>Novo saldo: R$ {newBal.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                  );
+                } else {
+                  const diff = numVal - accumulatedBalance;
+                  const isDiffPositive = diff > 0;
+                  const isZero = Math.abs(diff) < 0.01;
+                  return (
+                    <div style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: isZero ? 'rgba(255, 255, 255, 0.05)' : isDiffPositive ? 'rgba(34, 197, 94, 0.08)' : 'rgba(244, 63, 94, 0.08)', border: isZero ? '1px solid rgba(255, 255, 255, 0.1)' : isDiffPositive ? '1px solid rgba(34, 197, 94, 0.2)' : '1px solid rgba(244, 63, 94, 0.2)', fontSize: '0.78rem', color: isZero ? '#a1a1aa' : isDiffPositive ? '#22c55e' : '#f43f5e', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{isZero ? 'Sem diferença' : `Ajuste (${isDiffPositive ? 'Entrada' : 'Saída'}): ${isDiffPositive ? '+' : '−'} R$ ${Math.abs(diff).toFixed(2).replace('.', ',')}`}</span>
+                      <span>Novo saldo: R$ {numVal.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                  );
+                }
+              }
+              return null;
+            })()}
+
+            {/* Data do Lançamento */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Data do lançamento</label>
+              <input
+                type="date"
+                value={adjustDate}
+                onChange={e => setAdjustDate(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem' }}
+              />
+            </div>
+
+            {/* Descrição Obrigatória */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Descrição / Motivo <span style={{ color: '#f43f5e' }}>*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder={adjustOpType === 'add' ? 'Ex: Aporte para despesas do racha' : 'Ex: Conciliação de caixa'}
+                value={adjustDescription}
+                onChange={e => setAdjustDescription(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#0b0b0b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem' }}
+              />
+            </div>
+
+            {/* Botões */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setShowAdjustModal(false)}
+                disabled={submittingAdjust}
+                style={{ flex: 1, padding: '10px', borderRadius: '8px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={submittingAdjust}
+                onClick={async () => {
+                  if (!canAdjustBalance) {
+                    alert('Você não tem permissão para ajustar o saldo.');
+                    return;
+                  }
+
+                  const cleanStr = adjustAmountInput.trim().replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+                  const parsedVal = Number(cleanStr);
+                  if (!adjustAmountInput.trim() || isNaN(parsedVal) || parsedVal < 0) {
+                    alert('Por favor, informe um valor monetário válido e positivo.');
+                    return;
+                  }
+
+                  if (!adjustDate) {
+                    alert('A data do lançamento é obrigatória.');
+                    return;
+                  }
+
+                  const trimmedDesc = adjustDescription.trim();
+                  if (!trimmedDesc) {
+                    alert('A descrição/motivo do ajuste é obrigatória.');
+                    return;
+                  }
+
+                  let effectiveAmount = 0;
+                  let type: 'entry' | 'exit' = 'entry';
+                  let newCalculatedBal = accumulatedBalance;
+
+                  if (adjustOpType === 'add') {
+                    if (parsedVal <= 0) {
+                      alert('O valor a adicionar deve ser maior que zero.');
+                      return;
+                    }
+                    effectiveAmount = parsedVal;
+                    type = 'entry';
+                    newCalculatedBal = Number((accumulatedBalance + effectiveAmount).toFixed(2));
+                  } else {
+                    const diff = Number((parsedVal - accumulatedBalance).toFixed(2));
+                    if (Math.abs(diff) < 0.01) {
+                      alert('O saldo real conferido é idêntico ao saldo atual. Nenhum ajuste necessário.');
+                      return;
+                    }
+                    effectiveAmount = Math.abs(diff);
+                    type = diff > 0 ? 'entry' : 'exit';
+                    newCalculatedBal = parsedVal;
+                  }
+
+                  setSubmittingAdjust(true);
+                  try {
+                    const { data: sessionData } = await supabase.auth.getSession();
+                    const currentUserId = sessionData?.session?.user?.id || null;
+                    const currentUserName = sessionData?.session?.user?.user_metadata?.full_name || sessionData?.session?.user?.email || (_userRole === 'admin' ? 'Administrador' : _userRole === 'treasurer' ? 'Tesoureiro' : 'Assistente');
+
+                    const adjustmentRecord: BalanceAdjustment = {
+                      id: crypto.randomUUID(),
+                      type,
+                      operation_type: adjustOpType,
+                      amount: Number(effectiveAmount.toFixed(2)),
+                      description: trimmedDesc,
+                      adjustment_date: adjustDate,
+                      previous_balance: Number(accumulatedBalance.toFixed(2)),
+                      new_balance: Number(newCalculatedBal.toFixed(2)),
+                      target_balance: adjustOpType === 'reconcile' ? parsedVal : null,
+                      created_by: currentUserId,
+                      created_by_name: currentUserName,
+                      created_at: new Date().toISOString()
+                    };
+
+                    // 1. Gravação no Supabase: se falhar, interrompe e não confirma o ajuste
+                    const { error } = await supabase.from('balance_adjustments').insert([adjustmentRecord]);
+                    if (error) {
+                      throw new Error(`Falha no banco de dados: ${error.message}`);
+                    }
+
+                    // 2. Espelha no armazenamento local apenas em caso de sucesso da transação
+                    try {
+                      const local = typeof window !== 'undefined' ? localStorage.getItem('rda_local_adjustments') : null;
+                      const list: BalanceAdjustment[] = local ? JSON.parse(local) : [];
+                      const exists = list.some(item => item.id === adjustmentRecord.id);
+                      if (!exists) {
+                        list.unshift(adjustmentRecord);
+                        localStorage.setItem('rda_local_adjustments', JSON.stringify(list));
+                      }
+                    } catch (localErr) {
+                      console.error('Erro ao espelhar ajuste no cache local:', localErr);
+                    }
+
+                    invalidateCache('balance_adjustments');
+
+                    if (adjustDate >= '2026-10-23') {
+                      if (type === 'entry') {
+                        setAccumulatedBalance(prev => Number((prev + effectiveAmount).toFixed(2)));
+                        setTotalRevenue(prev => Number((prev + effectiveAmount).toFixed(2)));
+                      } else {
+                        setAccumulatedBalance(prev => Number((prev - effectiveAmount).toFixed(2)));
+                        setTotalExpenses(prev => Number((prev + effectiveAmount).toFixed(2)));
+                      }
+                    }
+
+                    if (adjustDate.startsWith(currentMonthStr)) {
+                      setAdjustments(prev => [adjustmentRecord, ...prev]);
+                      if (financeCache.current[currentMonthStr]) {
+                        financeCache.current[currentMonthStr].adjustments = [
+                          adjustmentRecord,
+                          ...(financeCache.current[currentMonthStr].adjustments || [])
+                        ];
+                      }
+                    }
+
+                    setFeedback({ type: 'success', message: 'Ajuste de saldo registrado com sucesso!' });
+                    setShowAdjustModal(false);
+                    setAdjustAmountInput('');
+                    setAdjustDescription('');
+                  } catch (err: any) {
+                    alert(`Erro ao salvar ajuste: ${err.message || 'Falha inesperada.'}`);
+                  } finally {
+                    setSubmittingAdjust(false);
+                  }
+                }}
+                style={{ flex: 1, padding: '10px', borderRadius: '8px', backgroundColor: '#38bdf8', border: 'none', color: '#000', fontWeight: 700, cursor: 'pointer' }}
+              >
+                {submittingAdjust ? 'Salvando...' : 'Confirmar Ajuste'}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
