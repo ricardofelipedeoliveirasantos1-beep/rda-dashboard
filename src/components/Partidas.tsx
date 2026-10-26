@@ -612,6 +612,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   // Move Player manual draw helper com persistência atômica no banco quando editando partida existente
   const movePlayer = async (player: Player, from: string, to: string) => {
     if (!player || !player.id) return;
+    setActiveTeamMenu(null);
+    setSelectedPlayerForDraw(null);
 
     if (to !== 'disponiveis') {
       const active = getActiveTeams();
@@ -633,12 +635,13 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     // Se estivermos editando uma partida já salva, persistir na tabela oficial match_players
     if (editingMatchId) {
       const newTeamValue = to === 'disponiveis' ? null : to;
+      const newShirtValue = to === 'disponiveis' ? null : player.shirt_number;
       try {
         const { error: updateError } = await supabase
           .from('match_players')
           .update({ 
             team: newTeamValue,
-            shirt_number: to === 'disponiveis' ? null : player.shirt_number 
+            shirt_number: newShirtValue 
           })
           .eq('match_id', editingMatchId)
           .eq('player_id', player.id);
@@ -656,12 +659,25 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             ...m,
             match_players: (m.match_players || []).map(mp => {
               if (mp.player_id === player.id) {
-                return { ...mp, team: newTeamValue as any };
+                return { ...mp, team: newTeamValue as any, shirt_number: newShirtValue };
               }
               return mp;
             })
           };
         }));
+
+        setActiveMatchForStats(prev => {
+          if (!prev || prev.id !== editingMatchId) return prev;
+          return {
+            ...prev,
+            match_players: (prev.match_players || []).map(mp => {
+              if (mp.player_id === player.id) {
+                return { ...mp, team: newTeamValue as any, shirt_number: newShirtValue };
+              }
+              return mp;
+            })
+          };
+        });
       } catch (err: any) {
         console.error('Erro de conexão ao persistir movimentação:', err);
         alert('Erro de conexão ao salvar movimentação.');
@@ -669,8 +685,11 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       }
     }
 
-    // Se o jogador estiver sendo removido do time campeão, registra para não ser forçado de volta no sorteio automático
-    if (lastChampionInfo?.team && from === lastChampionInfo.team && to === 'disponiveis') {
+    // Se o jogador estiver sendo movido/removido do time campeão, registra para não ser forçado de volta no sorteio automático
+    const champTeam = lastChampionInfo?.team ? lastChampionInfo.team.toLowerCase() : null;
+    const fromTeam = from ? from.toLowerCase() : '';
+    const toTeam = to ? to.toLowerCase() : '';
+    if (champTeam && fromTeam === champTeam && toTeam !== champTeam) {
       setUnlockedChampionPlayerIds(prev => new Set(prev).add(player.id));
     }
 
@@ -697,9 +716,6 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     } else if (to === 'disponiveis') {
       setAvailablePlayers(prev => [...prev.filter(p => p.id !== player.id), sanitizedPlayer].sort((a, b) => a.name.localeCompare(b.name)));
     }
-
-    setSelectedPlayerForDraw(null);
-    setActiveTeamMenu(null);
   };
 
   // Clear teams
@@ -3489,6 +3505,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           { id: 'team-japao', name: 'japao', label: 'JAPÃO', color: '#ffffff', bg: 'rgba(255,255,255,0.01)', players: teamsWithShirts.japao },
           { id: 'team-uruguai', name: 'uruguai', label: 'URUGUAI', color: '#38bdf8', bg: 'rgba(56,189,248,0.02)', players: teamsWithShirts.uruguai }
         ].filter(team => getActiveTeams().includes(team.name)).map((team) => {
+          const isCardActive = activeTeamMenu?.teamName === team.name;
           return (
             <div 
               key={team.id}
@@ -3497,7 +3514,9 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
               style={{ 
                 borderLeft: `4px solid ${team.color}`, 
                 backgroundColor: team.bg,
-                gap: '12px'
+                gap: '12px',
+                position: 'relative',
+                zIndex: isCardActive ? 60 : 1
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '8px' }}>
@@ -3516,7 +3535,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minHeight: '60px' }}>
                 {team.players.length > 0 ? (
-                  team.players.map((p) => {
+                  team.players.map((p, pIndex) => {
                     const isMenuOpen = activeTeamMenu?.playerId === p.id && activeTeamMenu?.teamName === team.name;
                     return (
                       <div 
@@ -3529,7 +3548,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                           padding: '8px 10px', 
                           borderRadius: '10px', 
                           backgroundColor: 'rgba(255,255,255,0.015)',
-                          border: '1px solid rgba(255,255,255,0.03)'
+                          border: '1px solid rgba(255,255,255,0.03)',
+                          zIndex: isMenuOpen ? 70 : 1
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3608,7 +3628,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                               style={{
                                 position: 'absolute',
                                 right: 0,
-                                top: '30px',
+                                ...(pIndex >= 3 ? { bottom: '32px', top: 'auto' } : { top: '30px', bottom: 'auto' }),
                                 width: '180px',
                                 backgroundColor: '#171717',
                                 border: '1px solid rgba(255,255,255,0.08)',
@@ -3623,20 +3643,55 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                               }}
                             >
                               {getActiveTeams().includes('brasil') && team.name !== 'brasil' && (
-                                <button onClick={() => movePlayer(p, team.name, 'brasil')} style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#22c55e', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}>Mover para Brasil</button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    movePlayer(p, team.name, 'brasil');
+                                  }} 
+                                  style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#22c55e', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}
+                                >
+                                  Mover para Brasil
+                                </button>
                               )}
                               {getActiveTeams().includes('portugal') && team.name !== 'portugal' && (
-                                <button onClick={() => movePlayer(p, team.name, 'portugal')} style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#ef4444', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}>Mover para Portugal</button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    movePlayer(p, team.name, 'portugal');
+                                  }} 
+                                  style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#ef4444', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}
+                                >
+                                  Mover para Portugal
+                                </button>
                               )}
                               {getActiveTeams().includes('japao') && team.name !== 'japao' && (
-                                <button onClick={() => movePlayer(p, team.name, 'japao')} style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#ffffff', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}>Mover para Japão</button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    movePlayer(p, team.name, 'japao');
+                                  }} 
+                                  style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#ffffff', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}
+                                >
+                                  Mover para Japão
+                                </button>
                               )}
                               {getActiveTeams().includes('uruguai') && team.name !== 'uruguai' && (
-                                <button onClick={() => movePlayer(p, team.name, 'uruguai')} style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#38bdf8', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}>Mover para Uruguai</button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    movePlayer(p, team.name, 'uruguai');
+                                  }} 
+                                  style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#38bdf8', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}
+                                >
+                                  Mover para Uruguai
+                                </button>
                               )}
                               <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.04)', margin: '4px 0' }} />
                               <button 
-                                onClick={() => movePlayer(p, team.name, 'disponiveis')} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  movePlayer(p, team.name, 'disponiveis');
+                                }} 
                                 style={{ 
                                   textAlign: 'left', 
                                   padding: '8px 10px', 
