@@ -16,12 +16,13 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
+import { calculateAge } from '../utils/playerUtils';
 
 // Definição da Interface do Jogador (Utilizando categorias Capitalizadas)
 interface Player {
   id: string;
   name: string;
-  birth_date: string;
+  birth_date: string | null;
   position: string;
   category: 'Mensalista' | 'Diarista';
   fee: number;
@@ -178,8 +179,12 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
 
   // Calcular Idade Automaticamente com base na Data de Nascimento
   useEffect(() => {
-    if (birthDate) {
+    if (birthDate && birthDate.trim()) {
       const birth = new Date(birthDate);
+      if (isNaN(birth.getTime())) {
+        setCalculatedAge(null);
+        return;
+      }
       const today = new Date();
       let age = today.getFullYear() - birth.getFullYear();
       const monthDiff = today.getMonth() - birth.getMonth();
@@ -309,7 +314,6 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
 
     const newErrors: typeof errors = {};
     if (!name.trim()) newErrors.name = 'Informe o nome do jogador.';
-    if (!birthDate) newErrors.birthDate = 'Informe a data de nascimento.';
     if (!position || position === '') newErrors.position = 'Selecione uma posição.';
     if (!category) newErrors.category = 'Selecione uma categoria.';
 
@@ -338,7 +342,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
 
       const playerData = {
         name: formattedName,
-        birth_date: birthDate,
+        birth_date: birthDate && birthDate.trim() ? birthDate.trim() : null,
         position: position,
         category: category,
         fee: Number(fee) || 0,
@@ -524,7 +528,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
   const openEditPlayerModal = (player: Player) => {
     setEditingPlayer(player);
     setName(formatPlayerName(player.name));
-    setBirthDate(player.birth_date);
+    setBirthDate(player.birth_date || '');
     setPosition(player.position);
     setCategory(player.category);
     setFee(player.fee.toString());
@@ -547,16 +551,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
     setActiveMenuId(null);
   };
 
-  const calculateAgeStatic = (birthDateString: string) => {
-    const birth = new Date(birthDateString);
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
+  const calculateAgeStatic = calculateAge;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--card-gap)' }}>
@@ -722,7 +717,7 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>{player.name}</span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {player.position} • {calculateAgeStatic(player.birth_date)} anos
+                      {player.position} • {calculateAgeStatic(player.birth_date) !== null ? `${calculateAgeStatic(player.birth_date)} anos` : '—'}
                     </span>
                     <span style={{ 
                       fontSize: '0.7rem', 
@@ -1111,8 +1106,9 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
 
               {/* CAMPOS DE CADASTRO COM MENSAGEM DE ERRO ESPECÍFICA */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Nome Completo *</label>
+                <label htmlFor="player-name" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Nome Completo *</label>
                 <input 
+                  id="player-name"
                   type="text" 
                   value={name}
                   onChange={handleNameChange}
@@ -1127,8 +1123,9 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Data de Nascimento *</label>
+                  <label htmlFor="player-birthdate" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Data de Nascimento</label>
                   <input 
+                    id="player-birthdate"
                     type="date" 
                     value={birthDate}
                     onChange={(e) => {
@@ -1144,11 +1141,12 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
                   )}
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Idade Calculada</label>
+                  <label htmlFor="player-age" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Idade Calculada</label>
                   <input 
+                    id="player-age"
                     type="text" 
                     readOnly 
-                    value={calculatedAge !== null ? `${calculatedAge} anos` : '--'}
+                    value={calculatedAge !== null ? `${calculatedAge} anos` : '—'}
                     style={{ width: '100%', padding: '10px', backgroundColor: '#262626', border: '1px solid #262626', borderRadius: '8px', color: 'var(--text-secondary)', outline: 'none', cursor: 'not-allowed' }}
                   />
                 </div>
@@ -1156,8 +1154,9 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Posição *</label>
+                  <label htmlFor="player-position" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Posição *</label>
                   <select 
+                    id="player-position"
                     value={position}
                     onChange={(e) => {
                       setPosition(e.target.value);
@@ -1179,8 +1178,9 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
                   )}
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Categoria *</label>
+                  <label htmlFor="player-category" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>Categoria *</label>
                   <select 
+                    id="player-category"
                     value={category}
                     onChange={(e) => {
                       setCategory(e.target.value as 'Mensalista' | 'Diarista');
@@ -1200,10 +1200,11 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>
+                <label htmlFor="player-fee" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>
                   Valor da {category === 'Mensalista' ? 'Mensalidade' : 'Diária'} (R$) *
                 </label>
                 <input 
+                  id="player-fee"
                   type="number" 
                   required 
                   min="0"
@@ -1354,7 +1355,9 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
                 <div style={{ fontSize: '0.85rem' }}>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Idade / Nascimento</div>
                   <div style={{ fontWeight: 600 }}>
-                    {calculateAgeStatic(selectedPlayer.birth_date)} anos ({new Date(selectedPlayer.birth_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})
+                    {calculateAgeStatic(selectedPlayer.birth_date) !== null && selectedPlayer.birth_date
+                      ? `${calculateAgeStatic(selectedPlayer.birth_date)} anos (${new Date(selectedPlayer.birth_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})`
+                      : '—'}
                   </div>
                 </div>
               </div>
