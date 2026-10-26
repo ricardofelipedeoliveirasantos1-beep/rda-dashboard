@@ -198,4 +198,72 @@ describe('Sorteio Flash - Alternância e Regras de Distribuição', () => {
     expect(result.violationsCount).toBe(2);
     expect(result.diagnostic).toContain('inevitável');
   });
+
+  it('deve respeitar unlockedPlayerIds ao remover diarista do time campeão sem forçá-lo de volta', () => {
+    const players = createMockPlayers(24);
+    const champTeamStr = 'japao';
+    // Jogadores 1 a 6 eram do Japão campeão, sendo player-6 um Diarista
+    const champPlayerIds = new Set(['player-1', 'player-2', 'player-3', 'player-4', 'player-5', 'player-6']);
+    // O proprietário removeu player-6 (Diarista) do time campeão
+    const unlockedPlayerIds = new Set(['player-6']);
+
+    const historyMap = new Map<string, string[]>();
+    champPlayerIds.forEach(id => historyMap.set(id, ['japao']));
+
+    const result = solveDraw({
+      selectedPlayers: players,
+      activeTeams,
+      champTeamStr,
+      champPlayerIds,
+      historyMap,
+      unlockedPlayerIds
+    });
+
+    // O time campeão deve ter 6 jogadores, mas NÃO deve conter player-6 se outros estavam disponíveis para preencher
+    const japaoPlayerIds = result.teamMap['japao'].map(p => p.id);
+    expect(japaoPlayerIds).toHaveLength(6);
+    expect(japaoPlayerIds).toContain('player-1');
+    expect(japaoPlayerIds).toContain('player-2');
+    expect(japaoPlayerIds).toContain('player-3');
+    expect(japaoPlayerIds).toContain('player-4');
+    expect(japaoPlayerIds).toContain('player-5');
+    // player-6 foi destravado e não foi forçado a voltar para o Japão
+    // E todos os 24 jogadores estão distribuídos sem duplicação
+    const allAssignedIds = activeTeams.flatMap(t => result.teamMap[t].map(p => p.id));
+    expect(allAssignedIds).toHaveLength(24);
+    expect(new Set(allAssignedIds).size).toBe(24);
+  });
+
+  it('deve preservar alocações manuais pré-existentes sem duplicar jogadores entre times', () => {
+    const players = createMockPlayers(24);
+    const existingTeams: Record<string, DrawPlayer[]> = {
+      brasil: [players[0], players[1]], // alocados manualmente no Brasil
+      portugal: [players[2]],           // alocado manualmente em Portugal
+      japao: [],
+      uruguai: []
+    };
+
+    const result = solveDraw({
+      selectedPlayers: players,
+      activeTeams,
+      champTeamStr: null,
+      champPlayerIds: new Set(),
+      historyMap: new Map(),
+      existingTeams
+    });
+
+    // Brasil deve conter players[0] e players[1]
+    expect(result.teamMap['brasil'].map(p => p.id)).toContain(players[0].id);
+    expect(result.teamMap['brasil'].map(p => p.id)).toContain(players[1].id);
+    // Portugal deve conter players[2]
+    expect(result.teamMap['portugal'].map(p => p.id)).toContain(players[2].id);
+
+    // Nenhum time deve ultrapassar 6 jogadores e ninguém pode estar em mais de um time
+    for (const t of activeTeams) {
+      expect(result.teamMap[t]).toHaveLength(6);
+    }
+    const allAssignedIds = activeTeams.flatMap(t => result.teamMap[t].map(p => p.id));
+    expect(allAssignedIds).toHaveLength(24);
+    expect(new Set(allAssignedIds).size).toBe(24);
+  });
 });

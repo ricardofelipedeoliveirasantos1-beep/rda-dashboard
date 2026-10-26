@@ -387,9 +387,15 @@ export default function Players({ userRole: _userRole, can: _can }: { userRole: 
       fetchPlayers();
     } catch (error: any) {
       console.error('Erro geral detectado ao tentar salvar jogador:', error);
+      let errorMsg = 'Não foi possível salvar o jogador. Verifique os dados e tente novamente.';
+      if (error?.code === '23502' || /birth_date/i.test(error?.message || '')) {
+        errorMsg = 'O banco de dados ainda exige a data de nascimento (restrição NOT NULL remota). Para permitir salvar sem aniversário, execute o script "30 - CRMFUT - Data de Nascimento Opcional.sql" no Supabase SQL Editor.';
+      } else if (error?.message) {
+        errorMsg = error.message;
+      }
       setErrors(prev => ({
         ...prev,
-        general: 'Não foi possível salvar o jogador. Verifique os dados e tente novamente.'
+        general: errorMsg
       }));
     } finally {
       setIsSaving(false);

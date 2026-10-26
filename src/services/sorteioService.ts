@@ -28,6 +28,8 @@ export interface DrawInput {
   champPlayerIds: Set<string>;
   historyMap: Map<string, string[]>; // playerId -> [lastTeam, team2MatchesAgo, team3MatchesAgo]
   maxPlayersPerTeam?: number;
+  existingTeams?: Record<string, DrawPlayer[]>; // Permite manter alocações manuais existentes
+  unlockedPlayerIds?: Set<string>; // Atletas removidos manualmente do time campeão
 }
 
 export interface DrawResult {
@@ -52,7 +54,7 @@ export function calculateHistoryPenalty(
 
   // 2. Repetição de 2 sorteios atrás
   if (hist.length > 1 && hist[1] === teamName) {
-    penalty += 100;
+    penalty += 200;
   }
 
   // 3. Sequência de 2 repetições consecutivas anteriores no mesmo time
@@ -74,24 +76,67 @@ export function solveDraw({
   champTeamStr,
   champPlayerIds,
   historyMap,
-  maxPlayersPerTeam = 6
+  maxPlayersPerTeam = 6,
+  existingTeams,
+  unlockedPlayerIds = new Set<string>()
 }: DrawInput): DrawResult {
   const shouldFixChampions = Boolean(champTeamStr && activeTeams.includes(champTeamStr));
-  const fixedChampions = selectedPlayers.filter(p => shouldFixChampions && champPlayerIds.has(p.id));
-  const playersToDraw = selectedPlayers.filter(p => !(shouldFixChampions && champPlayerIds.has(p.id)));
-
-  // Inicializar mapa de times com os campeões fixos
-  const initialTeams: Record<string, DrawPlayer[]> = {};
-  activeTeams.forEach(t => {
-    initialTeams[t] = (shouldFixChampions && champTeamStr === t) ? [...fixedChampions] : [];
+  
+  // Deduplica selectedPlayers por id para garantir integridade absoluta
+  const uniqueSelectedMap = new Map<string, DrawPlayer>();
+  selectedPlayers.forEach(p => {
+    if (!uniqueSelectedMap.has(p.id)) {
+      uniqueSelectedMap.set(p.id, p);
+    }
   });
+  const uniqueSelected = Array.from(uniqueSelectedMap.values());
+
+  // Inicializar mapa de times respeitando alterações manuais existentes
+  const initialTeams: Record<string, DrawPlayer[]> = {};
+  const alreadyAssignedIds = new Set<string>();
+
+  activeTeams.forEach(t => {
+    initialTeams[t] = [];
+    if (existingTeams && Array.isArray(existingTeams[t])) {
+      // Filtrar apenas jogadores que estão selecionados para este racha
+      existingTeams[t].forEach(p => {
+        if (uniqueSelectedMap.has(p.id) && !alreadyAssignedIds.has(p.id)) {
+          // Se for o time campeão, respeita os que não foram explicitamente destravados/removidos
+          if (t === champTeamStr && unlockedPlayerIds.has(p.id)) {
+            // Jogador foi explicitamente removido do time campeão pelo usuário
+            return;
+          }
+          initialTeams[t].push(uniqueSelectedMap.get(p.id)!);
+          alreadyAssignedIds.add(p.id);
+        }
+      });
+    }
+  });
+
+  // Se existingTeams não tinha os campeões populados, popula automaticamente os que não foram destravados
+  if (shouldFixChampions && champTeamStr && initialTeams[champTeamStr].length === 0) {
+    uniqueSelected.forEach(p => {
+      if (
+        champPlayerIds.has(p.id) && 
+        !unlockedPlayerIds.has(p.id) && 
+        !alreadyAssignedIds.has(p.id) &&
+        initialTeams[champTeamStr].length < maxPlayersPerTeam
+      ) {
+        initialTeams[champTeamStr].push(p);
+        alreadyAssignedIds.add(p.id);
+      }
+    });
+  }
+
+  // Jogadores que precisam ser sorteados nas vagas remanescentes
+  const playersToDraw = uniqueSelected.filter(p => !alreadyAssignedIds.has(p.id));
 
   if (playersToDraw.length === 0) {
     return {
       teamMap: initialTeams,
       unassigned: [],
       violationsCount: 0,
-      diagnostic: 'Nenhum jogador para sortear além dos campeões fixos.'
+      diagnostic: 'Nenhum jogador para sortear além dos atletas fixos.'
     };
   }
 
@@ -201,6 +246,7 @@ export function solveDraw({
                 currentTeams[t1][p1Idx] = p2;
                 currentTeams[t2][p2Idx] = p1;
                 improved = true;
+                break; // p1Idx foi trocado; interrompe p2Idx para evitar duplicação ou corrupção de índice
               }
             }
           }
@@ -233,13 +279,36 @@ export function solveDraw({
   }
 
   const finalSolution = bestSolution || { teamMap: initialTeams, unassigned: playersToDraw };
+
+  // Garantia estrita de integridade: remover qualquer duplicata residual por segurança
+  const cleanTeamMap: Record<string, DrawPlayer[]> = {};
+  const globalSeenIds = new Set<string>();
+
+  for (const t of activeTeams) {
+    cleanTeamMap[t] = [];
+    for (const p of finalSolution.teamMap[t] || []) {
+      if (!globalSeenIds.has(p.id)) {
+        globalSeenIds.add(p.id);
+        cleanTeamMap[t].push(p);
+      }
+    }
+  }
+
+  const cleanUnassigned: DrawPlayer[] = [];
+  for (const p of finalSolution.unassigned || []) {
+    if (!globalSeenIds.has(p.id)) {
+      globalSeenIds.add(p.id);
+      cleanUnassigned.push(p);
+    }
+  }
+
   const diagnostic = bestViolations === 0
     ? 'Distribuição ótima alcançada sem repetições consecutivas de time.'
     : `Distribuição válida gerada com ${bestViolations} repetição(ões) inevitável(is) devido a restrições de vagas/capacidade.`;
 
   return {
-    teamMap: finalSolution.teamMap,
-    unassigned: finalSolution.unassigned,
+    teamMap: cleanTeamMap,
+    unassigned: cleanUnassigned,
     violationsCount: bestViolations,
     diagnostic
   };

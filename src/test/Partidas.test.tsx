@@ -381,5 +381,107 @@ describe('Partidas — Menu de Três Pontos, Sorteio e Remoção de Jogadores', 
 
     alertMock.mockRestore();
   });
+
+  it('permite mover jogador para um time com vaga sem duplicidade entre times', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    await setupWizardToTeams();
+
+    fireEvent.click(screen.getByText(/Sorteio Flash/i));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('6/6').length).toBe(8);
+    });
+
+    // 1. Remover um jogador do Brasil para abrir vaga (Brasil fica com 5/6)
+    const dotButtons = screen.getAllByTitle('Opções do jogador');
+    fireEvent.click(dotButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Remover do time')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Remover do time'));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('5/6').length).toBeGreaterThanOrEqual(1);
+    });
+
+    // 2. Agora o Brasil tem vaga (5/6). Vamos mover um jogador de Portugal para o Brasil.
+    const remainingDotButtons = screen.getAllByTitle('Opções do jogador');
+    // Clicar em um jogador de Portugal
+    fireEvent.click(remainingDotButtons[6]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Mover para Brasil')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Mover para Brasil'));
+
+    // Brasil volta para 6/6 e Portugal fica com 5/6
+    await waitFor(() => {
+      expect(screen.getAllByText('6/6').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('5/6').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it('ao salvar partida, deduplica estritamente matchPlayersRows por player_id', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const { supabase } = await import('../lib/supabase');
+
+    let insertedMatchPlayers: any[] = [];
+    const origImplementation = (supabase.from as any).getMockImplementation();
+
+    (supabase.from as any).mockImplementation((table: string) => {
+      if (table === 'matches') {
+        const query: any = {
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'test-match-123' },
+                error: null
+              })
+            })
+          }),
+          select: vi.fn(() => query),
+          eq: vi.fn(() => query),
+          order: vi.fn(() => query),
+          limit: vi.fn(() => query),
+          then: vi.fn((resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve))
+        };
+        return query;
+      }
+      if (table === 'match_players') {
+        const query: any = {
+          insert: vi.fn().mockImplementation((rows: any[]) => {
+            insertedMatchPlayers = rows;
+            return Promise.resolve({ data: rows, error: null });
+          }),
+          select: vi.fn(() => query),
+          eq: vi.fn(() => query),
+          then: vi.fn((resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve))
+        };
+        return query;
+      }
+      return origImplementation(table);
+    });
+
+    await setupWizardToTeams();
+    fireEvent.click(screen.getByText(/Sorteio Flash/i));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('6/6').length).toBe(8);
+    });
+
+    // Salvar partida
+    const saveBtn = screen.getByRole('button', { name: /Salvar Partida/i });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(insertedMatchPlayers.length).toBe(24);
+    });
+
+    // Conferir que todos os 24 player_ids são únicos
+    const playerIds = insertedMatchPlayers.map((r: any) => r.player_id);
+    expect(new Set(playerIds).size).toBe(24);
+  });
 });
 

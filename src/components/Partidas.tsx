@@ -143,6 +143,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   const [teamPortugal, setTeamPortugal] = useState<Player[]>([]);
   const [teamJapao, setTeamJapao] = useState<Player[]>([]);
   const [teamUruguai, setTeamUruguai] = useState<Player[]>([]);
+  const [unlockedChampionPlayerIds, setUnlockedChampionPlayerIds] = useState<Set<string>>(new Set());
 
   const teamsWithShirts = useMemo(() => {
     const SHIRT_NUMBERS: Record<string, number[]> = {
@@ -153,13 +154,23 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     };
 
     const getTeamWithShirts = (teamStr: string, list: Player[]) => {
+      // 1. DEDUPLICAÇÃO ESTRITA POR ID: Impede que qualquer jogador apareça duas vezes no mesmo time
+      const uniqueList: Player[] = [];
+      const seenIds = new Set<string>();
+      for (const p of list) {
+        if (!seenIds.has(p.id)) {
+          seenIds.add(p.id);
+          uniqueList.push(p);
+        }
+      }
+
       const shirts = SHIRT_NUMBERS[teamStr] || [];
       const champTeamStr = lastChampionInfo?.team;
       const champPlayerShirts = lastChampionInfo?.playerShirts || new Map<string, number>();
 
       const usedShirts = new Set<number>();
-      const mapped = list.map(p => {
-        if (champTeamStr === teamStr && champPlayerShirts.has(p.id)) {
+      const mapped = uniqueList.map(p => {
+        if (champTeamStr === teamStr && champPlayerShirts.has(p.id) && !unlockedChampionPlayerIds.has(p.id)) {
           const shirt = champPlayerShirts.get(p.id)!;
           usedShirts.add(shirt);
           return { ...p, shirt_number: shirt };
@@ -189,7 +200,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       japao: getTeamWithShirts('japao', teamJapao),
       uruguai: getTeamWithShirts('uruguai', teamUruguai),
     };
-  }, [teamBrasil, teamPortugal, teamJapao, teamUruguai, lastChampionInfo]);
+  }, [teamBrasil, teamPortugal, teamJapao, teamUruguai, lastChampionInfo, unlockedChampionPlayerIds]);
 
   // Manual Draw selection state
   const [selectedPlayerForDraw, setSelectedPlayerForDraw] = useState<Player | null>(null);
@@ -465,35 +476,15 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     return active;
   };
 
-  // Transition from Selection (config) to Teams
-  const handleContinueToTeams = async () => {
-    if (!matchDate) {
-      setValidationError('Por favor, informe a data da partida.');
-      return;
-    }
-    if (!matchTime) {
-      setValidationError('Por favor, informe o horário da partida.');
-      return;
-    }
-    if (!matchLocation.trim()) {
-      setValidationError('Por favor, informe o local da partida.');
-      return;
-    }
-    if (totalSelected === 0) {
-      setValidationError('Por favor, selecione pelo menos 1 jogador para participar.');
-      return;
-    }
-
-    setValidationError(null);
-    setSaving(true);
-    
+  // Consulta desacoplada e robusta do histórico de partidas e campeão
+  const fetchDrawHistoryAndChampion = async (excludeMatchId?: string) => {
     const drawHistory = new Map<string, string[]>();
     let champTeamStr: string | null = null;
     let champPlayerIds = new Set<string>();
     let champPlayerShirts = new Map<string, number>();
 
     try {
-      const { data: recentMatchesData, error: matchesError } = await supabase
+      let query = supabase
         .from('matches')
         .select(`
           id, match_date, match_time, champion_team,
@@ -502,7 +493,13 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         .eq('status', 'finished')
         .order('match_date', { ascending: false })
         .order('match_time', { ascending: false })
-        .limit(5);
+        .limit(6);
+
+      if (excludeMatchId) {
+        query = query.neq('id', excludeMatchId);
+      }
+
+      const { data: recentMatchesData, error: matchesError } = await query;
 
       if (!matchesError && recentMatchesData && recentMatchesData.length > 0) {
         const lastFinishedWithChamp = recentMatchesData.find(m => m.champion_team);
@@ -531,10 +528,39 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       console.error("Erro ao buscar histórico de sorteios:", err);
     }
 
-    setDrawHistoryMap(drawHistory);
-
     const championInfo = champTeamStr ? { team: champTeamStr, playerIds: champPlayerIds, playerShirts: champPlayerShirts } : null;
+    return { drawHistory, championInfo };
+  };
+
+  // Transition from Selection (config) to Teams
+  const handleContinueToTeams = async () => {
+    if (!matchDate) {
+      setValidationError('Por favor, informe a data da partida.');
+      return;
+    }
+    if (!matchTime) {
+      setValidationError('Por favor, informe o horário da partida.');
+      return;
+    }
+    if (!matchLocation.trim()) {
+      setValidationError('Por favor, informe o local da partida.');
+      return;
+    }
+    if (totalSelected === 0) {
+      setValidationError('Por favor, selecione pelo menos 1 jogador para participar.');
+      return;
+    }
+
+    setValidationError(null);
+    setSaving(true);
+    
+    const { drawHistory, championInfo } = await fetchDrawHistoryAndChampion(editingMatchId || undefined);
+
+    setDrawHistoryMap(drawHistory);
     setLastChampionInfo(championInfo);
+
+    const champTeamStr = championInfo?.team || null;
+    const champPlayerIds = championInfo?.playerIds || new Set<string>();
 
     const defaultOrder = ['brasil', 'portugal', 'japao', 'uruguai'];
     const active = defaultOrder.slice(0, numberOfTeams);
@@ -585,6 +611,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
 
   // Move Player manual draw helper com persistência atômica no banco quando editando partida existente
   const movePlayer = async (player: Player, from: string, to: string) => {
+    if (!player || !player.id) return;
+
     if (to !== 'disponiveis') {
       const active = getActiveTeams();
       if (!active.includes(to)) {
@@ -592,10 +620,10 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         return;
       }
       let destTeamLength = 0;
-      if (to === 'brasil') destTeamLength = teamBrasil.length;
-      if (to === 'portugal') destTeamLength = teamPortugal.length;
-      if (to === 'japao') destTeamLength = teamJapao.length;
-      if (to === 'uruguai') destTeamLength = teamUruguai.length;
+      if (to === 'brasil') destTeamLength = teamBrasil.filter(p => p.id !== player.id).length;
+      if (to === 'portugal') destTeamLength = teamPortugal.filter(p => p.id !== player.id).length;
+      if (to === 'japao') destTeamLength = teamJapao.filter(p => p.id !== player.id).length;
+      if (to === 'uruguai') destTeamLength = teamUruguai.filter(p => p.id !== player.id).length;
       if (destTeamLength >= 6) {
         alert('Este time já atingiu o limite de 6 vagas!');
         return;
@@ -608,13 +636,16 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       try {
         const { error: updateError } = await supabase
           .from('match_players')
-          .update({ team: newTeamValue })
+          .update({ 
+            team: newTeamValue,
+            shirt_number: to === 'disponiveis' ? null : player.shirt_number 
+          })
           .eq('match_id', editingMatchId)
           .eq('player_id', player.id);
 
         if (updateError) {
           console.error('Erro ao persistir movimentação no banco:', updateError);
-          alert('Não foi possível persistir a movimentação. Tente novamente.');
+          alert(`Não foi possível persistir a movimentação: ${updateError.message || 'Erro no banco'}`);
           return;
         }
 
@@ -631,28 +662,42 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             })
           };
         }));
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erro de conexão ao persistir movimentação:', err);
         alert('Erro de conexão ao salvar movimentação.');
         return;
       }
     }
 
-    const remove = (list: Player[]) => list.filter(p => p.id !== player.id);
-    const add = (list: Player[]) => [...list, player];
+    // Se o jogador estiver sendo removido do time campeão, registra para não ser forçado de volta no sorteio automático
+    if (lastChampionInfo?.team && from === lastChampionInfo.team && to === 'disponiveis') {
+      setUnlockedChampionPlayerIds(prev => new Set(prev).add(player.id));
+    }
 
-    if (from === 'brasil') setTeamBrasil(remove(teamBrasil));
-    if (from === 'portugal') setTeamPortugal(remove(teamPortugal));
-    if (from === 'japao') setTeamJapao(remove(teamJapao));
-    if (from === 'uruguai') setTeamUruguai(remove(teamUruguai));
-    if (from === 'disponiveis') setAvailablePlayers(remove(availablePlayers));
+    // Atualização funcional atômica: remove de TODOS os times e adiciona ao destino com ID único garantido
+    const sanitizedPlayer: Player = {
+      ...player,
+      shirt_number: to === 'disponiveis' ? null : player.shirt_number
+    };
 
-    if (to === 'brasil') setTeamBrasil(add(teamBrasil));
-    if (to === 'portugal') setTeamPortugal(add(teamPortugal));
-    if (to === 'japao') setTeamJapao(add(teamJapao));
-    if (to === 'uruguai') setTeamUruguai(add(teamUruguai));
-    if (to === 'disponiveis') setAvailablePlayers(add(availablePlayers).sort((a, b) => a.name.localeCompare(b.name)));
-    
+    setTeamBrasil(prev => prev.filter(p => p.id !== player.id));
+    setTeamPortugal(prev => prev.filter(p => p.id !== player.id));
+    setTeamJapao(prev => prev.filter(p => p.id !== player.id));
+    setTeamUruguai(prev => prev.filter(p => p.id !== player.id));
+    setAvailablePlayers(prev => prev.filter(p => p.id !== player.id));
+
+    if (to === 'brasil') {
+      setTeamBrasil(prev => [...prev.filter(p => p.id !== player.id), sanitizedPlayer]);
+    } else if (to === 'portugal') {
+      setTeamPortugal(prev => [...prev.filter(p => p.id !== player.id), sanitizedPlayer]);
+    } else if (to === 'japao') {
+      setTeamJapao(prev => [...prev.filter(p => p.id !== player.id), sanitizedPlayer]);
+    } else if (to === 'uruguai') {
+      setTeamUruguai(prev => [...prev.filter(p => p.id !== player.id), sanitizedPlayer]);
+    } else if (to === 'disponiveis') {
+      setAvailablePlayers(prev => [...prev.filter(p => p.id !== player.id), sanitizedPlayer].sort((a, b) => a.name.localeCompare(b.name)));
+    }
+
     setSelectedPlayerForDraw(null);
     setActiveTeamMenu(null);
   };
@@ -664,24 +709,46 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     setTeamPortugal([]);
     setTeamJapao([]);
     setTeamUruguai([]);
+    setUnlockedChampionPlayerIds(new Set());
     setSelectedPlayerForDraw(null);
     setActiveTeamMenu(null);
     setValidationError(null);
   };
 
   // Sorteio Flash com alternância baseado em histórico de sorteios anteriores
-  const runFlashSorteio = () => {
+  const runFlashSorteio = async () => {
     const active = getActiveTeams();
-    const champTeamStr = lastChampionInfo?.team || null;
-    const champPlayerIds = lastChampionInfo?.playerIds || new Set<string>();
+    let history = drawHistoryMap;
+    let champInfo = lastChampionInfo;
+
+    // Se o histórico não estiver carregado, busca sob demanda
+    if (history.size === 0) {
+      const fetched = await fetchDrawHistoryAndChampion(editingMatchId || undefined);
+      history = fetched.drawHistory;
+      champInfo = fetched.championInfo;
+      setDrawHistoryMap(history);
+      setLastChampionInfo(champInfo);
+    }
+
+    const champTeamStr = champInfo?.team || null;
+    const champPlayerIds = champInfo?.playerIds || new Set<string>();
+
+    const existingTeamsMap = {
+      brasil: teamBrasil,
+      portugal: teamPortugal,
+      japao: teamJapao,
+      uruguai: teamUruguai
+    };
 
     const result = solveDraw({
       selectedPlayers,
       activeTeams: active,
       champTeamStr,
       champPlayerIds,
-      historyMap: drawHistoryMap,
-      maxPlayersPerTeam: 6
+      historyMap: history,
+      maxPlayersPerTeam: 6,
+      existingTeams: existingTeamsMap,
+      unlockedPlayerIds: unlockedChampionPlayerIds
     });
 
     setTeamBrasil(active.includes('brasil') ? (result.teamMap['brasil'] as Player[]) || [] : []);
@@ -817,9 +884,17 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           }))
         ];
 
+        // Deduplicação estrita: garante que cada player_id apareça no máximo uma vez
+        const seenPids = new Set<string>();
+        const uniqueMatchPlayersRows = matchPlayersRows.filter(row => {
+          if (seenPids.has(row.player_id)) return false;
+          seenPids.add(row.player_id);
+          return true;
+        });
+
         const { error: mpInsertError } = await supabase
           .from('match_players')
-          .insert(matchPlayersRows);
+          .insert(uniqueMatchPlayersRows);
 
         if (mpInsertError) {
           await supabase.from('matches').delete().eq('id', newMatchId);
@@ -933,9 +1008,17 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           }))
         ];
 
+        // Deduplicação estrita: garante que cada player_id apareça no máximo uma vez
+        const seenPidsEdit = new Set<string>();
+        const uniqueMatchPlayersRowsEdit = matchPlayersRows.filter(row => {
+          if (seenPidsEdit.has(row.player_id)) return false;
+          seenPidsEdit.add(row.player_id);
+          return true;
+        });
+
         const { error: mpInsertError } = await supabase
           .from('match_players')
-          .insert(matchPlayersRows);
+          .insert(uniqueMatchPlayersRowsEdit);
 
         if (mpInsertError) throw mpInsertError;
 
@@ -1009,6 +1092,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     setTeamPortugal([]);
     setTeamJapao([]);
     setTeamUruguai([]);
+    setUnlockedChampionPlayerIds(new Set());
     setSelectedPlayerForDraw(null);
     setActiveTeamMenu(null);
     setEditingMatchId(null);
@@ -1029,11 +1113,15 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   };
 
   // Trigger editing existing match
-  const handleEditMatch = (match: Match) => {
+  const handleEditMatch = async (match: Match) => {
     if (!can('edit_match')) {
       alert('Você não tem permissão para editar partidas.');
       return;
     }
+    const { drawHistory, championInfo } = await fetchDrawHistoryAndChampion(match.id);
+    setDrawHistoryMap(drawHistory);
+    setLastChampionInfo(championInfo);
+    setUnlockedChampionPlayerIds(new Set());
     setEditingMatchId(match.id);
     setMatchDate(match.match_date);
     setMatchTime(match.match_time.slice(0, 5));
@@ -2427,7 +2515,11 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <button
-                onClick={() => {
+                onClick={async () => {
+                  const { drawHistory, championInfo } = await fetchDrawHistoryAndChampion(activeMatchForStats.id);
+                  setDrawHistoryMap(drawHistory);
+                  setLastChampionInfo(championInfo);
+                  setUnlockedChampionPlayerIds(new Set());
                   setEditingMatchId(activeMatchForStats.id);
                   setMatchDate(activeMatchForStats.match_date);
                   setMatchTime(activeMatchForStats.match_time.slice(0, 5));
@@ -2490,7 +2582,11 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
               </button>
               
               <button
-                onClick={() => {
+                onClick={async () => {
+                  const { drawHistory, championInfo } = await fetchDrawHistoryAndChampion(activeMatchForStats.id);
+                  setDrawHistoryMap(drawHistory);
+                  setLastChampionInfo(championInfo);
+                  setUnlockedChampionPlayerIds(new Set());
                   setEditingMatchId(activeMatchForStats.id);
                   setMatchDate(activeMatchForStats.match_date);
                   setMatchTime(activeMatchForStats.match_time.slice(0, 5));
