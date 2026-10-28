@@ -13,7 +13,7 @@
 # --- 0. PRÉ-REQUISITOS -------------------------------------------------------
 # - Supabase CLI instalado (`supabase --version`)
 # - project ref conhecido: como em https://<ref>.supabase.co
-# - Um único Assistant de teste a ser criado (limite de 2 assistentes)
+# - Um único Assistant de teste a ser criado (limite de 4 assistentes)
 
 # --- 1. VINCULAR O PROJETO ---------------------------------------------------
 # (necessário antes de deploy/secrets; cria supabase/.temp)
