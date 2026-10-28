@@ -94,6 +94,16 @@ export default function Configuracoes({
 
   // Status de ativação dos assistentes (active = true por padrão)
   const [assistantStatus, setAssistantStatus] = useState<Map<string, boolean>>(new Map());
+  const [userEmails, setUserEmails] = useState<Map<string, string>>(new Map());
+
+  // Edit credentials modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editUserId, setEditUserId] = useState<string | null>(null);
+  const [editUserName, setEditUserName] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserRole, setEditUserRole] = useState<'assistant' | 'treasurer'>('assistant');
+  const [editingCredentials, setEditingCredentials] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Current admin email
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
@@ -279,8 +289,8 @@ export default function Configuracoes({
       setCreateError('As senhas não conferem.');
       return;
     }
-    if (createRole === 'assistant' && assistants.length >= 2) {
-      setCreateError('Limite máximo de 2 assistentes atingido.');
+    if (createRole === 'assistant' && assistants.length >= 4) {
+      setCreateError('Limite máximo de 4 assistentes atingido.');
       return;
     }
     if (createRole === 'treasurer' && treasurers.length >= 1) {
@@ -336,6 +346,7 @@ export default function Configuracoes({
         setAssistants(profiles.filter(p => p.role === 'assistant'));
         setTreasurers(profiles.filter(p => p.role === 'treasurer'));
       }
+      await loadAssistantStatus();
 
       setTimeout(() => {
         setShowCreateModal(false);
@@ -482,11 +493,81 @@ export default function Configuracoes({
       const result = await response.json();
       if (response.ok && Array.isArray(result.assistants)) {
         const statusMap = new Map<string, boolean>();
-        result.assistants.forEach((a: any) => statusMap.set(a.id, a.active));
+        const emailsMap = new Map<string, string>();
+        result.assistants.forEach((a: any) => {
+          statusMap.set(a.id, a.active);
+          if (a.email) emailsMap.set(a.id, a.email);
+        });
         setAssistantStatus(statusMap);
+        setUserEmails(emailsMap);
       }
     } catch (err) {
       console.error('Erro ao carregar status dos assistentes:', err);
+    }
+  };
+
+  const handleUpdateCredentials = async () => {
+    setEditError(null);
+    if (!editUserName.trim()) {
+      setEditError('Informe o nome do usuário.');
+      return;
+    }
+    if (!editUserEmail.trim()) {
+      setEditError('Informe o e-mail do usuário.');
+      return;
+    }
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(editUserEmail.trim())) {
+      setEditError('Formato de e-mail inválido.');
+      return;
+    }
+
+    setEditingCredentials(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setEditError('Sessão não encontrada. Faça login novamente.');
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-assistant`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            action: 'update_credentials',
+            assistant_id: editUserId,
+            name: editUserName.trim(),
+            email: editUserEmail.trim().toLowerCase(),
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        setEditError(result.error || 'Erro ao atualizar credenciais.');
+        return;
+      }
+
+      if (editUserRole === 'treasurer') {
+        setTreasurers(prev => prev.map(t => t.id === editUserId ? { ...t, name: editUserName.trim() } : t));
+      } else {
+        setAssistants(prev => prev.map(a => a.id === editUserId ? { ...a, name: editUserName.trim() } : a));
+      }
+      const nextEmails = new Map(userEmails);
+      nextEmails.set(editUserId!, editUserEmail.trim().toLowerCase());
+      setUserEmails(nextEmails);
+
+      setShowEditModal(false);
+      alert('Credenciais atualizadas com sucesso!');
+    } catch (err: any) {
+      console.error('Erro ao atualizar credenciais:', err);
+      setEditError('Erro de conexão com o servidor.');
+    } finally {
+      setEditingCredentials(false);
     }
   };
 
@@ -1166,11 +1247,11 @@ export default function Configuracoes({
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>Assistentes</span>
                   <span style={{
                     fontSize: '0.75rem', fontWeight: 700, padding: '4px 10px', borderRadius: '8px',
-                    backgroundColor: assistants.length >= 2 ? 'rgba(239,68,68,0.12)' : 'rgba(99,102,241,0.12)',
-                    color: assistants.length >= 2 ? '#f87171' : '#818cf8',
-                    border: `1px solid ${assistants.length >= 2 ? 'rgba(239,68,68,0.25)' : 'rgba(99,102,241,0.25)'}`
+                    backgroundColor: assistants.length >= 4 ? 'rgba(239,68,68,0.12)' : 'rgba(99,102,241,0.12)',
+                    color: assistants.length >= 4 ? '#f87171' : '#818cf8',
+                    border: `1px solid ${assistants.length >= 4 ? 'rgba(239,68,68,0.25)' : 'rgba(99,102,241,0.25)'}`
                   }}>
-                    {assistants.length} / 2
+                    {assistants.length} / 4
                   </span>
                 </div>
 
@@ -1202,7 +1283,10 @@ export default function Configuracoes({
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                           <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff' }}>{assistant.name}</span>
-                          <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 600 }}>Assistente</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {userEmails.get(assistant.id) || 'Email não disponível'}
+                          </span>
+                          <span style={{ fontSize: '0.70rem', color: '#38bdf8', fontWeight: 600, marginTop: '2px' }}>Assistente</span>
                         </div>
                         <span style={{
                           fontSize: '0.65rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px',
@@ -1218,13 +1302,32 @@ export default function Configuracoes({
                           onClick={() => openPermissions(assistant)}
                           disabled={!isActive}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
                             color: '#818cf8', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
                             opacity: isActive ? 1 : 0.5
                           }}
                         >
                           Permissões
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditUserId(assistant.id);
+                            setEditUserName(assistant.name);
+                            setEditUserEmail(userEmails.get(assistant.id) || '');
+                            setEditUserRole('assistant');
+                            setEditError(null);
+                            setShowEditModal(true);
+                          }}
+                          disabled={!isActive}
+                          style={{
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
+                            backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                            color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
+                            opacity: isActive ? 1 : 0.5
+                          }}
+                        >
+                          Editar
                         </button>
                         <button
                           onClick={() => {
@@ -1237,7 +1340,7 @@ export default function Configuracoes({
                           }}
                           disabled={!isActive}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
                             color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
                             opacity: isActive ? 1 : 0.5
@@ -1248,7 +1351,7 @@ export default function Configuracoes({
                         <button
                           onClick={() => isActive ? handleDisableAssistant(assistant.id) : handleEnableAssistant(assistant.id)}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: isActive ? 'rgba(245,158,11,0.08)' : 'rgba(34,197,94,0.08)',
                             border: `1px solid ${isActive ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.25)'}`,
                             color: isActive ? '#fbbf24' : '#4ade80', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
@@ -1259,7 +1362,7 @@ export default function Configuracoes({
                         <button
                           onClick={() => handleDeleteAssistant(assistant)}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
                             color: '#f87171', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
                           }}
@@ -1272,7 +1375,7 @@ export default function Configuracoes({
                   })
                 )}
 
-                {assistants.length < 2 && (
+                {assistants.length < 4 && (
                   <button
                     onClick={() => {
                       setCreateRole('assistant');
@@ -1292,17 +1395,17 @@ export default function Configuracoes({
                     }}
                   >
                     <Plus size={16} />
-                    {assistants.length === 0 ? 'Criar Assistente' : 'Criar Segundo Assistente'}
+                    {assistants.length === 0 ? 'Criar Assistente' : `Criar Assistente (${assistants.length + 1}/4)`}
                   </button>
                 )}
 
-                {assistants.length >= 2 && (
+                {assistants.length >= 4 && (
                   <div style={{
                     textAlign: 'center', padding: '10px', fontSize: '0.78rem', fontWeight: 600,
                     color: 'var(--text-muted)', borderRadius: '8px',
                     backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)'
                   }}>
-                    Limite de 2 assistentes atingido.
+                    Limite de 4 assistentes atingido.
                   </div>
                 )}
               </div>
@@ -1349,7 +1452,10 @@ export default function Configuracoes({
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                           <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff' }}>{treasurer.name}</span>
-                          <span style={{ fontSize: '0.72rem', color: '#fbbf24', fontWeight: 600 }}>Tesoureiro</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {userEmails.get(treasurer.id) || 'Email não disponível'}
+                          </span>
+                          <span style={{ fontSize: '0.70rem', color: '#fbbf24', fontWeight: 600, marginTop: '2px' }}>Tesoureiro</span>
                         </div>
                         <span style={{
                           fontSize: '0.65rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px',
@@ -1363,6 +1469,25 @@ export default function Configuracoes({
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <button
                           onClick={() => {
+                            setEditUserId(treasurer.id);
+                            setEditUserName(treasurer.name);
+                            setEditUserEmail(userEmails.get(treasurer.id) || '');
+                            setEditUserRole('treasurer');
+                            setEditError(null);
+                            setShowEditModal(true);
+                          }}
+                          disabled={!isActive}
+                          style={{
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
+                            backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                            color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
+                            opacity: isActive ? 1 : 0.5
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => {
                             setPwAssistantId(treasurer.id);
                             setPwAssistantName(treasurer.name);
                             setShowPasswordModal(true);
@@ -1372,7 +1497,7 @@ export default function Configuracoes({
                           }}
                           disabled={!isActive}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
                             color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
                             opacity: isActive ? 1 : 0.5
@@ -1383,7 +1508,7 @@ export default function Configuracoes({
                         <button
                           onClick={() => isActive ? handleDisableAssistant(treasurer.id, 'tesoureiro') : handleEnableAssistant(treasurer.id, 'tesoureiro')}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: isActive ? 'rgba(245,158,11,0.08)' : 'rgba(34,197,94,0.08)',
                             border: `1px solid ${isActive ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.25)'}`,
                             color: isActive ? '#fbbf24' : '#4ade80', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
@@ -1394,7 +1519,7 @@ export default function Configuracoes({
                         <button
                           onClick={() => handleDeleteAssistant(treasurer, 'tesoureiro')}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
                             color: '#f87171', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
                           }}
@@ -1681,6 +1806,70 @@ export default function Configuracoes({
             <button onClick={handleChangePassword} disabled={changingPassword}
               style={{ padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', color: '#fff', fontSize: '0.9rem', fontWeight: 700, cursor: changingPassword ? 'not-allowed' : 'pointer', opacity: changingPassword ? 0.7 : 1 }}>
               {changingPassword ? 'Alterando...' : 'Alterar Senha'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: EDITAR CREDENCIAIS ── */}
+      {showEditModal && (
+        <div style={{
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, backdropFilter: 'blur(4px)'
+        }} onClick={() => setShowEditModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '20px', padding: '28px 24px', width: '340px',
+            display: 'flex', flexDirection: 'column', gap: '16px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.8)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: 0 }}>
+                  Editar Credenciais
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  {editUserRole === 'treasurer' ? 'Tesoureiro' : 'Assistente'}
+                </span>
+              </div>
+              <button onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Nome Completo</label>
+                <input
+                  type="text"
+                  placeholder="Nome do usuário"
+                  value={editUserName}
+                  onChange={(e) => setEditUserName(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>E-mail de Acesso</label>
+                <input
+                  type="email"
+                  placeholder="exemplo@rda.com"
+                  value={editUserEmail}
+                  onChange={(e) => setEditUserEmail(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+
+            {editError && (
+              <div style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', fontSize: '0.8rem', fontWeight: 600 }}>
+                {editError}
+              </div>
+            )}
+
+            <button onClick={handleUpdateCredentials} disabled={editingCredentials}
+              style={{ padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', color: '#fff', fontSize: '0.9rem', fontWeight: 700, cursor: editingCredentials ? 'not-allowed' : 'pointer', opacity: editingCredentials ? 0.7 : 1 }}>
+              {editingCredentials ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>
         </div>

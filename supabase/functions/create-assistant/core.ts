@@ -10,7 +10,7 @@
 
 export const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 export const PASSWORD_RE = /^\d{6}$/;
-export const MAX_ASSISTANTS = 2;
+export const MAX_ASSISTANTS = 4;
 export const MAX_TREASURERS = 1;
 // Ban longa (1 ano) para desativar sem apagar histórico. Reativação usa 'none'.
 export const DISABLE_BAN_DURATION = "8760h";
@@ -28,15 +28,17 @@ export interface Deps {
   createUser: (params: { email: string; password: string; email_confirm: boolean; user_metadata: { name: string } }) => Promise<{ data: { user?: { id?: string } } | null; error: unknown | null }>;
   deleteUser: (userId: string) => Promise<{ error: unknown | null }>;
   getProfile: (userId: string) => Promise<{ data: { id: string; role?: string }[] | null; error: unknown | null }>;
-  updateProfile: (userId: string, patch: { role: string; name: string }) => Promise<{ error: unknown | null }>;
+  updateProfile: (userId: string, patch: { role?: string; name?: string }) => Promise<{ error: unknown | null }>;
   upsertPermissions: (row: Record<string, unknown>) => Promise<{ error: unknown | null }>;
   getUserById: (userId: string) => Promise<{ data: { user?: { id?: string } } | null; error: unknown | null }>;
   updateUserPassword: (userId: string, password: string) => Promise<{ error: unknown | null }>;
   updateUserBan: (userId: string, banDuration: string) => Promise<{ error: unknown | null }>;
   deletePermissions: (profileId: string) => Promise<{ error: unknown | null }>;
   deleteProfile: (profileId: string) => Promise<{ error: unknown | null }>;
-  listAssistantProfiles: () => Promise<{ data: { id: string; name: string }[] | null; error: unknown | null }>;
-  listUsersBanned: () => Promise<{ data: { id: string; is_banned: boolean }[] | null; error: unknown | null }>;
+  listAssistantProfiles: () => Promise<{ data: { id: string; name: string; role?: string }[] | null; error: unknown | null }>;
+  listUsersBanned: () => Promise<{ data: { id: string; email?: string; is_banned: boolean }[] | null; error: unknown | null }>;
+  updateUserCredentials?: (userId: string, patch: { email?: string; name?: string }) => Promise<{ error: unknown | null }>;
+  insertAuditLog?: (entry: { admin_id: string; action: string; target_user_id?: string; details?: Record<string, unknown> }) => Promise<{ error: unknown | null }>;
 }
 
 export interface RequestLike {
@@ -113,10 +115,10 @@ async function handleCreate(
   }
   
   if (targetRole === "assistant" && (count ?? 0) >= MAX_ASSISTANTS) {
-    return fail(HTTP_BAD_REQUEST, "Maximum limit of 2 assistants reached");
+    return fail(HTTP_BAD_REQUEST, `Maximum limit of ${MAX_ASSISTANTS} assistants reached`);
   }
   if (targetRole === "treasurer" && (count ?? 0) >= MAX_TREASURERS) {
-    return fail(HTTP_BAD_REQUEST, "Maximum limit of 1 treasurer reached");
+    return fail(HTTP_BAD_REQUEST, `Maximum limit of ${MAX_TREASURERS} treasurer reached`);
   }
 
   // Criar conta no Auth (email_confirm = true)
@@ -145,12 +147,12 @@ async function handleCreate(
     return fail(HTTP_INTERNAL, `Error validating ${targetRole} count`);
   }
   if (targetRole === "assistant" && (afterCount ?? 0) > MAX_ASSISTANTS) {
-    await orphanSafeCleanup(deps, newUserId, "excedeu limite de 2 (corrida)");
-    return fail(HTTP_BAD_REQUEST, "Maximum limit of 2 assistants reached");
+    await orphanSafeCleanup(deps, newUserId, `excedeu limite de ${MAX_ASSISTANTS} (corrida)`);
+    return fail(HTTP_BAD_REQUEST, `Maximum limit of ${MAX_ASSISTANTS} assistants reached`);
   }
   if (targetRole === "treasurer" && (afterCount ?? 0) > MAX_TREASURERS) {
-    await orphanSafeCleanup(deps, newUserId, "excedeu limite de 1 (corrida)");
-    return fail(HTTP_BAD_REQUEST, "Maximum limit of 1 treasurer reached");
+    await orphanSafeCleanup(deps, newUserId, `excedeu limite de ${MAX_TREASURERS} (corrida)`);
+    return fail(HTTP_BAD_REQUEST, `Maximum limit of ${MAX_TREASURERS} treasurer reached`);
   }
 
   try {
@@ -209,8 +211,85 @@ async function handleCreate(
     return fail(HTTP_INTERNAL, "Operacao abortada");
   }
 
+  if (deps.insertAuditLog) {
+    await deps.insertAuditLog({
+      admin_id: _adminId,
+      action: "create",
+      target_user_id: newUserId,
+      details: { role: targetRole, name, email },
+    });
+  }
+
   // Sucesso: apenas id/name/email/role. Nunca senha.
   return ok(200, { success: true, user: { id: newUserId, name, email, role: targetRole } });
+}
+
+// ---------------------------------------------------------------------------
+// UPDATE_CREDENTIALS — Admin edita nome e/ou e-mail de assistente/tesoureiro
+// ---------------------------------------------------------------------------
+async function handleUpdateCredentials(
+  deps: Deps,
+  adminId: string,
+  body: { assistant_id?: unknown; user_id?: unknown; name?: unknown; email?: unknown },
+) {
+  const targetId = ((body.assistant_id || body.user_id) as string | undefined) ?? "";
+  const resolved = await resolveAssistant(deps, targetId);
+  if (resolved.error) return resolved.error;
+
+  const rawName = body.name as string | undefined;
+  const rawEmail = body.email as string | undefined;
+
+  if (rawName === undefined && rawEmail === undefined) {
+    return fail(HTTP_BAD_REQUEST, "Either name or email must be provided");
+  }
+
+  const patch: { name?: string; email?: string } = {};
+
+  if (rawName !== undefined) {
+    const trimmedName = rawName.trim();
+    if (!trimmedName) {
+      return fail(HTTP_BAD_REQUEST, "Name cannot be empty");
+    }
+    patch.name = trimmedName;
+  }
+
+  if (rawEmail !== undefined) {
+    const trimmedEmail = rawEmail.trim().toLowerCase();
+    if (!trimmedEmail) {
+      return fail(HTTP_BAD_REQUEST, "Email cannot be empty");
+    }
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      return fail(HTTP_BAD_REQUEST, "Invalid email format");
+    }
+    patch.email = trimmedEmail;
+  }
+
+  if (deps.updateUserCredentials) {
+    const { error: credError } = await deps.updateUserCredentials(targetId, patch);
+    if (credError) {
+      safeLog("update_credentials", credError);
+      return fail(HTTP_BAD_REQUEST, String(credError instanceof Error ? credError.message : credError));
+    }
+  } else {
+    if (patch.name) {
+      const { error: profError } = await deps.updateProfile(targetId, { role: resolved.targetRole || "assistant", name: patch.name });
+      if (profError) {
+        safeLog("update_profile", profError);
+        return fail(HTTP_INTERNAL, "Failed to update profile name");
+      }
+    }
+  }
+
+  if (deps.insertAuditLog) {
+    await deps.insertAuditLog({
+      admin_id: adminId,
+      action: "update_credentials",
+      target_user_id: targetId,
+      details: { role: resolved.targetRole, updated_fields: Object.keys(patch) },
+    });
+  }
+
+  return ok(200, { success: true, user: { id: targetId, ...patch } });
 }
 
 // ---------------------------------------------------------------------------
@@ -218,6 +297,7 @@ async function handleCreate(
 // ---------------------------------------------------------------------------
 async function handleUpdatePassword(
   deps: Deps,
+  adminId: string,
   body: { assistant_id?: unknown; password?: unknown },
 ) {
   const assistantId = body.assistant_id as string | undefined;
@@ -245,6 +325,15 @@ async function handleUpdatePassword(
   const { error: updateError } = await deps.updateUserPassword(assistantId, password);
   if (updateError) {
     return fail(HTTP_BAD_REQUEST, String(updateError instanceof Error ? updateError.message : updateError));
+  }
+
+  if (deps.insertAuditLog) {
+    await deps.insertAuditLog({
+      admin_id: adminId,
+      action: "update_password",
+      target_user_id: assistantId,
+      details: { role: targetProfile.role },
+    });
   }
 
   return ok(200, { success: true });
@@ -287,12 +376,20 @@ async function handleUpdateAdminPassword(
     return fail(HTTP_INTERNAL, "Failed to update password");
   }
 
+  if (deps.insertAuditLog) {
+    await deps.insertAuditLog({
+      admin_id: callerId,
+      action: "update_admin_password",
+      target_user_id: callerId,
+    });
+  }
+
   // 12/13. Sucesso: sem senha.
   return ok(200, { success: true });
 }
 
 // ---------------------------------------------------------------------------
-// LIST (admin) — retorna assistentes com status ativo/desativado derivado do ban.
+// LIST (admin) — retorna assistentes e tesoureiros com status ativo/desativado derivado do ban e email.
 // Não exige coluna nova nem migration. Nunca retorna senha.
 // ---------------------------------------------------------------------------
 async function handleList(deps: Deps) {
@@ -301,21 +398,32 @@ async function handleList(deps: Deps) {
     safeLog("list profiles", pError);
     return fail(HTTP_INTERNAL, "Failed to list assistants");
   }
-  const list = (profiles ?? []).map((p) => ({ id: p.id, name: p.name, role: "assistant", active: true }));
+  const list = (profiles ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    role: p.role || "assistant",
+    active: true,
+    email: "",
+  }));
 
   const { data: users, error: uError } = await deps.listUsersBanned();
   if (uError) {
     safeLog("list users", uError);
     // não falha tudo; trata como todos ativos se o lookup de ban falhar
   } else {
-    const banned = new Set((users ?? []).filter((u) => u.is_banned).map((u) => u.id));
+    const userMap = new Map((users ?? []).map((u) => [u.id, u]));
     for (const item of list) {
-      if (banned.has(item.id)) item.active = false;
+      const u = userMap.get(item.id);
+      if (u) {
+        if (u.is_banned) item.active = false;
+        if (u.email) item.email = u.email;
+      }
     }
   }
 
   return ok(200, { success: true, assistants: list });
 }
+
 // ---------------------------------------------------------------------------
 async function resolveAssistant(deps: Deps, assistantId: string) {
   if (!assistantId) {
@@ -329,7 +437,7 @@ async function resolveAssistant(deps: Deps, assistantId: string) {
   if (authTargetError || !targetUser?.user) {
     return { error: fail(HTTP_BAD_REQUEST, "Target auth user not found") };
   }
-  return { assistantId };
+  return { assistantId, targetRole: targetProfile.role };
 }
 
 // ---------------------------------------------------------------------------
@@ -337,6 +445,7 @@ async function resolveAssistant(deps: Deps, assistantId: string) {
 // ---------------------------------------------------------------------------
 async function handleDisable(
   deps: Deps,
+  adminId: string,
   body: { assistant_id?: unknown },
 ) {
   const assistantId = body.assistant_id as string | undefined;
@@ -348,6 +457,16 @@ async function handleDisable(
     safeLog("disable", error);
     return fail(HTTP_INTERNAL, "Failed to disable assistant");
   }
+
+  if (deps.insertAuditLog) {
+    await deps.insertAuditLog({
+      admin_id: adminId,
+      action: "disable",
+      target_user_id: assistantId!,
+      details: { role: resolved.targetRole },
+    });
+  }
+
   return ok(200, { success: true, active: false });
 }
 
@@ -356,6 +475,7 @@ async function handleDisable(
 // ---------------------------------------------------------------------------
 async function handleEnable(
   deps: Deps,
+  adminId: string,
   body: { assistant_id?: unknown },
 ) {
   const assistantId = body.assistant_id as string | undefined;
@@ -367,23 +487,34 @@ async function handleEnable(
     safeLog("enable", error);
     return fail(HTTP_INTERNAL, "Failed to enable assistant");
   }
+
+  if (deps.insertAuditLog) {
+    await deps.insertAuditLog({
+      admin_id: adminId,
+      action: "enable",
+      target_user_id: assistantId!,
+      details: { role: resolved.targetRole },
+    });
+  }
+
   return ok(200, { success: true, active: true });
 }
 
 // ---------------------------------------------------------------------------
-// DELETE (excluir assistente server-side)
-// Ordem: remove assistant_permissions → remove profile → remove auth user.
+// DELETE (excluir assistente/tesoureiro server-side)
+// Ordem: remove permissions → remove profile → remove auth user.
 // NUNCA apaga jogadores/partidas/estatísticas/histórico (não pertencem ao user).
 // ---------------------------------------------------------------------------
 async function handleDelete(
   deps: Deps,
+  adminId: string,
   body: { assistant_id?: unknown },
 ) {
   const assistantId = body.assistant_id as string | undefined;
   const resolved = await resolveAssistant(deps, assistantId ?? "");
   if (resolved.error) return resolved.error;
 
-  // 1) permissões do assistente
+  // 1) permissões
   const { error: permError } = await deps.deletePermissions(assistantId!);
   if (permError) {
     safeLog("delete perms", permError);
@@ -402,6 +533,15 @@ async function handleDelete(
   if (userError) {
     safeLog("delete auth", userError);
     return fail(HTTP_INTERNAL, "Failed to delete assistant account");
+  }
+
+  if (deps.insertAuditLog) {
+    await deps.insertAuditLog({
+      admin_id: adminId,
+      action: "delete",
+      target_user_id: assistantId!,
+      details: { role: resolved.targetRole },
+    });
   }
 
   return ok(200, { success: true });
@@ -453,20 +593,23 @@ export async function handleRequest(req: RequestLike, deps: Deps): Promise<{ sta
     if (action === "create") {
       return await handleCreate(deps, user.id, body);
     }
-      if (action === "update_password") {
-      return await handleUpdatePassword(deps, body);
+    if (action === "update_credentials") {
+      return await handleUpdateCredentials(deps, user.id, body);
+    }
+    if (action === "update_password") {
+      return await handleUpdatePassword(deps, user.id, body);
     }
     if (action === "update_admin_password") {
       return await handleUpdateAdminPassword(deps, user.id, body);
     }
     if (action === "disable") {
-      return await handleDisable(deps, body);
+      return await handleDisable(deps, user.id, body);
     }
     if (action === "enable") {
-      return await handleEnable(deps, body);
+      return await handleEnable(deps, user.id, body);
     }
     if (action === "delete") {
-      return await handleDelete(deps, body);
+      return await handleDelete(deps, user.id, body);
     }
     if (action === "list") {
       return await handleList(deps);

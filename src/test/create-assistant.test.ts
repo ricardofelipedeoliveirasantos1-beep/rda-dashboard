@@ -136,16 +136,27 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     expect(res.body).toMatchObject({ error: "Invalid email format" });
   });
 
-  it("10) já existem 2 assistants -> rejeitar terceira criação", async () => {
+  it("10) já existem 4 assistants -> rejeitar quinta criação", async () => {
     const deps = baseDeps();
-    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 2, error: null });
+    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 4, error: null });
     const res = await handleRequest(
       makeRequest({ body: { action: "create", email: "a@b.com", password: "123456", name: "Ana" } }),
       deps,
     );
     expect(res.status).toBe(400);
-    expect(res.body).toMatchObject({ error: "Maximum limit of 2 assistants reached" });
+    expect(res.body).toMatchObject({ error: "Maximum limit of 4 assistants reached" });
     expect(deps.createUser).not.toHaveBeenCalled();
+  });
+
+  it("10b) existem 3 assistants -> aceitar criação do quarto assistente", async () => {
+    const deps = baseDeps();
+    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 3, error: null });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "create", email: "quarto@b.com", password: "123456", name: "Quarto" } }),
+      deps,
+    );
+    expect(res.status).toBe(200);
+    expect(deps.createUser).toHaveBeenCalled();
   });
 
   it("11) email já existente -> erro (createUser falha) + cleanup não chamado em sucesso falso", async () => {
@@ -371,14 +382,15 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     expect(deps.deleteUser).not.toHaveBeenCalled();
   });
 
-  it("27) terceiro assistente continua bloqueado (count >= 2)", async () => {
+  it("27) quinto assistente continua bloqueado (count >= 4)", async () => {
     const deps = baseDeps();
-    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 2, error: null });
+    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 4, error: null });
     const res = await handleRequest(
       makeRequest({ body: { action: "create", email: "c@b.com", password: "123456", name: "Carlos" } }),
       deps,
     );
     expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Maximum limit of 4 assistants reached" });
     expect(deps.createUser).not.toHaveBeenCalled();
   });
 
@@ -492,5 +504,159 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  // ── update_credentials & auditoria ────────────────────────────────────────
+
+  it("37) update_credentials: admin altera nome e email com sucesso -> 200", async () => {
+    const deps = baseDeps();
+    deps.updateUserCredentials = vi.fn().mockResolvedValue({ error: null });
+    const auditSpy = vi.fn().mockResolvedValue({ error: null });
+    deps.insertAuditLog = auditSpy;
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+          name: "Novo Nome",
+          email: "novo@email.com",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      user: { id: ASSISTANT_ID, name: "Novo Nome", email: "novo@email.com" },
+    });
+    expect(deps.updateUserCredentials).toHaveBeenCalledWith(ASSISTANT_ID, {
+      name: "Novo Nome",
+      email: "novo@email.com",
+    });
+    expect(auditSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        admin_id: ADMIN_ID,
+        action: "update_credentials",
+        target_user_id: ASSISTANT_ID,
+      }),
+    );
+  });
+
+  it("38) update_credentials: email inválido -> 400", async () => {
+    const deps = baseDeps();
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+          email: "email-invalido",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Invalid email format" });
+  });
+
+  it("39) update_credentials: nome vazio -> 400", async () => {
+    const deps = baseDeps();
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+          name: "   ",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Name cannot be empty" });
+  });
+
+  it("40) update_credentials: sem campos fornecidos -> 400", async () => {
+    const deps = baseDeps();
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Either name or email must be provided" });
+  });
+
+  it("41) update_credentials: alvo não é assistente/tesoureiro -> 400", async () => {
+    const deps = baseDeps();
+    deps.getProfileRole = vi.fn().mockResolvedValue({ data: { role: "admin" }, error: null });
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ADMIN_ID,
+          name: "Tentativa Inválida",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Target user is not an assistant or treasurer" });
+  });
+
+  it("42) update_credentials: não-admin (visitor) tentando alterar -> 403", async () => {
+    const deps = baseDeps();
+    deps.getUser = vi.fn().mockResolvedValue({ user: { id: VISITOR_ID }, error: null });
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+          name: "Novo Nome",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("43) list retorna assistentes e tesoureiros com email e status active", async () => {
+    const deps = baseDeps();
+    deps.listAssistantProfiles = vi.fn().mockResolvedValue({
+      data: [
+        { id: "ast-1", name: "Assistente 1", role: "assistant" },
+        { id: "trs-1", name: "Tesoureiro 1", role: "treasurer" },
+      ],
+      error: null,
+    });
+    deps.listUsersBanned = vi.fn().mockResolvedValue({
+      data: [
+        { id: "ast-1", email: "ast1@rda.com", is_banned: false },
+        { id: "trs-1", email: "trs1@rda.com", is_banned: true },
+      ],
+      error: null,
+    });
+
+    const res = await handleRequest(makeRequest({ body: { action: "list" } }), deps);
+    expect(res.status).toBe(200);
+    const body = res.body as { success: boolean; assistants: any[] };
+    expect(body.assistants).toHaveLength(2);
+    expect(body.assistants[0]).toMatchObject({
+      id: "ast-1",
+      name: "Assistente 1",
+      email: "ast1@rda.com",
+      role: "assistant",
+      active: true,
+    });
+    expect(body.assistants[1]).toMatchObject({
+      id: "trs-1",
+      name: "Tesoureiro 1",
+      email: "trs1@rda.com",
+      role: "treasurer",
+      active: false,
+    });
   });
 });

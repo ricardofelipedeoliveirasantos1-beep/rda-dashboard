@@ -66,7 +66,7 @@ describe('Configuracoes Component', () => {
     expect(screen.queryByText(/Usuários e Acesso/i)).not.toBeInTheDocument();
   });
 
-  it('should show "Assistentes" section with 0/2 counter when no assistants', async () => {
+  it('should show "Assistentes" section with 0/4 counter when no assistants', async () => {
     render(<Configuracoes {...defaultProps} />);
     await waitFor(() => {
       expect(screen.getByText(/Usuários e Acesso/i)).toBeInTheDocument();
@@ -76,6 +76,7 @@ describe('Configuracoes Component', () => {
     usersCard.click();
     await waitFor(() => {
       expect(screen.getByText(/Nenhum assistente cadastrado/)).toBeInTheDocument();
+      expect(screen.getByText(/0 \/ 4/)).toBeInTheDocument();
     });
   });
 
