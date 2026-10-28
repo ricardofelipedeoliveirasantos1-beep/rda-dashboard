@@ -7,13 +7,18 @@
 -- Finalidade:
 -- 1. Desbloquear a promoção de perfis administrativos realizada pela Edge Function
 --    (create-assistant): a trigger anterior 'prevent_nonadmin_role_change' bloqueava
---    o papel 'service_role' porque em funções SECURITY DEFINER o current_user reflete
---    o definer (postgres), e auth.uid() é NULL em chamadas de serviço.
--- 2. Garantir compatibilidade rigorosa verificando os claims de contexto do Supabase:
---    request.jwt.claim.role = 'service_role', GUC role = 'service_role' e DBA session_user.
--- 3. Identificar e remover qualquer CHECK constraint preexistente na coluna role
---    (independentemente do nome) e aplicar a restrição canônica que permite expressamente
---    os quatro papéis válidos: 'admin', 'assistant', 'treasurer' e 'visitor'.
+--    o papel 'service_role' porque em funções SECURITY DEFINER o auth.uid() é NULL.
+-- 2. Garantir segurança absoluta contra autoelevação e falsificação de sessão:
+--    - Se a requisição contiver um usuário autenticado (auth.uid() IS NOT NULL),
+--      a alteração EXIGE rigorosamente que o chamador seja Super Admin (public.is_admin() = true).
+--      Nenhuma variável de sessão ou claim JWT contorna essa validação para sessões de usuário.
+--    - Operações com service_role exigem simultaneamente: ausência de UID (auth.uid() IS NULL),
+--      claim assinado request.jwt.claim.role = 'service_role' e role de sessão 'service_role'.
+--    - Operações de manutenção direta pelo DBA no SQL Editor (session_user postgres/supabase_admin)
+--      são preservadas.
+-- 3. Identificar e substituir cirurgicamente APENAS a constraint CHECK legada da coluna
+--    'role' que não contempla 'treasurer', preservando integralmente todas as demais
+--    constraints existentes em public.profiles.
 -- 4. Garantir a existência e segurança da tabela public.treasurer_permissions
 --    com RLS restrito ao Super Admin e leitura pelos envolvidos.
 --
@@ -29,8 +34,10 @@ BEGIN;
 -- ----------------------------------------------------------------------------
 -- 1. ATUALIZAÇÃO DA TRIGGER DE PROTEÇÃO DE PAPEL (profiles.role)
 -- ----------------------------------------------------------------------------
--- Permite que a promoção de perfil seja executada pelo Super Admin (JWT autenticado),
--- por rotinas de serviço autenticadas (service_role) ou por conexões administrativas diretas.
+-- Impede categoricamente a autoelevação de privilégios. Somente autoriza:
+-- a) Conexão direta de DBA no console PostgreSQL (session_user postgres/supabase_admin)
+-- b) Super Admin autenticado via JWT (auth.uid() NOT NULL e public.is_admin() = true)
+-- c) Rotina de serviço legítima (auth.uid() IS NULL e service_role verificado)
 CREATE OR REPLACE FUNCTION public.prevent_nonadmin_role_change()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -38,31 +45,50 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
+  v_uid uuid;
   v_jwt_role text;
-  v_session_user text;
   v_setting_role text;
+  v_session_user text;
 BEGIN
-  IF NEW.role IS DISTINCT FROM OLD.role THEN
-    -- Extrai o papel da requisição JWT de forma segura
-    v_jwt_role := NULLIF(pg_catalog.current_setting('request.jwt.claim.role', true), '');
-    v_session_user := pg_catalog.session_user;
-    v_setting_role := NULLIF(pg_catalog.current_setting('role', true), '');
+  -- Se o cargo não sofreu alteração, libera a operação normalmente (edição de nome, foto, etc.)
+  IF NEW.role IS NOT DISTINCT FROM OLD.role THEN
+    RETURN NEW;
+  END IF;
 
-    -- Permite alteração exclusivamente se:
-    -- a) Um Super Admin estiver autenticado via JWT (public.is_admin() = true)
-    -- b) A chamada vier do PostgREST com a chave service_role (claim role = 'service_role')
-    -- c) A sessão ativa no PostgreSQL estiver operando como service_role (GUC role = 'service_role')
-    -- d) A conexão direta vier do superusuário/DBA no SQL Editor (session_user postgres ou supabase_admin)
-    IF NOT (
-      public.is_admin()
-      OR v_jwt_role = 'service_role'
-      OR v_setting_role = 'service_role'
-      OR v_session_user IN ('postgres', 'supabase_admin')
-    ) THEN
+  -- 1. CONEXÃO DIRETA DE DBA (Supabase SQL Editor / Migrações do sistema)
+  -- session_user reflete a credencial física do socket Postgres, infalsificável via HTTP.
+  v_session_user := pg_catalog.session_user;
+  IF v_session_user IN ('postgres', 'supabase_admin') THEN
+    RETURN NEW;
+  END IF;
+
+  -- 2. REQUISIÇÃO AUTENTICADA COM IDENTIDADE DE USUÁRIO (auth.uid() NOT NULL)
+  -- Se houver um usuário autenticado, a ÚNICA condição que autoriza a alteração de papel
+  -- é ser comprovadamente um Super Admin ativo. Nenhuma claim ou GUC é consultada.
+  v_uid := auth.uid();
+  IF v_uid IS NOT NULL THEN
+    IF public.is_admin() THEN
+      RETURN NEW;
+    ELSE
       RAISE EXCEPTION 'Apenas admin pode alterar profiles.role';
     END IF;
   END IF;
-  RETURN NEW;
+
+  -- 3. OPERAÇÃO DE SERVIÇO AUTORIZADA (auth.uid() IS NULL)
+  -- Chamada da Edge Function interna utilizando a service_role key.
+  -- Exige cumulativamente:
+  -- a) v_uid IS NULL (já assegurado pelo bloco anterior)
+  -- b) Claim JWT validado pelo PostgREST: request.jwt.claim.role = 'service_role'
+  -- c) Papel de sessão do PostgreSQL: role = 'service_role'
+  v_jwt_role := NULLIF(pg_catalog.current_setting('request.jwt.claim.role', true), '');
+  v_setting_role := NULLIF(pg_catalog.current_setting('role', true), '');
+
+  IF v_jwt_role = 'service_role' AND v_setting_role = 'service_role' THEN
+    RETURN NEW;
+  END IF;
+
+  -- 4. Bloqueia qualquer outra origem não autorizada
+  RAISE EXCEPTION 'Apenas admin pode alterar profiles.role';
 END;
 $$;
 
@@ -75,27 +101,54 @@ CREATE TRIGGER trg_profiles_protect_role
   EXECUTE FUNCTION public.prevent_nonadmin_role_change();
 
 -- ----------------------------------------------------------------------------
--- 2. ALINHAMENTO DINÂMICO DE RESTRIÇÕES CHECK EM public.profiles.role
+-- 2. ALINHAMENTO CIRÚRGICO DA CONSTRAINT CHECK DE PAPÉIS EM public.profiles.role
 -- ----------------------------------------------------------------------------
--- Remove qualquer restrição de checagem preexistente na coluna 'role' (qualquer nome)
--- e aplica a constraint canônica 'profiles_role_check' abrangendo todos os 4 papéis do RDA.
+-- Identifica especificamente a constraint de lista de papéis que não aceita 'treasurer',
+-- remove-a e aplica a constraint canônica 'profiles_role_check' abrangendo todos os 4 papéis.
+-- Preserva intacta qualquer outra constraint CHECK existente na tabela public.profiles.
 DO $$
 DECLARE
-  r record;
+  v_legacy_conname text;
+  v_already_valid boolean := false;
 BEGIN
-  FOR r IN
-    SELECT con.conname
+  -- 1. Verifica se já existe uma constraint que contemple 'treasurer'
+  SELECT EXISTS (
+    SELECT 1
     FROM pg_catalog.pg_constraint con
     JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
     JOIN pg_catalog.pg_namespace nsp ON nsp.oid = rel.relnamespace
     WHERE nsp.nspname = 'public'
       AND rel.relname = 'profiles'
       AND con.contype = 'c'
-      AND pg_catalog.pg_get_constraintdef(con.oid) ILIKE '%role%'
-  LOOP
-    EXECUTE pg_catalog.format('ALTER TABLE public.profiles DROP CONSTRAINT %I', r.conname);
-  END LOOP;
+      AND pg_catalog.pg_get_constraintdef(con.oid) ~* '\mrole\M'
+      AND pg_catalog.pg_get_constraintdef(con.oid) ~* 'treasurer'
+  ) INTO v_already_valid;
 
+  IF v_already_valid THEN
+    RAISE NOTICE 'Constraint de validação de papéis em public.profiles já contempla "treasurer". Nenhuma alteração necessária.';
+    RETURN;
+  END IF;
+
+  -- 2. Localiza cirurgicamente a constraint legada restritiva da coluna role
+  SELECT con.conname INTO v_legacy_conname
+  FROM pg_catalog.pg_constraint con
+  JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
+  JOIN pg_catalog.pg_namespace nsp ON nsp.oid = rel.relnamespace
+  WHERE nsp.nspname = 'public'
+    AND rel.relname = 'profiles'
+    AND con.contype = 'c'
+    AND pg_catalog.pg_get_constraintdef(con.oid) ~* '\mrole\M'
+    AND pg_catalog.pg_get_constraintdef(con.oid) ~* '(admin|assistant|visitor)'
+    AND pg_catalog.pg_get_constraintdef(con.oid) !~* 'treasurer'
+  LIMIT 1;
+
+  IF v_legacy_conname IS NOT NULL THEN
+    RAISE NOTICE 'Removendo constraint legada restritiva: %', v_legacy_conname;
+    EXECUTE pg_catalog.format('ALTER TABLE public.profiles DROP CONSTRAINT %I', v_legacy_conname);
+  END IF;
+
+  -- 3. Aplica a constraint canônica com todos os 4 papéis válidos
+  RAISE NOTICE 'Aplicando constraint profiles_role_check com (admin, assistant, treasurer, visitor).';
   ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check 
     CHECK (role IN ('admin', 'assistant', 'treasurer', 'visitor'));
 END;

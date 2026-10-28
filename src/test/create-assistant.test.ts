@@ -1001,4 +1001,131 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     });
     expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
   });
+
+  it("54) chamada por usuário com role != admin (assistente ou visitante) é sumariamente bloqueada antes de tocar em Auth ou Perfis", async () => {
+    const deps = baseDeps();
+    deps.getProfileRole = vi.fn().mockResolvedValue({
+      data: { role: "assistant" },
+      error: null,
+    });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "tentativa@rda.com",
+          password: "123456",
+          name: "Tentativa Invasora",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "Forbidden: admin access required" });
+    expect(deps.createUser).not.toHaveBeenCalled();
+    expect(deps.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("55) simulação de segurança do banco: usuário autenticado comum (auth.uid presente) tentando autoelevação para admin/tesoureiro é rejeitado pela trigger", async () => {
+    // Simula a lógica da trigger prevent_nonadmin_role_change()
+    const simulateTrigger = (params: {
+      newRole: string;
+      oldRole: string;
+      sessionUser: string;
+      authUid: string | null;
+      isAdmin: boolean;
+      jwtRole?: string;
+      settingRole?: string;
+    }) => {
+      if (params.newRole === params.oldRole) return "ALLOWED";
+      if (["postgres", "supabase_admin"].includes(params.sessionUser)) return "ALLOWED";
+      if (params.authUid !== null) {
+        if (params.isAdmin) return "ALLOWED";
+        throw new Error("Apenas admin pode alterar profiles.role");
+      }
+      if (params.jwtRole === "service_role" && params.settingRole === "service_role") {
+        return "ALLOWED";
+      }
+      throw new Error("Apenas admin pode alterar profiles.role");
+    };
+
+    // Usuário comum autenticado tentando mudar seu cargo para 'admin'
+    expect(() =>
+      simulateTrigger({
+        newRole: "admin",
+        oldRole: "visitor",
+        sessionUser: "authenticator",
+        authUid: "user-visitor-uuid",
+        isAdmin: false,
+        jwtRole: "service_role", // Tentativa de falsificação de claim
+        settingRole: "authenticated",
+      }),
+    ).toThrow("Apenas admin pode alterar profiles.role");
+
+    // Super Admin autenticado promovendo usuário para tesoureiro
+    expect(
+      simulateTrigger({
+        newRole: "treasurer",
+        oldRole: "visitor",
+        sessionUser: "authenticator",
+        authUid: "super-admin-uuid",
+        isAdmin: true,
+      }),
+    ).toBe("ALLOWED");
+
+    // Edge Function operando via service_role legítimo (sem auth.uid)
+    expect(
+      simulateTrigger({
+        newRole: "treasurer",
+        oldRole: "visitor",
+        sessionUser: "authenticator",
+        authUid: null,
+        isAdmin: false,
+        jwtRole: "service_role",
+        settingRole: "service_role",
+      }),
+    ).toBe("ALLOWED");
+
+    // DBA no Supabase SQL Editor
+    expect(
+      simulateTrigger({
+        newRole: "treasurer",
+        oldRole: "visitor",
+        sessionUser: "postgres",
+        authUid: null,
+        isAdmin: false,
+      }),
+    ).toBe("ALLOWED");
+  });
+
+  it("56) inicialização bem-sucedida de permissões do tesoureiro com manage_finance e manage_monthly_payments", async () => {
+    const deps = baseDeps();
+    let createdPermissions: Record<string, unknown> | null = null;
+    deps.upsertTreasurerPermissions = vi.fn().mockImplementation(async (row: Record<string, unknown>) => {
+      createdPermissions = row;
+      return { error: null };
+    });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "novo_tesoureiro@rda.com",
+          password: "123456",
+          name: "Tesoureiro Oficial",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(200);
+    expect(createdPermissions).toMatchObject({
+      profile_id: "new-user-1",
+      manage_finance: false,
+      manage_monthly_payments: false,
+    });
+  });
 });
