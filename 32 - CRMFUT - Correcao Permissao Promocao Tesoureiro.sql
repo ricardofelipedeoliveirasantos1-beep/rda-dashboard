@@ -7,7 +7,7 @@
 -- Finalidade:
 -- 1. Desbloquear a promoção de perfis administrativos realizada pela Edge Function
 --    (create-assistant): a trigger anterior 'prevent_nonadmin_role_change' bloqueava
---    o papel 'service_role' porque em funções SECURITY DEFINER o auth.uid() é NULL.
+--    o papel 'service_role' porque em chamadas de serviço auth.uid() é NULL.
 -- 2. Garantir segurança absoluta contra autoelevação e falsificação de sessão:
 --    - Se a requisição contiver um usuário autenticado (auth.uid() IS NOT NULL),
 --      a alteração EXIGE rigorosamente que o chamador seja Super Admin (public.is_admin() = true).
@@ -16,9 +16,13 @@
 --      claim assinado request.jwt.claim.role = 'service_role' e role de sessão 'service_role'.
 --    - Operações de manutenção direta pelo DBA no SQL Editor (session_user postgres/supabase_admin)
 --      são preservadas.
--- 3. Identificar e substituir cirurgicamente APENAS a constraint CHECK legada da coluna
---    'role' que não contempla 'treasurer', preservando integralmente todas as demais
---    constraints existentes em public.profiles.
+-- 3. Identificação exaustiva e alinhamento cirúrgico da(s) constraint(s) CHECK em public.profiles:
+--    - Não utiliza LIMIT 1; analisa todas as restrições associadas à coluna role.
+--    - Confirma que a constraint canônica aceita efetivamente todos os quatro papéis válidos:
+--      'admin', 'assistant', 'treasurer' e 'visitor'.
+--    - Remove todas as constraints legadas conflitantes que excluem 'treasurer'.
+--    - Aborta a transação de forma explícita e segura caso encontre restrições com estrutura
+--      inesperada, preservando todas as constraints alheias à lista de papéis.
 -- 4. Garantir a existência e segurança da tabela public.treasurer_permissions
 --    com RLS restrito ao Super Admin e leitura pelos envolvidos.
 --
@@ -103,52 +107,106 @@ CREATE TRIGGER trg_profiles_protect_role
 -- ----------------------------------------------------------------------------
 -- 2. ALINHAMENTO CIRÚRGICO DA CONSTRAINT CHECK DE PAPÉIS EM public.profiles.role
 -- ----------------------------------------------------------------------------
--- Identifica especificamente a constraint de lista de papéis que não aceita 'treasurer',
--- remove-a e aplica a constraint canônica 'profiles_role_check' abrangendo todos os 4 papéis.
--- Preserva intacta qualquer outra constraint CHECK existente na tabela public.profiles.
+-- Analisa exaustivamente todas as constraints CHECK associadas à coluna 'role' em public.profiles:
+-- a) Confirma se já existe uma constraint que aceita efetivamente os quatro papéis válidos:
+--    'admin', 'assistant', 'treasurer' e 'visitor'.
+-- b) Identifica todas as constraints legadas que restringem a enumeração de papéis sem aceitar 'treasurer'.
+-- c) Aborta com erro explícito se encontrar qualquer constraint inesperada ou ambígua.
+-- d) Preserva integralmente todas as constraints não relacionadas à lista de papéis.
 DO $$
 DECLARE
-  v_legacy_conname text;
-  v_already_valid boolean := false;
+  v_role_attnum smallint;
+  r record;
+  v_canonical_exists boolean := false;
+  v_canonical_conname text := NULL;
+  v_legacy_count integer := 0;
+  v_legacy_names text[] := ARRAY[]::text[];
+  v_unexpected_count integer := 0;
+  v_unexpected_details text := '';
+  v_def text;
+  v_cname text;
 BEGIN
-  -- 1. Verifica se já existe uma constraint que contemple 'treasurer'
-  SELECT EXISTS (
-    SELECT 1
+  -- 1. Obter número de atributo (attnum) da coluna 'role' na tabela public.profiles
+  SELECT attnum INTO v_role_attnum
+  FROM pg_catalog.pg_attribute
+  WHERE attrelid = 'public.profiles'::regclass
+    AND attname = 'role'
+    AND NOT attisdropped;
+
+  IF v_role_attnum IS NULL THEN
+    RAISE EXCEPTION 'MIGRAÇÃO ABORTADA: Coluna "role" não encontrada na tabela public.profiles.';
+  END IF;
+
+  -- 2. Percorrer TODAS as constraints CHECK associadas à coluna 'role' em public.profiles (sem LIMIT 1)
+  FOR r IN
+    SELECT 
+      con.conname,
+      pg_catalog.pg_get_constraintdef(con.oid) AS def
     FROM pg_catalog.pg_constraint con
     JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
     JOIN pg_catalog.pg_namespace nsp ON nsp.oid = rel.relnamespace
     WHERE nsp.nspname = 'public'
       AND rel.relname = 'profiles'
       AND con.contype = 'c'
-      AND pg_catalog.pg_get_constraintdef(con.oid) ~* '\mrole\M'
-      AND pg_catalog.pg_get_constraintdef(con.oid) ~* 'treasurer'
-  ) INTO v_already_valid;
+      AND (
+        (con.conkey IS NOT NULL AND con.conkey @> ARRAY[v_role_attnum])
+        OR pg_catalog.pg_get_constraintdef(con.oid) ~* '\mrole\M'
+      )
+  LOOP
+    v_def := r.def;
 
-  IF v_already_valid THEN
-    RAISE NOTICE 'Constraint de validação de papéis em public.profiles já contempla "treasurer". Nenhuma alteração necessária.';
+    -- Caso A: Constraint completa que aceita EFETIVAMENTE TODOS os 4 papéis válidos
+    IF v_def ~* '\madmin\M' 
+       AND v_def ~* '\massistant\M' 
+       AND v_def ~* '\mtreasurer\M' 
+       AND v_def ~* '\mvisitor\M' THEN
+      v_canonical_exists := true;
+      v_canonical_conname := r.conname;
+
+    -- Caso B: Constraint legada que valida papéis mas NÃO aceita 'treasurer'
+    ELSIF v_def ~* '\madmin\M' 
+          AND v_def ~* '\massistant\M' 
+          AND v_def ~* '\mvisitor\M' 
+          AND v_def !~* '\mtreasurer\M' THEN
+      v_legacy_count := v_legacy_count + 1;
+      v_legacy_names := array_append(v_legacy_names, r.conname);
+
+    -- Caso C: Constraint inesperada ou com lógica desconhecida associada a 'role'
+    ELSE
+      v_unexpected_count := v_unexpected_count + 1;
+      v_unexpected_details := v_unexpected_details || format(' [%s: %s]', r.conname, v_def);
+    END IF;
+  END LOOP;
+
+  -- 3. ABORTO DE SEGURANÇA: se houver qualquer constraint inesperada, aborta a transação sem alterar nada
+  IF v_unexpected_count > 0 THEN
+    RAISE EXCEPTION 'MIGRAÇÃO ABORTADA POR SEGURANÇA: Encontrada(s) % constraint(s) CHECK com estrutura inesperada na coluna role: %. Nenhuma restrição foi alterada.', 
+      v_unexpected_count, v_unexpected_details;
+  END IF;
+
+  -- 4. Se a constraint completa já existe e NÃO há nenhuma legada conflitante:
+  IF v_canonical_exists AND v_legacy_count = 0 THEN
+    RAISE NOTICE 'Constraint completa ("%") já existe e valida os 4 papéis (admin, assistant, treasurer, visitor). Nenhuma alteração necessária.', v_canonical_conname;
     RETURN;
   END IF;
 
-  -- 2. Localiza cirurgicamente a constraint legada restritiva da coluna role
-  SELECT con.conname INTO v_legacy_conname
-  FROM pg_catalog.pg_constraint con
-  JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
-  JOIN pg_catalog.pg_namespace nsp ON nsp.oid = rel.relnamespace
-  WHERE nsp.nspname = 'public'
-    AND rel.relname = 'profiles'
-    AND con.contype = 'c'
-    AND pg_catalog.pg_get_constraintdef(con.oid) ~* '\mrole\M'
-    AND pg_catalog.pg_get_constraintdef(con.oid) ~* '(admin|assistant|visitor)'
-    AND pg_catalog.pg_get_constraintdef(con.oid) !~* 'treasurer'
-  LIMIT 1;
-
-  IF v_legacy_conname IS NOT NULL THEN
-    RAISE NOTICE 'Removendo constraint legada restritiva: %', v_legacy_conname;
-    EXECUTE pg_catalog.format('ALTER TABLE public.profiles DROP CONSTRAINT %I', v_legacy_conname);
+  -- 5. Se houver constraints legadas conflitantes (mesmo que múltiplas), remove todas de forma inequívoca
+  IF v_legacy_count > 0 THEN
+    FOREACH v_cname IN ARRAY v_legacy_names
+    LOOP
+      RAISE NOTICE 'Removendo constraint legada restritiva de papéis: %', v_cname;
+      EXECUTE pg_catalog.format('ALTER TABLE public.profiles DROP CONSTRAINT %I', v_cname);
+    END LOOP;
   END IF;
 
-  -- 3. Aplica a constraint canônica com todos os 4 papéis válidos
-  RAISE NOTICE 'Aplicando constraint profiles_role_check com (admin, assistant, treasurer, visitor).';
+  -- 6. Aplica a constraint canônica profiles_role_check com os 4 papéis válidos
+  -- Se uma constraint completa existia com outro nome diferente de profiles_role_check, padroniza
+  IF v_canonical_exists AND v_canonical_conname <> 'profiles_role_check' THEN
+    RAISE NOTICE 'Padronizando nome da constraint canônica de "%" para "profiles_role_check".', v_canonical_conname;
+    EXECUTE pg_catalog.format('ALTER TABLE public.profiles DROP CONSTRAINT %I', v_canonical_conname);
+  END IF;
+
+  RAISE NOTICE 'Aplicando constraint canônica profiles_role_check CHECK (role IN (''admin'', ''assistant'', ''treasurer'', ''visitor'')).';
   ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check 
     CHECK (role IN ('admin', 'assistant', 'treasurer', 'visitor'));
 END;
