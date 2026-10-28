@@ -860,4 +860,145 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     expect(res.body).toMatchObject({ error: "Maximum limit of 4 assistants reached" });
     expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
   });
+
+  it("49) criação bem-sucedida de tesoureiro -> promove profile para treasurer, inicializa permissões e não expõe senha", async () => {
+    const deps = baseDeps();
+    deps.upsertTreasurerPermissions = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "tesoureiro@rda.com",
+          password: "654321",
+          name: "Tesoureiro Oficial",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      user: {
+        id: "new-user-1",
+        name: "Tesoureiro Oficial",
+        email: "tesoureiro@rda.com",
+        role: "treasurer",
+      },
+    });
+    expect(res.body).not.toHaveProperty("password");
+    expect(deps.updateProfile).toHaveBeenCalledWith("new-user-1", {
+      role: "treasurer",
+      name: "Tesoureiro Oficial",
+    });
+    expect(deps.upsertTreasurerPermissions).toHaveBeenCalledWith({
+      profile_id: "new-user-1",
+      manage_finance: false,
+      manage_monthly_payments: false,
+      updated_at: expect.any(String),
+    });
+  });
+
+  it("50) criação de tesoureiro com e-mail já cadastrado -> retorna 400 sem criar novo profile", async () => {
+    const deps = baseDeps();
+    deps.createUser = vi.fn().mockResolvedValue({
+      data: null,
+      error: new Error("User already registered"),
+    });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "existente@rda.com",
+          password: "123456",
+          name: "Tesoureiro Dup",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "User already registered" });
+    expect(deps.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("51) usuário não-admin tentando criar tesoureiro -> retorna 403 Forbidden", async () => {
+    const deps = baseDeps();
+    deps.getProfileRole = vi.fn().mockResolvedValue({
+      data: { role: "visitor" },
+      error: null,
+    });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "tentativa@rda.com",
+          password: "123456",
+          name: "Hacker",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ error: "Forbidden: admin access required" });
+    expect(deps.createUser).not.toHaveBeenCalled();
+  });
+
+  it("52) tentativa de criar segundo tesoureiro quando já existe 1 -> retorna 400 antes de criar no Auth", async () => {
+    const deps = baseDeps();
+    deps.countUsersByRole = vi.fn((role: string) =>
+      Promise.resolve(role === "treasurer" ? { count: 1, error: null } : { count: 0, error: null })
+    );
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "segundo@rda.com",
+          password: "123456",
+          name: "Segundo Tesoureiro",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Maximum limit of 1 treasurer reached" });
+    expect(deps.createUser).not.toHaveBeenCalled();
+  });
+
+  it("53) erro de catálogo/trigger na promoção do tesoureiro -> não mascara como limite, executa cleanup e informa o erro", async () => {
+    const deps = baseDeps();
+    deps.updateProfile = vi.fn().mockResolvedValue({
+      error: { message: "Apenas admin pode alterar profiles.role", code: "P0001" },
+    });
+    deps.deleteUser = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "trigger_fail@rda.com",
+          password: "123456",
+          name: "Trigger Test",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(500);
+    expect(res.body).toMatchObject({
+      error: expect.stringContaining("Failed to promote profile: Apenas admin pode alterar profiles.role"),
+    });
+    expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
+  });
 });

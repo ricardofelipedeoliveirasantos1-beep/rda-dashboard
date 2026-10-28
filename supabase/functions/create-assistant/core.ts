@@ -38,6 +38,7 @@ export interface Deps {
   listAssistantProfiles: () => Promise<{ data: { id: string; name: string; role?: string }[] | null; error: unknown | null }>;
   listUsersBanned: () => Promise<{ data: { id: string; email?: string; is_banned: boolean }[] | null; error: unknown | null }>;
   updateUserCredentials?: (userId: string, patch: { email?: string; name?: string }) => Promise<{ error: unknown | null }>;
+  upsertTreasurerPermissions?: (row: Record<string, unknown>) => Promise<{ error: unknown | null }>;
   insertAuditLog?: (entry: { admin_id: string; action: string; target_user_id?: string; details?: Record<string, unknown> }) => Promise<{ error: unknown | null }>;
 }
 
@@ -179,12 +180,28 @@ async function handleCreate(
     if (promoteError) {
       safeLog("promote", promoteError);
       await orphanSafeCleanup(deps, newUserId, "promocao de profile falhou");
-      return fail(
-        HTTP_BAD_REQUEST,
-        targetRole === "treasurer"
-          ? `Maximum limit of ${MAX_TREASURERS} treasurer reached`
-          : `Maximum limit of ${MAX_ASSISTANTS} assistants reached`,
-      );
+
+      const rawMsg = promoteError instanceof Error
+        ? promoteError.message
+        : (typeof promoteError === "object" && promoteError && "message" in promoteError
+            ? String((promoteError as { message?: unknown }).message)
+            : String(promoteError));
+
+      if (
+        rawMsg.includes("check_violation") ||
+        rawMsg.includes("idx_single_treasurer") ||
+        rawMsg.toLowerCase().includes("limite") ||
+        rawMsg.toLowerCase().includes("limit")
+      ) {
+        return fail(
+          HTTP_BAD_REQUEST,
+          targetRole === "treasurer"
+            ? `Maximum limit of ${MAX_TREASURERS} treasurer reached`
+            : `Maximum limit of ${MAX_ASSISTANTS} assistants reached`,
+        );
+      }
+
+      return fail(HTTP_INTERNAL, `Failed to promote profile: ${rawMsg}`);
     }
 
     // Re-contagem pós-promoção (mitigação definitiva de corrida no limite de perfis)
@@ -238,6 +255,16 @@ async function handleCreate(
         safeLog("permissions", permError);
         await orphanSafeCleanup(deps, newUserId, "permissions falhou");
         return fail(HTTP_INTERNAL, "Failed to set assistant permissions");
+      }
+    } else if (targetRole === "treasurer" && deps.upsertTreasurerPermissions) {
+      const { error: permError } = await deps.upsertTreasurerPermissions({
+        profile_id: newUserId,
+        manage_finance: false,
+        manage_monthly_payments: false,
+        updated_at: new Date().toISOString(),
+      });
+      if (permError) {
+        safeLog("treasurer_permissions", permError);
       }
     }
   } catch (err) {

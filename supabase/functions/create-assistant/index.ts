@@ -97,14 +97,36 @@ serve(async (req: Request) => {
       return { data: r.data as { id: string; role?: string }[] | null, error: r.error };
     },
     updateProfile: async (userId: string, patch: { role: string; name: string }) => {
-      const r = await adminClient.from("profiles").update(patch).eq("id", userId);
-      return { error: r.error };
+      // 1. Tentar via adminClient (service_role)
+      const rAdmin = await adminClient.from("profiles").update(patch).eq("id", userId);
+      if (!rAdmin.error) {
+        return { error: null };
+      }
+
+      // 2. Se falhar (ex.: trigger no banco checando exclusivamente auth.uid() do admin),
+      // executar a promoção com o client supabase autenticado (que possui o JWT do Super Admin autenticado):
+      const rUser = await supabase.from("profiles").update(patch).eq("id", userId);
+      if (!rUser.error) {
+        return { error: null };
+      }
+
+      return { error: rAdmin.error || rUser.error };
     },
     upsertPermissions: async (row: Record<string, unknown>) => {
       const r = await adminClient.from("assistant_permissions").upsert(row, {
         onConflict: "profile_id",
       });
       return { error: r.error };
+    },
+    upsertTreasurerPermissions: async (row: Record<string, unknown>) => {
+      try {
+        const r = await adminClient.from("treasurer_permissions").upsert(row, {
+          onConflict: "profile_id",
+        });
+        return { error: r.error };
+      } catch (err) {
+        return { error: err };
+      }
     },
     getUserById: async (userId: string) => {
       const r = await adminClient.auth.admin.getUserById(userId);

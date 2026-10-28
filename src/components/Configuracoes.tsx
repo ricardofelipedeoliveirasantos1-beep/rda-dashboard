@@ -273,12 +273,14 @@ export default function Configuracoes({
     setCreateError(null);
     setCreateSuccess(false);
 
+    const isTreasurer = createRole === 'treasurer';
+
     if (!createName.trim()) {
-      setCreateError('Informe o nome do assistente.');
+      setCreateError(isTreasurer ? 'Informe o nome do tesoureiro.' : 'Informe o nome do assistente.');
       return;
     }
     if (!createEmail.trim()) {
-      setCreateError('Informe o e-mail do assistente.');
+      setCreateError(isTreasurer ? 'Informe o e-mail do tesoureiro.' : 'Informe o e-mail do assistente.');
       return;
     }
     if (!validatePassword(createPassword)) {
@@ -315,6 +317,7 @@ export default function Configuracoes({
             'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
+            action: 'create',
             email: createEmail.trim(),
             password: createPassword,
             name: createName.trim(),
@@ -326,7 +329,7 @@ export default function Configuracoes({
       const result = await response.json();
 
       if (!response.ok) {
-        setCreateError(result.error || 'Erro ao criar assistente.');
+        setCreateError(result.error || (isTreasurer ? 'Erro ao criar tesoureiro.' : 'Erro ao criar assistente.'));
         return;
       }
 
@@ -353,7 +356,7 @@ export default function Configuracoes({
         setCreateSuccess(false);
       }, 1500);
     } catch (err: any) {
-      console.error('Erro ao criar assistente:', err);
+      console.error(isTreasurer ? 'Erro ao criar tesoureiro:' : 'Erro ao criar assistente:', err);
       setCreateError('Erro de conexão com o servidor.');
     } finally {
       setCreatingAssistant(false);
