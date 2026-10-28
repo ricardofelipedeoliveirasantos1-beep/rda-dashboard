@@ -131,10 +131,24 @@ export const getDenseRanking = (
   // 1. Filtrar apenas jogadores com valor maior que zero
   const active = players.filter(p => (Number(p[metric]) || 0) > 0);
 
-  // 2. Ordenar primariamente por valor desc, e secundariamente por nome asc para estabilidade
+  // 2. Ordenar primariamente por valor desc, e secundariamente pelos critérios de desempate oficiais RDA
   active.sort((a, b) => {
     const diff = (Number(b[metric]) || 0) - (Number(a[metric]) || 0);
     if (diff !== 0) return diff;
+
+    // Critérios de desempate oficiais RDA (conforme Ranking.tsx):
+    if (metric === 'goals') {
+      if ((b.assists || 0) !== (a.assists || 0)) return (b.assists || 0) - (a.assists || 0);
+      if ((a.games || 0) !== (b.games || 0)) return (a.games || 0) - (b.games || 0);
+    } else if (metric === 'assists') {
+      if ((b.goals || 0) !== (a.goals || 0)) return (b.goals || 0) - (a.goals || 0);
+      if ((a.games || 0) !== (b.games || 0)) return (a.games || 0) - (b.games || 0);
+    } else if (metric === 'champion') {
+      if ((a.games || 0) !== (b.games || 0)) return (a.games || 0) - (b.games || 0);
+    } else if (metric === 'ralabosta') {
+      if ((a.games || 0) !== (b.games || 0)) return (a.games || 0) - (b.games || 0);
+    }
+
     return a.name.localeCompare(b.name, 'pt-BR');
   });
 
@@ -275,6 +289,175 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, p
   );
 };
 
+export const getPeriodDates = (type: string, month: string, year: string, offset = 0) => {
+  let start, end;
+  
+  if (type === 'month') {
+    const d = new Date(parseInt(year), parseInt(month) - 1 + offset, 1);
+    start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const nextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    end = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
+  } else if (type === 'semestre1') {
+    const y = parseInt(year);
+    if (offset === -1) {
+      start = `${y - 1}-07-01`;
+      end = `${y}-01-01`;
+    } else {
+      start = `${y}-01-01`;
+      end = `${y}-07-01`;
+    }
+  } else if (type === 'semestre2') {
+    const y = parseInt(year);
+    if (offset === -1) {
+      start = `${y}-01-01`;
+      end = `${y}-07-01`;
+    } else {
+      start = `${y}-07-01`;
+      end = `${y + 1}-01-01`;
+    }
+  } else {
+    const y = parseInt(year) + offset;
+    start = `${y}-01-01`;
+    end = `${y + 1}-01-01`;
+  }
+  return { start, end };
+};
+
+// === FONTE ÚNICA DE AGREGAÇÃO POR JOGADOR ===
+export const buildPeriodPlayerStats = ({
+  matches,
+  matchPlayers,
+  matchPlayerStats,
+  playersMap
+}: {
+  matches: any[];
+  matchPlayers: any[];
+  matchPlayerStats: any[];
+  playersMap: Record<string, any>;
+}) => {
+  let playersSet = new Set<string>();
+  let tGoals = 0, tAssists = 0, tYellow = 0, tBlue = 0, tRed = 0;
+  let tChamp = 0, tVice = 0, tRala = 0;
+  let totalDiaristas = 0;
+
+  const playerMap: Record<string, PlayerSummary> = {};
+
+  matches.forEach(match => {
+    totalDiaristas += Number(match.daily_total || 0);
+
+    // Determinar time Ralabosta oficial da partida:
+    // Se 3 times: 3º colocado (third_place_team)
+    // Se 4 times (ou mais): 4º colocado (fourth_place_team)
+    // Fallback de segurança: se team_count não estiver definido, usa quarto colocado ou terceiro colocado se houver apenas 3 times
+    let ralabostaTeamCode: string | null = null;
+    if (match.team_count === 3) {
+      ralabostaTeamCode = match.third_place_team || null;
+    } else if (match.fourth_place_team) {
+      ralabostaTeamCode = match.fourth_place_team;
+    } else if (match.third_place_team && !match.fourth_place_team) {
+      ralabostaTeamCode = match.third_place_team;
+    }
+
+    // Deduplica participantes por partida
+    const seenPlayersInMatch = new Set<string>();
+    const mPlayers = matchPlayers.filter(mp => mp.match_id === match.id);
+
+    mPlayers.forEach(mp => {
+      const pId = mp.player_id;
+      if (!pId || seenPlayersInMatch.has(pId)) return;
+      seenPlayersInMatch.add(pId);
+      playersSet.add(pId);
+
+      const playerInfo = playersMap[pId] || { name: 'Desconhecido', photo_url: null, category: mp.category_at_match };
+
+      if (!playerMap[pId]) {
+        playerMap[pId] = {
+          id: pId,
+          name: playerInfo.name,
+          photo_url: playerInfo.photo_url,
+          category: mp.category_at_match || playerInfo.category,
+          games: 0,
+          goals: 0,
+          assists: 0,
+          champion: 0,
+          vice: 0,
+          ralabosta: 0,
+          yellow_cards: 0,
+          blue_cards: 0,
+          red_cards: 0
+        };
+      }
+
+      playerMap[pId].games += 1;
+
+      // Estatísticas individuais dessa partida
+      const pStat = matchPlayerStats.find(s => s.match_id === match.id && s.player_id === pId);
+
+      if (pStat) {
+        const goalsVal = Number(pStat.goals) || 0;
+        const assistsVal = Number(pStat.assists) || 0;
+        const yellowVal = Number(pStat.yellow_cards) || 0;
+        const blueVal = Number(pStat.blue_cards) || 0;
+        const redVal = Number(pStat.red_cards) || 0;
+
+        playerMap[pId].goals += goalsVal;
+        playerMap[pId].assists += assistsVal;
+        playerMap[pId].yellow_cards += yellowVal;
+        playerMap[pId].blue_cards += blueVal;
+        playerMap[pId].red_cards += redVal;
+
+        tGoals += goalsVal;
+        tAssists += assistsVal;
+        tYellow += yellowVal;
+        tBlue += blueVal;
+        tRed += redVal;
+      }
+
+      // Regras Oficiais RDA:
+      // 1. Campeão: time do jogador coincide com o time campeão da partida (ou flag is_champion em histórico)
+      const isChamp = Boolean(
+        (match.champion_team && mp.team && mp.team.trim().toLowerCase() === match.champion_team.trim().toLowerCase()) ||
+        pStat?.is_champion
+      );
+
+      // 2. Vice: time do jogador coincide com o time vice-campeão (ou flag is_runner_up em histórico)
+      const isVice = Boolean(
+        (match.runner_up_team && mp.team && mp.team.trim().toLowerCase() === match.runner_up_team.trim().toLowerCase()) ||
+        pStat?.is_runner_up
+      );
+
+      // 3. Ralabosta: para partidas de 3 ou 4 times, time do jogador coincide com o time Ralabosta (ou flag is_ralabosta em histórico)
+      const isRala = Boolean(
+        (ralabostaTeamCode && mp.team && mp.team.trim().toLowerCase() === ralabostaTeamCode.trim().toLowerCase()) ||
+        pStat?.is_ralabosta
+      );
+
+      if (isChamp) { playerMap[pId].champion += 1; tChamp += 1; }
+      if (isVice) { playerMap[pId].vice += 1; tVice += 1; }
+      if (isRala) { playerMap[pId].ralabosta += 1; tRala += 1; }
+    });
+  });
+
+  const rankingList = Object.values(playerMap);
+
+  return {
+    summary: {
+      players: playersSet.size,
+      matches: matches.length,
+      goals: tGoals,
+      assists: tAssists,
+      yellow: tYellow,
+      blue: tBlue,
+      red: tRed,
+      champions: tChamp,
+      vices: tVice,
+      ralabosta: tRala
+    },
+    totalDiaristas,
+    rankingList
+  };
+};
+
 export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' | 'assistant' | 'visitor' | 'treasurer'; can: (action: any) => boolean }) {
   const [filterType, setFilterType] = useState<'month' | 'semestre1' | 'semestre2' | 'year'>('month');
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
@@ -335,155 +518,12 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
     return `Anual | ${selectedYear}`;
   };
 
-  const getPeriodDates = (type: string, month: string, year: string, offset = 0) => {
-    let start, end;
-    
-    if (type === 'month') {
-      const d = new Date(parseInt(year), parseInt(month) - 1 + offset, 1);
-      start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-      const nextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-      end = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
-    } else if (type === 'semestre1') {
-      const dYear = parseInt(year) + (offset === -1 ? -1 : 0);
-      if (offset === -1) {
-        start = `${dYear - 1}-07-01`;
-        end = `${dYear}-01-01`;
-      } else {
-        start = `${dYear}-01-01`;
-        end = `${dYear}-07-01`;
-      }
-    } else if (type === 'semestre2') {
-      const dYear = parseInt(year);
-      if (offset === -1) {
-        start = `${dYear}-01-01`;
-        end = `${dYear}-07-01`;
-      } else {
-        start = `${dYear}-07-01`;
-        end = `${dYear + 1}-01-01`;
-      }
-    } else {
-      const dYear = parseInt(year) + offset;
-      start = `${dYear}-01-01`;
-      end = `${dYear + 1}-01-01`;
-    }
-    return { start, end };
-  };
-
-  // === FONTE ÚNICA DE AGREGAÇÃO POR JOGADOR ===
-  const buildPeriodPlayerStats = ({
-    matches,
-    matchPlayers,
-    matchPlayerStats,
-    playersMap
-  }: {
-    matches: any[];
-    matchPlayers: any[];
-    matchPlayerStats: any[];
-    playersMap: Record<string, any>;
-  }) => {
-    let playersSet = new Set<string>();
-    let tGoals = 0, tAssists = 0, tYellow = 0, tBlue = 0, tRed = 0;
-    let tChamp = 0, tVice = 0, tRala = 0;
-    let totalDiaristas = 0;
-
-    const playerMap: Record<string, PlayerSummary> = {};
-
-    matches.forEach(match => {
-      totalDiaristas += Number(match.daily_total || 0);
-
-      // Deduplica participantes por partida
-      const seenPlayersInMatch = new Set<string>();
-      const mPlayers = matchPlayers.filter(mp => mp.match_id === match.id);
-
-      mPlayers.forEach(mp => {
-        const pId = mp.player_id;
-        if (!pId || seenPlayersInMatch.has(pId)) return;
-        seenPlayersInMatch.add(pId);
-        playersSet.add(pId);
-
-        const playerInfo = playersMap[pId] || { name: 'Desconhecido', photo_url: null, category: mp.category_at_match };
-
-        if (!playerMap[pId]) {
-          playerMap[pId] = {
-            id: pId,
-            name: playerInfo.name,
-            photo_url: playerInfo.photo_url,
-            category: mp.category_at_match || playerInfo.category,
-            games: 0,
-            goals: 0,
-            assists: 0,
-            champion: 0,
-            vice: 0,
-            ralabosta: 0,
-            yellow_cards: 0,
-            blue_cards: 0,
-            red_cards: 0
-          };
-        }
-
-        playerMap[pId].games += 1;
-
-        // Estatísticas individuais dessa partida
-        const pStat = matchPlayerStats.find(s => s.match_id === match.id && s.player_id === pId);
-
-        if (pStat) {
-          const goalsVal = Number(pStat.goals) || 0;
-          const assistsVal = Number(pStat.assists) || 0;
-          const yellowVal = Number(pStat.yellow_cards) || 0;
-          const blueVal = Number(pStat.blue_cards) || 0;
-          const redVal = Number(pStat.red_cards) || 0;
-
-          playerMap[pId].goals += goalsVal;
-          playerMap[pId].assists += assistsVal;
-          playerMap[pId].yellow_cards += yellowVal;
-          playerMap[pId].blue_cards += blueVal;
-          playerMap[pId].red_cards += redVal;
-
-          tGoals += goalsVal;
-          tAssists += assistsVal;
-          tYellow += yellowVal;
-          tBlue += blueVal;
-          tRed += redVal;
-        }
-
-        // O marcador oficial deve vir sempre de match_player_stats, independentemente
-        // da fonte (historical ou app). Não inferir a partir de match.champion_team.
-        const isChamp = pStat?.is_champion || false;
-        const isVice = pStat?.is_runner_up || false;
-        const isRala = (match.team_count === 3 || match.team_count === 4) ? (pStat?.is_ralabosta || false) : false;
-
-        if (isChamp) { playerMap[pId].champion += 1; tChamp += 1; }
-        if (isVice) { playerMap[pId].vice += 1; tVice += 1; }
-        if (isRala) { playerMap[pId].ralabosta += 1; tRala += 1; }
-      });
-    });
-
-    const rankingList = Object.values(playerMap);
-
-    return {
-      summary: {
-        players: playersSet.size,
-        matches: matches.length,
-        goals: tGoals,
-        assists: tAssists,
-        yellow: tYellow,
-        blue: tBlue,
-        red: tRed,
-        champions: tChamp,
-        vices: tVice,
-        ralabosta: tRala
-      },
-      totalDiaristas,
-      rankingList
-    };
-  };
-
   // Helper para carregar os dados de um período de forma simples e segura
   const fetchPeriodStats = async (startDate: string, endDate: string) => {
     // 1. Buscar partidas finalizadas do período (omite daily_total para visitantes)
     const matchesSelect = userRole === 'visitor'
-      ? 'id, match_date, match_time, status, champion_team, runner_up_team, source, team_count'
-      : 'id, match_date, match_time, status, daily_total, champion_team, runner_up_team, source, team_count';
+      ? 'id, match_date, match_time, status, champion_team, runner_up_team, third_place_team, fourth_place_team, source, team_count'
+      : 'id, match_date, match_time, status, daily_total, champion_team, runner_up_team, third_place_team, fourth_place_team, source, team_count';
 
     const { data: matchesData, error: matchesError } = await supabase
       .from('matches')
@@ -610,7 +650,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
     setLoading(true);
     setError(null);
     try {
-      const baseStart = `${parseInt(selectedYear) - 1}-12-01`;
+      const baseStart = `${parseInt(selectedYear) - 1}-01-01`;
       const baseEnd = `${parseInt(selectedYear) + 1}-01-01`;
 
       const fullData = await fetchPeriodStats(baseStart, baseEnd);
@@ -712,7 +752,26 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
         const m2Ids = new Set(m2.map(x => x.id));
         const sem2 = buildPeriodPlayerStats({ matches: m2, matchPlayers: fullData.matchPlayers.filter(x => m2Ids.has(x.match_id)), matchPlayerStats: fullData.stats.filter(x => m2Ids.has(x.match_id)), playersMap: fullData.playersMap });
 
-        comp = buildCompObj(sem2, sem1, 'semestral', '2º Semestre', '1º Semestre');
+        if (filterType === 'semestre1') {
+          const prevYear = parseInt(selectedYear) - 1;
+          const prevS2Start = `${prevYear}-07-01`;
+          const prevS2End = `${selectedYear}-01-01`;
+          const mPrev = fullData.matches.filter(x => x.match_date >= prevS2Start && x.match_date < prevS2End);
+          const mPrevIds = new Set(mPrev.map(x => x.id));
+          const prevSem = buildPeriodPlayerStats({ matches: mPrev, matchPlayers: fullData.matchPlayers.filter(x => mPrevIds.has(x.match_id)), matchPlayerStats: fullData.stats.filter(x => mPrevIds.has(x.match_id)), playersMap: fullData.playersMap });
+          comp = buildCompObj(sem1, prevSem, 'semestral', `1º Semestre/${selectedYear}`, `2º Semestre/${prevYear}`);
+        } else if (filterType === 'semestre2') {
+          comp = buildCompObj(sem2, sem1, 'semestral', '2º Semestre', '1º Semestre');
+        } else {
+          // Anual: comparar com o ano anterior
+          const prevYear = parseInt(selectedYear) - 1;
+          const prevYStart = `${prevYear}-01-01`;
+          const prevYEnd = `${selectedYear}-01-01`;
+          const mPrevY = fullData.matches.filter(x => x.match_date >= prevYStart && x.match_date < prevYEnd);
+          const mPrevYIds = new Set(mPrevY.map(x => x.id));
+          const prevYearStats = buildPeriodPlayerStats({ matches: mPrevY, matchPlayers: fullData.matchPlayers.filter(x => mPrevYIds.has(x.match_id)), matchPlayerStats: fullData.stats.filter(x => mPrevYIds.has(x.match_id)), playersMap: fullData.playersMap });
+          comp = buildCompObj(currentResult, prevYearStats, 'nenhum', `${selectedYear}`, `${prevYear}`);
+        }
       }
 
       const monthlyStatsArr = [];
@@ -756,10 +815,31 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
     }
   };
 
+  // Re-gerar relatório automaticamente quando o período mudar e assinar realtime para atualizações automáticas
   useEffect(() => {
     handleGenerate();
-    // eslint-disable-next-line
-  }, []);
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const triggerDebounced = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        handleGenerate();
+      }, 400);
+    };
+
+    const channel = supabase
+      .channel(`relatorios-realtime-${filterType}-${selectedMonth}-${selectedYear}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, triggerDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_players' }, triggerDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_player_stats' }, triggerDebounced)
+      .subscribe();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterType, selectedMonth, selectedYear]);
 
   // --- RANKINGS CENTRALIZADOS (DENSE RANKING) ---
   const goalsRanking = useMemo(() => {
@@ -1445,7 +1525,7 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
                 {[
                   { label: 'Artilheiro', data: getHighlightData('goals', 'gols'), icon: <Flame size={14} color="#f97316" /> },
                   { label: 'Líder de Assistências', data: getHighlightData('assists', 'asts'), icon: <Star size={14} color="#fbbf24" /> },
-                  { label: 'Mais Campeão', data: getHighlightData('champion', 'vezes'), icon: <Trophy size={14} color="#fbbf24" /> },
+                  { label: 'Mais Campeão', data: getHighlightData('champion', 'títulos'), icon: <Trophy size={14} color="#fbbf24" /> },
                   { label: 'Mais Ralabosta', data: getHighlightData('ralabosta', 'vezes'), icon: <span style={{ fontSize: '12px' }}>💩</span> }
                 ].map((d, i) => (
                   <HighlightCard key={i} data={d.data} label={d.label} icon={d.icon} />
@@ -1485,10 +1565,10 @@ export default function Relatorios({ userRole, can: _can }: { userRole: 'admin' 
                         {isExp && (
                           <div style={{ padding: '0 12px 12px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                             {[
-                              { label: 'Artilheiro', data: getHighlightFromRanking([...mapData.rankingList].sort((a,b)=>b.goals-a.goals).map(p=>({player:p, value:p.goals, rank:0})).map((p,_i,arr)=>({...p, rank: arr.findIndex(x=>x.value===p.value)+1})), 'gols'), icon: <Flame size={12} color="#f97316" /> },
-                              { label: 'Assistências', data: getHighlightFromRanking([...mapData.rankingList].sort((a,b)=>b.assists-a.assists).map(p=>({player:p, value:p.assists, rank:0})).map((p,_i,arr)=>({...p, rank: arr.findIndex(x=>x.value===p.value)+1})), 'asts'), icon: <Star size={12} color="#fbbf24" /> },
-                              { label: 'Mais Campeão', data: getHighlightFromRanking([...mapData.rankingList].sort((a,b)=>b.champion-a.champion).map(p=>({player:p, value:p.champion, rank:0})).map((p,_i,arr)=>({...p, rank: arr.findIndex(x=>x.value===p.value)+1})), 'vezes'), icon: <Trophy size={12} color="#fbbf24" /> },
-                              { label: 'Mais Ralabosta', data: getHighlightFromRanking([...mapData.rankingList].sort((a,b)=>b.ralabosta-a.ralabosta).map(p=>({player:p, value:p.ralabosta, rank:0})).map((p,_i,arr)=>({...p, rank: arr.findIndex(x=>x.value===p.value)+1})), 'vezes'), icon: <span style={{ fontSize: '10px' }}>💩</span> }
+                              { label: 'Artilheiro', data: getHighlightFromRanking(getDenseRanking(mapData.rankingList, 'goals'), 'gols'), icon: <Flame size={12} color="#f97316" /> },
+                              { label: 'Assistências', data: getHighlightFromRanking(getDenseRanking(mapData.rankingList, 'assists'), 'asts'), icon: <Star size={12} color="#fbbf24" /> },
+                              { label: 'Mais Campeão', data: getHighlightFromRanking(getDenseRanking(mapData.rankingList, 'champion'), 'títulos'), icon: <Trophy size={12} color="#fbbf24" /> },
+                              { label: 'Mais Ralabosta', data: getHighlightFromRanking(getDenseRanking(mapData.rankingList, 'ralabosta'), 'vezes'), icon: <span style={{ fontSize: '10px' }}>💩</span> }
                             ].map((d, i) => (
                               <HighlightCard key={i} data={d.data} label={d.label} icon={d.icon} />
                             ))}

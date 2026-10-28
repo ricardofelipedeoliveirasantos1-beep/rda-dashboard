@@ -115,10 +115,11 @@ export default function Ranking({ userRole: _userRole, can: _can }: { userRole: 
             isVice = playerStats?.is_runner_up || false;
             isRala = playerStats?.is_ralabosta || false;
           } else {
-            isChamp = match.champion_team === mp.team;
-            isVice = match.runner_up_team === mp.team;
+            isChamp = Boolean(match.champion_team && mp.team && match.champion_team.trim().toLowerCase() === mp.team.trim().toLowerCase());
+            isVice = Boolean(match.runner_up_team && mp.team && match.runner_up_team.trim().toLowerCase() === mp.team.trim().toLowerCase());
             const teamCount = match.team_count || 4;
-            isRala = teamCount >= 3 ? (playerStats?.is_ralabosta || false) : false;
+            const ralaTeam = teamCount === 3 ? match.third_place_team : (teamCount === 4 ? match.fourth_place_team : (match.fourth_place_team || match.third_place_team || null));
+            isRala = Boolean((ralaTeam && mp.team && mp.team.trim().toLowerCase() === ralaTeam.trim().toLowerCase()) || playerStats?.is_ralabosta);
           }
 
           // A existência da linha em match_player_stats garante +1 JG (Participação Oficial)
