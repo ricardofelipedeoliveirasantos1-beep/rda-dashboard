@@ -116,17 +116,28 @@ WHERE routine_schema = 'public'
   );
 
 -- ----------------------------------------------------------------------------
--- 7. DEPENDÊNCIAS DE public.current_user_role()
+-- 7. DEPENDÊNCIAS DE public.current_user_role() NO CATÁLOGO
 -- ----------------------------------------------------------------------------
+-- NOTA TÉCNICA: Identifica objetos registrados no catálogo pg_depend do PostgreSQL
+-- (como políticas RLS, views e triggers). Dependências em corpos de funções SQL ou
+-- PL/pgSQL podem não constar como dependências de catálogo se compiladas tardiamente.
 SELECT 
-  p.proname AS funcao_origem,
-  dep.objid::regprocedure AS objeto_dependente,
-  cls.relname AS tabela_associada
-FROM pg_proc p
-JOIN pg_depend d ON d.refobjid = p.oid
-LEFT JOIN pg_proc dep ON dep.oid = d.objid
-LEFT JOIN pg_class cls ON cls.oid = d.objid
-WHERE p.proname = 'current_user_role';
+  n.nspname || '.' || p.proname AS funcao_origem,
+  d.classid::regclass::text AS tipo_catalogo_dependente,
+  pg_catalog.pg_describe_object(d.classid, d.objid, d.objsubid) AS descricao_objeto_dependente,
+  d.deptype AS tipo_dependencia,
+  c.relname AS tabela_associada
+FROM pg_catalog.pg_proc p
+JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+JOIN pg_catalog.pg_depend d ON d.refobjid = p.oid AND d.refclassid = 'pg_catalog.pg_proc'::regclass
+LEFT JOIN pg_catalog.pg_policy pol ON pol.oid = d.objid AND d.classid = 'pg_catalog.pg_policy'::regclass
+LEFT JOIN pg_catalog.pg_class c ON (
+  (d.classid = 'pg_catalog.pg_class'::regclass AND c.oid = d.objid)
+  OR (d.classid = 'pg_catalog.pg_policy'::regclass AND c.oid = pol.polrelid)
+)
+WHERE n.nspname = 'public' 
+  AND p.proname = 'current_user_role'
+ORDER BY descricao_objeto_dependente ASC;
 
 -- ----------------------------------------------------------------------------
 -- 8. POLÍTICAS RLS ATUAIS (profiles e audit_logs)
