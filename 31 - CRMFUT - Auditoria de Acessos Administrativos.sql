@@ -1,6 +1,8 @@
 -- ============================================================================
 -- 31 - CRMFUT - Auditoria de Acessos Administrativos e Blindagem de Limites
 --
+-- Versão: 2.0 (Revisão de Segurança, Blindagem de search_path e Hardening)
+--
 -- Objetivo:
 -- 1. Criar a tabela public.audit_logs e regras de segurança para rastreabilidade
 --    completa e estritamente imutável das operações administrativas realizadas pelo Super Admin:
@@ -17,10 +19,13 @@
 -- 3. Revogação instantânea de JWT: Atualização de public.current_user_role() para
 --    verificar em tempo real se a conta está banida em auth.users, impedindo
 --    acesso residual por tokens já emitidos.
+-- 4. Blindagem de search_path: Todas as funções SECURITY DEFINER operam com
+--    SET search_path = '' e identificadores explicitamente qualificados por esquema,
+--    eliminando riscos de sequestro de caminho de busca.
 --
 -- Imutabilidade contábil e de segurança:
--- - Registros de auditoria nunca podem ser alterados (UPDATE proibido)
--- - Registros de auditoria nunca podem ser apagados (DELETE proibido)
+-- - Registros de auditoria nunca podem ser alterados (UPDATE proibido por trigger e RLS)
+-- - Registros de auditoria nunca podem ser apagados (DELETE proibido por trigger e RLS)
 -- - Somente Super Admin pode consultar logs de auditoria
 -- ============================================================================
 
@@ -55,12 +60,14 @@ CREATE OR REPLACE FUNCTION public.prevent_audit_logs_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 BEGIN
   RAISE EXCEPTION 'Operação negada: registros de auditoria administrativa são estritamente imutáveis e permanentes.';
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.prevent_audit_logs_mutation() FROM PUBLIC;
 
 DROP TRIGGER IF EXISTS trg_audit_logs_immutable ON public.audit_logs;
 CREATE TRIGGER trg_audit_logs_immutable
@@ -82,9 +89,10 @@ CREATE POLICY audit_logs_insert_admin
   ON public.audit_logs FOR INSERT
   WITH CHECK (public.is_admin());
 
--- Revoga privilégios para authenticated e anon
-REVOKE UPDATE, DELETE, TRUNCATE ON public.audit_logs FROM authenticated, anon;
-REVOKE INSERT ON public.audit_logs FROM anon;
+-- Revoga privilégios para authenticated e anon; concede estritamente o necessário
+REVOKE ALL ON TABLE public.audit_logs FROM PUBLIC, anon;
+GRANT SELECT, INSERT ON TABLE public.audit_logs TO authenticated;
+GRANT ALL ON TABLE public.audit_logs TO service_role;
 
 -- ----------------------------------------------------------------------------
 -- 2. BLINDAGEM DE CONCORRÊNCIA E LIMITES NO BANCO DE DADOS
@@ -100,15 +108,15 @@ CREATE OR REPLACE FUNCTION public.check_max_assistants_limit()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
   v_count integer;
 BEGIN
   IF NEW.role = 'assistant' AND (TG_OP = 'INSERT' OR OLD.role IS DISTINCT FROM 'assistant') THEN
     -- Bloqueio consultivo em nível de transação para serializar contagens concorrentes
-    PERFORM pg_advisory_xact_lock(hashtext('profiles_assistant_limit_lock'));
-    SELECT count(*) INTO v_count FROM public.profiles WHERE role = 'assistant' AND id <> NEW.id;
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext('profiles_assistant_limit_lock'));
+    SELECT pg_catalog.count(*) INTO v_count FROM public.profiles WHERE role = 'assistant' AND id <> NEW.id;
     IF v_count >= 4 THEN
       RAISE EXCEPTION 'Limite máximo de 4 assistentes atingido' USING ERRCODE = 'check_violation';
     END IF;
@@ -116,6 +124,8 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.check_max_assistants_limit() FROM PUBLIC;
 
 DROP TRIGGER IF EXISTS trg_check_max_assistants ON public.profiles;
 CREATE TRIGGER trg_check_max_assistants
@@ -128,14 +138,14 @@ CREATE OR REPLACE FUNCTION public.check_max_treasurer_limit()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
   v_count integer;
 BEGIN
   IF NEW.role = 'treasurer' AND (TG_OP = 'INSERT' OR OLD.role IS DISTINCT FROM 'treasurer') THEN
-    PERFORM pg_advisory_xact_lock(hashtext('profiles_treasurer_limit_lock'));
-    SELECT count(*) INTO v_count FROM public.profiles WHERE role = 'treasurer' AND id <> NEW.id;
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext('profiles_treasurer_limit_lock'));
+    SELECT pg_catalog.count(*) INTO v_count FROM public.profiles WHERE role = 'treasurer' AND id <> NEW.id;
     IF v_count >= 1 THEN
       RAISE EXCEPTION 'Limite máximo de 1 tesoureiro atingido' USING ERRCODE = 'check_violation';
     END IF;
@@ -143,6 +153,8 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.check_max_treasurer_limit() FROM PUBLIC;
 
 DROP TRIGGER IF EXISTS trg_check_max_treasurer ON public.profiles;
 CREATE TRIGGER trg_check_max_treasurer
@@ -160,33 +172,36 @@ RETURNS text
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = public, auth
+SET search_path = ''
 AS $$
 DECLARE
   v_role text;
   v_banned timestamptz;
+  v_uid uuid;
 BEGIN
-  IF auth.uid() IS NULL THEN
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN
     RETURN NULL;
   END IF;
 
   -- Checagem em tempo real de banimento em auth.users para bloquear tokens já emitidos
   SELECT banned_until INTO v_banned
   FROM auth.users
-  WHERE id = auth.uid();
+  WHERE id = v_uid;
 
-  IF v_banned IS NOT NULL AND v_banned > now() THEN
+  IF v_banned IS NOT NULL AND v_banned > pg_catalog.now() THEN
     RETURN NULL;
   END IF;
 
   SELECT role INTO v_role
   FROM public.profiles
-  WHERE id = auth.uid();
+  WHERE id = v_uid;
 
   RETURN v_role;
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.current_user_role() TO anon, authenticated;
+REVOKE ALL ON FUNCTION public.current_user_role() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.current_user_role() TO anon, authenticated, service_role;
 
 COMMIT;
