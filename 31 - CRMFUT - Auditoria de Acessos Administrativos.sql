@@ -1,10 +1,12 @@
 -- ============================================================================
 -- 31 - CRMFUT - Auditoria de Acessos Administrativos e Blindagem de Limites
 --
--- Versão: 2.0 (Revisão de Segurança, Blindagem de search_path e Hardening)
+-- Versão: 3.0 (Definitiva: Pre-check Atômico, Blindagem search_path e Menor Privilégio)
 --
 -- Objetivo:
--- 1. Criar a tabela public.audit_logs e regras de segurança para rastreabilidade
+-- 1. Validação de pré-requisitos antes de qualquer modificação (aborta se houver
+--    mais de 4 assistentes ou mais de 1 tesoureiro já existentes).
+-- 2. Criar a tabela public.audit_logs e regras de segurança para rastreabilidade
 --    completa e estritamente imutável das operações administrativas realizadas pelo Super Admin:
 --    - Criação de conta (Assistente / Tesoureiro)
 --    - Edição de credenciais (Nome / E-mail)
@@ -13,23 +15,62 @@
 --    - Desbloqueio / Reativação
 --    - Exclusão definitiva de acesso
 --    - Alteração de permissões
--- 2. Garantir em nível de banco de dados (ACID / Concorrência) os limites máximos:
+-- 3. Garantir em nível de banco de dados (ACID / Concorrência) os limites máximos:
 --    - Máximo de 4 assistentes (via trigger com advisory lock na tabela profiles)
 --    - Máximo de 1 tesoureiro (via partial unique index e trigger na tabela profiles)
--- 3. Revogação instantânea de JWT: Atualização de public.current_user_role() para
+-- 4. Revogação instantânea de JWT: Atualização de public.current_user_role() para
 --    verificar em tempo real se a conta está banida em auth.users, impedindo
 --    acesso residual por tokens já emitidos.
--- 4. Blindagem de search_path: Todas as funções SECURITY DEFINER operam com
---    SET search_path = '' e identificadores explicitamente qualificados por esquema,
---    eliminando riscos de sequestro de caminho de busca.
---
--- Imutabilidade contábil e de segurança:
--- - Registros de auditoria nunca podem ser alterados (UPDATE proibido por trigger e RLS)
--- - Registros de auditoria nunca podem ser apagados (DELETE proibido por trigger e RLS)
--- - Somente Super Admin pode consultar logs de auditoria
+-- 5. Blindagem de search_path: Todas as funções SECURITY DEFINER operam com
+--    SET search_path = '' e identificadores explicitamente qualificados por esquema.
+-- 6. Imutabilidade e Menor Privilégio:
+--    - Tabela audit_logs tem UPDATE, DELETE, TRUNCATE revogados de authenticated e service_role.
+--    - Trigger de imutabilidade compatível com ação ON DELETE SET NULL de profiles.
+--    - Somente Super Admin pode consultar logs de auditoria via RLS.
 -- ============================================================================
 
 BEGIN;
+
+-- ----------------------------------------------------------------------------
+-- 0. VALIDAÇÃO ATÔMICA DE PRÉ-CONDIÇÕES (ABORTA SE HOUVER VIOLAÇÃO PRÉVIA)
+-- ----------------------------------------------------------------------------
+DO $$
+DECLARE
+  v_assistants integer;
+  v_treasurers integer;
+BEGIN
+  -- 0.1. Verificar se o número atual de assistentes respeita o limite
+  SELECT pg_catalog.count(*) INTO v_assistants 
+  FROM public.profiles 
+  WHERE role = 'assistant';
+  
+  IF v_assistants > 4 THEN
+    RAISE EXCEPTION 'MIGRAÇÃO ABORTADA: Já existem % assistentes cadastrados (limite máximo é 4). Resolva o excedente antes de aplicar a migração.', v_assistants;
+  END IF;
+
+  -- 0.2. Verificar se o número atual de tesoureiros respeita o limite
+  SELECT pg_catalog.count(*) INTO v_treasurers 
+  FROM public.profiles 
+  WHERE role = 'treasurer';
+  
+  IF v_treasurers > 1 THEN
+    RAISE EXCEPTION 'MIGRAÇÃO ABORTADA: Já existem % tesoureiros cadastrados (limite máximo é 1). Resolva a duplicidade antes de aplicar a migração.', v_treasurers;
+  END IF;
+
+  -- 0.3. Se a tabela audit_logs já existir, validar compatibilidade estrutural
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'audit_logs'
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'audit_logs' AND column_name = 'action'
+    ) THEN
+      RAISE EXCEPTION 'MIGRAÇÃO ABORTADA: Tabela public.audit_logs já existe com estrutura incompatível.';
+    END IF;
+  END IF;
+END;
+$$;
 
 -- ----------------------------------------------------------------------------
 -- 1. TABELA DE AUDITORIA: public.audit_logs
@@ -55,7 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_target_user ON public.audit_logs(targe
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(created_at DESC);
 
--- Trigger para garantir imutabilidade estrita (bloquear UPDATE e DELETE)
+-- Trigger para garantir imutabilidade estrita (bloquear UPDATE e DELETE exceto ON DELETE SET NULL de FK)
 CREATE OR REPLACE FUNCTION public.prevent_audit_logs_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -63,7 +104,26 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  RAISE EXCEPTION 'Operação negada: registros de auditoria administrativa são estritamente imutáveis e permanentes.';
+  IF TG_OP = 'UPDATE' THEN
+    -- Permite exclusivamente a transição para NULL de admin_id decorrente de ON DELETE SET NULL
+    IF OLD.id = NEW.id
+       AND OLD.target_user_id IS NOT DISTINCT FROM NEW.target_user_id
+       AND OLD.action = NEW.action
+       AND OLD.details = NEW.details
+       AND OLD.created_at = NEW.created_at
+       AND NEW.admin_id IS NULL
+       AND OLD.admin_id IS NOT NULL THEN
+      RETURN NEW;
+    END IF;
+
+    RAISE EXCEPTION 'Operação negada: registros de auditoria administrativa são estritamente imutáveis e permanentes.';
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'Operação negada: registros de auditoria administrativa são estritamente imutáveis e permanentes.';
+  END IF;
+
+  RETURN NULL;
 END;
 $$;
 
@@ -89,10 +149,12 @@ CREATE POLICY audit_logs_insert_admin
   ON public.audit_logs FOR INSERT
   WITH CHECK (public.is_admin());
 
--- Revoga privilégios para authenticated e anon; concede estritamente o necessário
+-- Revoga privilégios para authenticated e anon; concede estritamente o necessário (Menor Privilégio)
 REVOKE ALL ON TABLE public.audit_logs FROM PUBLIC, anon;
+REVOKE ALL ON TABLE public.audit_logs FROM authenticated;
 GRANT SELECT, INSERT ON TABLE public.audit_logs TO authenticated;
-GRANT ALL ON TABLE public.audit_logs TO service_role;
+GRANT SELECT, INSERT ON TABLE public.audit_logs TO service_role;
+REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE public.audit_logs FROM authenticated, service_role;
 
 -- ----------------------------------------------------------------------------
 -- 2. BLINDAGEM DE CONCORRÊNCIA E LIMITES NO BANCO DE DADOS
