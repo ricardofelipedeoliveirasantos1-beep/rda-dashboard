@@ -1,25 +1,34 @@
 -- ============================================================================
--- 31 - CRMFUT - Auditoria de Acessos Administrativos
+-- 31 - CRMFUT - Auditoria de Acessos Administrativos e Blindagem de Limites
 --
--- Objetivo: Criar a tabela public.audit_logs e regras de segurança para
--- rastreabilidade completa das operações administrativas realizadas pelo Super Admin:
--- - Criação de conta (Assistente / Tesoureiro)
--- - Edição de credenciais (Nome / E-mail)
--- - Redefinição de senha / PIN (sem registrar senhas)
--- - Bloqueio / Desativação
--- - Desbloqueio / Reativação
--- - Exclusão definitiva de acesso
--- - Alteração de permissões
+-- Objetivo:
+-- 1. Criar a tabela public.audit_logs e regras de segurança para rastreabilidade
+--    completa e estritamente imutável das operações administrativas realizadas pelo Super Admin:
+--    - Criação de conta (Assistente / Tesoureiro)
+--    - Edição de credenciais (Nome / E-mail)
+--    - Redefinição de senha / PIN (sem registrar senhas)
+--    - Bloqueio / Desativação
+--    - Desbloqueio / Reativação
+--    - Exclusão definitiva de acesso
+--    - Alteração de permissões
+-- 2. Garantir em nível de banco de dados (ACID / Concorrência) os limites máximos:
+--    - Máximo de 4 assistentes (via trigger com advisory lock na tabela profiles)
+--    - Máximo de 1 tesoureiro (via partial unique index e trigger na tabela profiles)
+-- 3. Revogação instantânea de JWT: Atualização de public.current_user_role() para
+--    verificar em tempo real se a conta está banida em auth.users, impedindo
+--    acesso residual por tokens já emitidos.
 --
 -- Imutabilidade contábil e de segurança:
--- - Registros nunca podem ser alterados (UPDATE proibido)
--- - Registros nunca podem ser apagados (DELETE proibido)
--- - Somente Super Admin pode consultar
+-- - Registros de auditoria nunca podem ser alterados (UPDATE proibido)
+-- - Registros de auditoria nunca podem ser apagados (DELETE proibido)
+-- - Somente Super Admin pode consultar logs de auditoria
 -- ============================================================================
 
 BEGIN;
 
--- 1. Criação da tabela audit_logs (se não existir)
+-- ----------------------------------------------------------------------------
+-- 1. TABELA DE AUDITORIA: public.audit_logs
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   admin_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -36,12 +45,12 @@ COMMENT ON COLUMN public.audit_logs.action IS 'Ação administrativa executada (
 COMMENT ON COLUMN public.audit_logs.details IS 'Metadados da operação (campos alterados, cargo, etc. NUNCA senhas ou segredos)';
 COMMENT ON COLUMN public.audit_logs.created_at IS 'Carimbo de data e hora UTC da operação';
 
--- 2. Índices de consulta rápida
+-- Índices de consulta rápida
 CREATE INDEX IF NOT EXISTS idx_audit_logs_target_user ON public.audit_logs(target_user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(created_at DESC);
 
--- 3. Trigger para garantir imutabilidade (bloquear UPDATE e DELETE)
+-- Trigger para garantir imutabilidade estrita (bloquear UPDATE e DELETE)
 CREATE OR REPLACE FUNCTION public.prevent_audit_logs_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -59,10 +68,10 @@ CREATE TRIGGER trg_audit_logs_immutable
   FOR EACH ROW
   EXECUTE FUNCTION public.prevent_audit_logs_mutation();
 
--- 4. Habilitar Row Level Security (RLS)
+-- Habilitar Row Level Security (RLS)
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
--- 5. Policies de segurança
+-- Policies de segurança
 DROP POLICY IF EXISTS audit_logs_select_admin ON public.audit_logs;
 CREATE POLICY audit_logs_select_admin
   ON public.audit_logs FOR SELECT
@@ -73,7 +82,111 @@ CREATE POLICY audit_logs_insert_admin
   ON public.audit_logs FOR INSERT
   WITH CHECK (public.is_admin());
 
--- Revoga privilégios perigosos para authenticated
+-- Revoga privilégios para authenticated e anon
 REVOKE UPDATE, DELETE, TRUNCATE ON public.audit_logs FROM authenticated, anon;
+REVOKE INSERT ON public.audit_logs FROM anon;
+
+-- ----------------------------------------------------------------------------
+-- 2. BLINDAGEM DE CONCORRÊNCIA E LIMITES NO BANCO DE DADOS
+-- ----------------------------------------------------------------------------
+
+-- 2.1. Índice único parcial para garantir no máximo 1 Tesoureiro ativo/cadastrado
+CREATE UNIQUE INDEX IF NOT EXISTS idx_single_treasurer
+  ON public.profiles(role)
+  WHERE (role = 'treasurer');
+
+-- 2.2. Trigger com lock transacional consultivo para validar o limite de 4 Assistentes
+CREATE OR REPLACE FUNCTION public.check_max_assistants_limit()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_count integer;
+BEGIN
+  IF NEW.role = 'assistant' AND (TG_OP = 'INSERT' OR OLD.role IS DISTINCT FROM 'assistant') THEN
+    -- Bloqueio consultivo em nível de transação para serializar contagens concorrentes
+    PERFORM pg_advisory_xact_lock(hashtext('profiles_assistant_limit_lock'));
+    SELECT count(*) INTO v_count FROM public.profiles WHERE role = 'assistant' AND id <> NEW.id;
+    IF v_count >= 4 THEN
+      RAISE EXCEPTION 'Limite máximo de 4 assistentes atingido' USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_check_max_assistants ON public.profiles;
+CREATE TRIGGER trg_check_max_assistants
+  BEFORE INSERT OR UPDATE OF role ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.check_max_assistants_limit();
+
+-- 2.3. Trigger para validar o limite de 1 Tesoureiro
+CREATE OR REPLACE FUNCTION public.check_max_treasurer_limit()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_count integer;
+BEGIN
+  IF NEW.role = 'treasurer' AND (TG_OP = 'INSERT' OR OLD.role IS DISTINCT FROM 'treasurer') THEN
+    PERFORM pg_advisory_xact_lock(hashtext('profiles_treasurer_limit_lock'));
+    SELECT count(*) INTO v_count FROM public.profiles WHERE role = 'treasurer' AND id <> NEW.id;
+    IF v_count >= 1 THEN
+      RAISE EXCEPTION 'Limite máximo de 1 tesoureiro atingido' USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_check_max_treasurer ON public.profiles;
+CREATE TRIGGER trg_check_max_treasurer
+  BEFORE INSERT OR UPDATE OF role ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.check_max_treasurer_limit();
+
+-- ----------------------------------------------------------------------------
+-- 3. REVOGAÇÃO IMEDIATA DE ACESSO RESIDUAL (INVALIDAÇÃO DE JWT BANIDO)
+-- ----------------------------------------------------------------------------
+
+-- Atualiza public.current_user_role() para verificar banimento em tempo real em auth.users
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS text
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_role text;
+  v_banned timestamptz;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Checagem em tempo real de banimento em auth.users para bloquear tokens já emitidos
+  SELECT banned_until INTO v_banned
+  FROM auth.users
+  WHERE id = auth.uid();
+
+  IF v_banned IS NOT NULL AND v_banned > now() THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT role INTO v_role
+  FROM public.profiles
+  WHERE id = auth.uid();
+
+  RETURN v_role;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.current_user_role() TO anon, authenticated;
 
 COMMIT;

@@ -659,4 +659,205 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
       active: false,
     });
   });
+
+  // ── Revisão de Concorrência e Limites (Etapa Complementar) ────────────────
+  it("44) concorrência: recálculo pós-promoção detecta count > 4 -> cleanup completo e rejeita com 400", async () => {
+    const deps = baseDeps();
+    let callCount = 0;
+    // 1ª contagem (pré-criação) vê 3 vagas ocupadas.
+    // 2ª contagem (pós-promoção) vê 5 vagas ocupadas devido a requisição concorrente.
+    deps.countUsersByRole = vi.fn().mockImplementation(() => {
+      callCount++;
+      return Promise.resolve({ count: callCount === 1 ? 3 : 5, error: null });
+    });
+    deps.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteProfile = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteUser = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({ body: { action: "create", email: "race@rda.com", password: "123456", name: "Race Candidate" } }),
+      deps,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Maximum limit of 4 assistants reached" });
+    // Garante que a limpeza órfã completa foi executada
+    expect(deps.deletePermissions).toHaveBeenCalledWith("new-user-1");
+    expect(deps.deleteProfile).toHaveBeenCalledWith("new-user-1");
+    expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
+  });
+
+  it("45) duas requisições simultâneas disputando a 4ª vaga de assistente -> exatamente 1 vence, 1 é desfeita sem órfãos", async () => {
+    let assistantCount = 3;
+    const usersInAuth = new Set<string>();
+    const usersInProfiles = new Map<string, string>();
+
+    const makeSharedDeps = (userId: string) => {
+      const d = baseDeps();
+      d.createUser = vi.fn().mockImplementation(async () => {
+        usersInAuth.add(userId);
+        return { data: { user: { id: userId } }, error: null };
+      });
+      d.getProfile = vi.fn().mockImplementation(async (id: string) => {
+        return { data: [{ id, role: "visitor" }], error: null };
+      });
+      d.updateProfile = vi.fn().mockImplementation(async (id: string, patch: { role: string }) => {
+        usersInProfiles.set(id, patch.role);
+        if (patch.role === "assistant") {
+          assistantCount++;
+        }
+        return { error: null };
+      });
+      d.countUsersByRole = vi.fn().mockImplementation(async (role: string) => {
+        if (role === "assistant") return { count: assistantCount, error: null };
+        return { count: 0, error: null };
+      });
+      d.listAssistantProfiles = vi.fn().mockImplementation(async () => {
+        // Simula os 3 assistentes pré-existentes mais os novos inseridos na ordem
+        const existing = [
+          { id: "pre-1", name: "Pre 1", role: "assistant" },
+          { id: "pre-2", name: "Pre 2", role: "assistant" },
+          { id: "pre-3", name: "Pre 3", role: "assistant" },
+        ];
+        const added = Array.from(usersInProfiles.entries())
+          .filter(([_, role]) => role === "assistant")
+          .map(([id, role]) => ({ id, name: id, role }));
+        return { data: [...existing, ...added], error: null };
+      });
+      d.deleteUser = vi.fn().mockImplementation(async (id: string) => {
+        usersInAuth.delete(id);
+        return { error: null };
+      });
+      d.deleteProfile = vi.fn().mockImplementation(async (id: string) => {
+        if (usersInProfiles.get(id) === "assistant") {
+          assistantCount--;
+        }
+        usersInProfiles.delete(id);
+        return { error: null };
+      });
+      d.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+      return d;
+    };
+
+    const deps1 = makeSharedDeps("user-slot-4a");
+    const deps2 = makeSharedDeps("user-slot-4b");
+
+    const [res1, res2] = await Promise.all([
+      handleRequest(makeRequest({ body: { action: "create", email: "candA@rda.com", password: "123456", name: "Candidato A" } }), deps1),
+      handleRequest(makeRequest({ body: { action: "create", email: "candB@rda.com", password: "123456", name: "Candidato B" } }), deps2),
+    ]);
+
+    const statuses = [res1.status, res2.status];
+    expect(statuses).toContain(200);
+    expect(statuses).toContain(400);
+
+    // No final da corrida, o total de assistentes DEVE ser rigorosamente 4
+    expect(assistantCount).toBe(4);
+    // Nenhum usuário órfão pode permanecer no Auth ou Profiles
+    expect(usersInAuth.size).toBe(1);
+    expect(usersInProfiles.size).toBe(1);
+  });
+
+  it("46) duas requisições simultâneas disputando vaga de tesoureiro -> exatamente 1 vence e 1 é rejeitada", async () => {
+    let treasurerCount = 0;
+    const usersInAuth = new Set<string>();
+    const usersInProfiles = new Map<string, string>();
+
+    const makeSharedTreasurerDeps = (userId: string) => {
+      const d = baseDeps();
+      d.createUser = vi.fn().mockImplementation(async () => {
+        usersInAuth.add(userId);
+        return { data: { user: { id: userId } }, error: null };
+      });
+      d.getProfile = vi.fn().mockImplementation(async (id: string) => {
+        return { data: [{ id, role: "visitor" }], error: null };
+      });
+      d.updateProfile = vi.fn().mockImplementation(async (id: string, patch: { role: string }) => {
+        usersInProfiles.set(id, patch.role);
+        if (patch.role === "treasurer") treasurerCount++;
+        return { error: null };
+      });
+      d.countUsersByRole = vi.fn().mockImplementation(async (role: string) => {
+        if (role === "treasurer") return { count: treasurerCount, error: null };
+        return { count: 0, error: null };
+      });
+      d.listAssistantProfiles = vi.fn().mockImplementation(async () => {
+        const added = Array.from(usersInProfiles.entries())
+          .filter(([_, role]) => role === "treasurer")
+          .map(([id, role]) => ({ id, name: id, role }));
+        return { data: added, error: null };
+      });
+      d.deleteUser = vi.fn().mockImplementation(async (id: string) => {
+        usersInAuth.delete(id);
+        treasurerCount = Math.max(0, treasurerCount - 1);
+        return { error: null };
+      });
+      d.deleteProfile = vi.fn().mockImplementation(async (id: string) => {
+        usersInProfiles.delete(id);
+        return { error: null };
+      });
+      d.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+      return d;
+    };
+
+    const deps1 = makeSharedTreasurerDeps("trs-slot-a");
+    const deps2 = makeSharedTreasurerDeps("trs-slot-b");
+
+    const [res1, res2] = await Promise.all([
+      handleRequest(makeRequest({ body: { action: "create", email: "trsa@rda.com", password: "123456", name: "Tesoureiro A", targetRole: "treasurer" } }), deps1),
+      handleRequest(makeRequest({ body: { action: "create", email: "trsb@rda.com", password: "123456", name: "Tesoureiro B", targetRole: "treasurer" } }), deps2),
+    ]);
+
+    const statuses = [res1.status, res2.status];
+    expect(statuses).toContain(200);
+    expect(statuses).toContain(400);
+    expect(treasurerCount).toBe(1);
+    expect(usersInAuth.size).toBe(1);
+  });
+
+  it("47) resiliência a falha parcial na exclusão: se o profile já foi apagado mas auth user persiste, delete conclui com sucesso", async () => {
+    const deps = baseDeps();
+    // Admin caller é admin; target profile não existe mais (foi excluído em tentativa prévia com falha no deleteUser)
+    deps.getProfileRole = vi.fn((userId: string) =>
+      Promise.resolve(
+        userId === ADMIN_ID
+          ? { data: { role: "admin" }, error: null }
+          : { data: null, error: null },
+      ),
+    );
+    // Mas o usuário ainda existe no Supabase Auth
+    deps.getUserById = vi.fn().mockResolvedValue({
+      data: { user: { id: "orphan-auth-123" } },
+      error: null,
+    });
+    deps.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteProfile = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteUser = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({ body: { action: "delete", assistant_id: "orphan-auth-123" } }),
+      deps,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(deps.deleteUser).toHaveBeenCalledWith("orphan-auth-123");
+  });
+
+  it("48) falha na promoção por restrição do banco -> dispara cleanup completo e retorna 400", async () => {
+    const deps = baseDeps();
+    deps.updateProfile = vi.fn().mockResolvedValue({ error: new Error("check_violation: Limite de 4 assistentes atingido") });
+    deps.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteProfile = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteUser = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({ body: { action: "create", email: "db_limit@rda.com", password: "123456", name: "Limit Test" } }),
+      deps,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Maximum limit of 4 assistants reached" });
+    expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
+  });
 });

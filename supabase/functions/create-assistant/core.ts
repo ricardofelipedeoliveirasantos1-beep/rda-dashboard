@@ -60,10 +60,24 @@ function safeLog(prefix: string, err: unknown) {
 }
 
 // ---------------------------------------------------------------------------
-// Cleanup: exclui SOMENTE o UUID criado nesta requisição
+// Cleanup: exclui permissions, profile e auth user do UUID criado nesta requisição
 // ---------------------------------------------------------------------------
 async function orphanSafeCleanup(deps: Deps, createdUserId: string, reason: string) {
   safeLog("cleanup", `${reason} — removendo usuario orfao ${createdUserId}`);
+  try {
+    if (deps.deletePermissions) {
+      await deps.deletePermissions(createdUserId);
+    }
+  } catch (e) {
+    safeLog("cleanup perms", e);
+  }
+  try {
+    if (deps.deleteProfile) {
+      await deps.deleteProfile(createdUserId);
+    }
+  } catch (e) {
+    safeLog("cleanup profile", e);
+  }
   const { error } = await deps.deleteUser(createdUserId);
   if (error) {
     safeLog("cleanup failed", `nao consegui excluir ${createdUserId}: ${String(error)}`);
@@ -107,7 +121,7 @@ async function handleCreate(
     return fail(HTTP_BAD_REQUEST, "Password must be exactly 6 digits");
   }
 
-  // Verificação de limites baseada no cargo alvo
+  // Verificação prévia de limites baseada no cargo alvo (evita criar auth se já estiver no limite)
   const { count, error: countError } = await deps.countUsersByRole(targetRole);
   if (countError) {
     safeLog("count", countError);
@@ -139,22 +153,6 @@ async function handleCreate(
     return fail(HTTP_INTERNAL, "User creation failed");
   }
 
-  // Re-contagem pós-criação (mitigação de corrida no limite)
-  const { count: afterCount, error: recountError } = await deps.countUsersByRole(targetRole);
-  if (recountError) {
-    safeLog("recount", recountError);
-    await orphanSafeCleanup(deps, newUserId, "recount falhou");
-    return fail(HTTP_INTERNAL, `Error validating ${targetRole} count`);
-  }
-  if (targetRole === "assistant" && (afterCount ?? 0) > MAX_ASSISTANTS) {
-    await orphanSafeCleanup(deps, newUserId, `excedeu limite de ${MAX_ASSISTANTS} (corrida)`);
-    return fail(HTTP_BAD_REQUEST, `Maximum limit of ${MAX_ASSISTANTS} assistants reached`);
-  }
-  if (targetRole === "treasurer" && (afterCount ?? 0) > MAX_TREASURERS) {
-    await orphanSafeCleanup(deps, newUserId, `excedeu limite de ${MAX_TREASURERS} (corrida)`);
-    return fail(HTTP_BAD_REQUEST, `Maximum limit of ${MAX_TREASURERS} treasurer reached`);
-  }
-
   try {
     // Confirmar que a trigger handle_new_user criou o profile (com retry)
     let profileRows: { id: string }[] | null = null;
@@ -181,7 +179,44 @@ async function handleCreate(
     if (promoteError) {
       safeLog("promote", promoteError);
       await orphanSafeCleanup(deps, newUserId, "promocao de profile falhou");
-      return fail(HTTP_INTERNAL, "Failed to promote profile");
+      return fail(
+        HTTP_BAD_REQUEST,
+        targetRole === "treasurer"
+          ? `Maximum limit of ${MAX_TREASURERS} treasurer reached`
+          : `Maximum limit of ${MAX_ASSISTANTS} assistants reached`,
+      );
+    }
+
+    // Re-contagem pós-promoção (mitigação definitiva de corrida no limite de perfis)
+    const { count: afterCount, error: recountError } = await deps.countUsersByRole(targetRole);
+    if (recountError) {
+      safeLog("recount", recountError);
+      await orphanSafeCleanup(deps, newUserId, "recount falhou");
+      return fail(HTTP_INTERNAL, `Error validating ${targetRole} count`);
+    }
+
+    const limit = targetRole === "assistant" ? MAX_ASSISTANTS : MAX_TREASURERS;
+    if ((afterCount ?? 0) > limit) {
+      // Se requisições simultâneas promoveram ao mesmo tempo, desempata por ordem de chegada (FIFO):
+      let isExceeded = true;
+      if (deps.listAssistantProfiles) {
+        const { data: allProfiles } = await deps.listAssistantProfiles();
+        const roleProfiles = (allProfiles ?? []).filter((p) => p.role === targetRole);
+        const myIndex = roleProfiles.findIndex((p) => p.id === newUserId);
+        if (myIndex >= 0 && myIndex < limit) {
+          isExceeded = false;
+        }
+      }
+
+      if (isExceeded) {
+        await orphanSafeCleanup(deps, newUserId, `excedeu limite de ${limit} (corrida)`);
+        return fail(
+          HTTP_BAD_REQUEST,
+          targetRole === "treasurer"
+            ? `Maximum limit of ${MAX_TREASURERS} treasurer reached`
+            : `Maximum limit of ${MAX_ASSISTANTS} assistants reached`,
+        );
+      }
     }
 
     if (targetRole === "assistant") {
@@ -430,14 +465,24 @@ async function resolveAssistant(deps: Deps, assistantId: string) {
     return { error: fail(HTTP_BAD_REQUEST, "assistant_id is required") };
   }
   const { data: targetProfile, error: targetError } = await deps.getProfileRole(assistantId);
-  if (targetError || !targetProfile || (targetProfile.role !== "assistant" && targetProfile.role !== "treasurer")) {
-    return { error: fail(HTTP_BAD_REQUEST, "Target user is not an assistant or treasurer") };
+  if (!targetError && targetProfile) {
+    if (targetProfile.role !== "assistant" && targetProfile.role !== "treasurer") {
+      return { error: fail(HTTP_BAD_REQUEST, "Target user is not an assistant or treasurer") };
+    }
+    const { data: targetUser, error: authTargetError } = await deps.getUserById(assistantId);
+    if (authTargetError || !targetUser?.user) {
+      return { error: fail(HTTP_BAD_REQUEST, "Target auth user not found") };
+    }
+    return { assistantId, targetRole: targetProfile.role };
   }
-  const { data: targetUser, error: authTargetError } = await deps.getUserById(assistantId);
-  if (authTargetError || !targetUser?.user) {
-    return { error: fail(HTTP_BAD_REQUEST, "Target auth user not found") };
+
+  // Recuperação de falha parcial anterior: se o profile já foi removido mas o auth user ainda existe
+  const { data: targetUser } = await deps.getUserById(assistantId);
+  if (targetUser?.user) {
+    return { assistantId, targetRole: "assistant" };
   }
-  return { assistantId, targetRole: targetProfile.role };
+
+  return { error: fail(HTTP_BAD_REQUEST, "Target user is not an assistant or treasurer") };
 }
 
 // ---------------------------------------------------------------------------
