@@ -4,37 +4,54 @@
 -- Projeto: RDA — Racha dos Amigos (bdpocxppyoavqbpcmfdb)
 --
 -- INSTRUÇÕES:
--- 1. Execute este script no Supabase SQL Editor ANTES da migração 31.
--- 2. Este script é 100% READ-ONLY (nenhum dado ou tabela é alterado).
--- 3. Se qualquer item acusar 'BLOQUEIO — NÃO EXECUTAR', a migração NÃO deve ser aplicada.
+-- 1. Execute este script no Supabase SQL Editor ANTES de aplicar o SQL 31 e SQL 32.
+-- 2. Este script é 100% READ-ONLY (contém EXCLUSIVAMENTE consultas SELECT).
+-- 3. Nenhum dado, tabela, função, trigger ou permissão é modificado.
+-- 4. Se qualquer item indicar 'BLOQUEIO', resolva a inconsistência antes de migrar.
+--
+-- REGRAS DE NEGÓCIO VALIDADAS:
+-- - Máximo de 4 assistentes (role = 'assistant')
+-- - Máximo de 1 tesoureiro (role = 'treasurer')
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 1. VERIFICAÇÃO DE LIMITES: Assistentes (Máximo 4) e Tesoureiro (Máximo 1)
+-- 1. VERIFICAÇÃO DE LIMITES: Assistentes (Máx 4) e Tesoureiro (Máx 1)
 -- ----------------------------------------------------------------------------
+-- Retorna SEMPRE uma linha para cada cargo, mesmo que a contagem atual seja zero.
 SELECT 
-  role,
-  count(*) AS total_cadastrado,
+  'assistant' AS cargo,
+  pg_catalog.count(*) AS total_cadastrado,
   CASE 
-    WHEN role = 'treasurer' AND count(*) > 1 THEN 'BLOQUEIO — Mais de 1 tesoureiro existente. A criação do índice único falhará.'
-    WHEN role = 'assistant' AND count(*) > 4 THEN 'BLOQUEIO — Mais de 4 assistentes existentes. A trigger bloqueará operações.'
-    WHEN role = 'treasurer' AND count(*) <= 1 THEN 'LIBERADO — Tesoureiro dentro do limite permitido (máx 1).'
-    WHEN role = 'assistant' AND count(*) <= 4 THEN 'LIBERADO — Assistentes dentro do limite permitido (máx 4).'
-    ELSE 'OK'
+    WHEN count(*) > 4 THEN 'BLOQUEIO — Mais de 4 assistentes existentes. Reduza o excedente antes de aplicar o SQL 31.'
+    ELSE 'LIBERADO — ' || count(*) || ' assistente(s) cadastrado(s) (limite permitido: máx 4).'
   END AS status_pre_voo
 FROM public.profiles
-WHERE role IN ('assistant', 'treasurer')
-GROUP BY role;
+WHERE role = 'assistant'
+UNION ALL
+SELECT 
+  'treasurer' AS cargo,
+  pg_catalog.count(*) AS total_cadastrado,
+  CASE 
+    WHEN count(*) > 1 THEN 'BLOQUEIO — Mais de 1 tesoureiro existente. A criação do índice único idx_single_treasurer falhará.'
+    ELSE 'LIBERADO — ' || count(*) || ' tesoureiro(s) cadastrado(s) (limite permitido: máx 1).'
+  END AS status_pre_voo
+FROM public.profiles
+WHERE role = 'treasurer';
 
 -- ----------------------------------------------------------------------------
 -- 2. DETALHAMENTO DAS CONTAS EXISTENTES (Assistentes e Tesoureiro)
 -- ----------------------------------------------------------------------------
+-- Lista todas as contas com perfil administrativo atual para conferência nominal.
 SELECT 
   p.id AS profile_id,
   p.name AS nome_cadastrado,
   p.role AS cargo,
   u.email AS email_auth,
-  CASE WHEN u.banned_until IS NOT NULL AND u.banned_until > now() THEN 'BANIDO / DESATIVADO' ELSE 'ATIVO' END AS situacao_auth,
+  CASE 
+    WHEN u.id IS NULL THEN 'ALERTA: ÓRFÃO (Sem auth.users)'
+    WHEN u.banned_until IS NOT NULL AND u.banned_until > pg_catalog.now() THEN 'BANIDO / DESATIVADO' 
+    ELSE 'ATIVO' 
+  END AS situacao_auth,
   p.created_at AS data_criacao
 FROM public.profiles p
 LEFT JOIN auth.users u ON p.id = u.id
@@ -44,20 +61,45 @@ ORDER BY p.role, p.created_at ASC;
 -- ----------------------------------------------------------------------------
 -- 3. DETECÇÃO DE PERFIS ÓRFÃOS (Perfis sem correspondência em auth.users)
 -- ----------------------------------------------------------------------------
+-- Se esta consulta retornar alguma linha, há perfis criados sem conta de login no Auth.
 SELECT 
-  p.id, 
-  p.name, 
-  p.role, 
+  p.id AS profile_id_orfao, 
+  p.name AS nome, 
+  p.role AS cargo, 
   p.created_at,
-  'ALERTA — Perfil existe na tabela profiles mas não existe em auth.users' AS observacao
+  'ALERTA — Perfil existe em public.profiles mas não existe em auth.users' AS observacao
 FROM public.profiles p
 LEFT JOIN auth.users u ON p.id = u.id
 WHERE u.id IS NULL;
 
 -- ----------------------------------------------------------------------------
--- 4. VERIFICAÇÃO DE EXISTÊNCIA E COMPATIBILIDADE DE public.audit_logs
+-- 4. VERIFICAÇÃO DE RESTRIÇÕES CHECK ATUAIS EM public.profiles (Relevante p/ SQL 32)
+-- ----------------------------------------------------------------------------
+-- Inspeciona a constraint 'profiles_role_check' para confirmar quais papéis ela aceita hoje.
+SELECT 
+  con.conname AS nome_constraint,
+  con.contype AS tipo,
+  pg_catalog.pg_get_constraintdef(con.oid) AS definicao_sql,
+  CASE 
+    WHEN pg_catalog.pg_get_constraintdef(con.oid) ~* '\mtreasurer\M' THEN 'Já aceita treasurer'
+    ELSE 'Restritiva — NÃO aceita treasurer (exige atualização pelo SQL 32)'
+  END AS avaliacao_para_sql32
+FROM pg_catalog.pg_constraint con
+JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
+JOIN pg_catalog.pg_namespace nsp ON nsp.oid = rel.relnamespace
+WHERE nsp.nspname = 'public'
+  AND rel.relname = 'profiles'
+  AND con.contype = 'c'
+  AND (
+    con.conname ILIKE '%role%'
+    OR pg_catalog.pg_get_constraintdef(con.oid) ILIKE '%role%'
+  );
+
+-- ----------------------------------------------------------------------------
+-- 5. VERIFICAÇÃO DE EXISTÊNCIA E COMPATIBILIDADE DE public.audit_logs (SQL 31)
 -- ----------------------------------------------------------------------------
 SELECT 
+  table_schema,
   table_name,
   column_name,
   data_type,
@@ -69,14 +111,29 @@ WHERE table_schema = 'public'
 ORDER BY ordinal_position;
 
 -- ----------------------------------------------------------------------------
--- 5. VERIFICAÇÃO DE CONFLITOS DE ÍNDICES PREEXISTENTES
+-- 6. VERIFICAÇÃO DE EXISTÊNCIA DE public.treasurer_permissions (SQL 32)
+-- ----------------------------------------------------------------------------
+SELECT 
+  table_schema,
+  table_name,
+  column_name,
+  data_type,
+  is_nullable,
+  column_default
+FROM information_schema.columns
+WHERE table_schema = 'public' 
+  AND table_name = 'treasurer_permissions'
+ORDER BY ordinal_position;
+
+-- ----------------------------------------------------------------------------
+-- 7. VERIFICAÇÃO DE ÍNDICES PREEXISTENTES (Conflitos potenciais)
 -- ----------------------------------------------------------------------------
 SELECT 
   schemaname, 
   tablename, 
   indexname, 
   indexdef
-FROM pg_indexes
+FROM pg_catalog.pg_indexes
 WHERE schemaname = 'public'
   AND indexname IN (
     'idx_single_treasurer', 
@@ -86,7 +143,7 @@ WHERE schemaname = 'public'
   );
 
 -- ----------------------------------------------------------------------------
--- 6. VERIFICAÇÃO DE TRIGGERS E FUNÇÕES A SEREM CRIADAS OU SUBSTITUÍDAS
+-- 8. VERIFICAÇÃO DE TRIGGERS E FUNÇÕES A SEREM CRIADAS OU ATUALIZADAS
 -- ----------------------------------------------------------------------------
 SELECT 
   trigger_name, 
@@ -98,7 +155,8 @@ WHERE trigger_schema = 'public'
   AND trigger_name IN (
     'trg_check_max_assistants', 
     'trg_check_max_treasurer', 
-    'trg_audit_logs_immutable'
+    'trg_audit_logs_immutable',
+    'trg_profiles_protect_role'
   );
 
 SELECT 
@@ -112,15 +170,15 @@ WHERE routine_schema = 'public'
     'current_user_role', 
     'check_max_assistants_limit', 
     'check_max_treasurer_limit', 
-    'prevent_audit_logs_mutation'
+    'prevent_audit_logs_mutation',
+    'prevent_nonadmin_role_change',
+    'is_admin'
   );
 
 -- ----------------------------------------------------------------------------
--- 7. DEPENDÊNCIAS DE public.current_user_role() NO CATÁLOGO
+-- 9. DEPENDÊNCIAS DE public.current_user_role() NO CATÁLOGO
 -- ----------------------------------------------------------------------------
--- NOTA TÉCNICA: Identifica objetos registrados no catálogo pg_depend do PostgreSQL
--- (como políticas RLS, views e triggers). Dependências em corpos de funções SQL ou
--- PL/pgSQL podem não constar como dependências de catálogo se compiladas tardiamente.
+-- Inspeciona objetos do catálogo que invocam current_user_role().
 SELECT 
   n.nspname || '.' || p.proname AS funcao_origem,
   d.classid::regclass::text AS tipo_catalogo_dependente,
@@ -138,30 +196,3 @@ LEFT JOIN pg_catalog.pg_class c ON (
 WHERE n.nspname = 'public' 
   AND p.proname = 'current_user_role'
 ORDER BY descricao_objeto_dependente ASC;
-
--- ----------------------------------------------------------------------------
--- 8. POLÍTICAS RLS ATUAIS (profiles e audit_logs)
--- ----------------------------------------------------------------------------
-SELECT 
-  schemaname, 
-  tablename, 
-  policyname, 
-  cmd, 
-  roles
-FROM pg_policies
-WHERE schemaname = 'public' 
-  AND tablename IN ('profiles', 'audit_logs')
-ORDER BY tablename, policyname;
-
--- ----------------------------------------------------------------------------
--- 9. PRIVILÉGIOS DE TABELA ATUAIS (profiles e audit_logs)
--- ----------------------------------------------------------------------------
-SELECT 
-  grantee, 
-  table_schema, 
-  table_name, 
-  privilege_type
-FROM information_schema.role_table_grants
-WHERE table_schema = 'public' 
-  AND table_name IN ('profiles', 'audit_logs')
-ORDER BY table_name, grantee;
