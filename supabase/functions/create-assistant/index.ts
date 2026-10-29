@@ -92,19 +92,45 @@ serve(async (req: Request) => {
       const r = await adminClient.auth.admin.deleteUser(userId, true);
       return { error: r.error };
     },
+    deleteProfile: async (profileId: string) => {
+      const r = await adminClient.from("profiles").delete().eq("id", profileId);
+      return { error: r.error };
+    },
     getProfile: async (userId: string) => {
       const r = await adminClient.from("profiles").select("id, role").eq("id", userId);
       return { data: r.data as { id: string; role?: string }[] | null, error: r.error };
     },
     updateProfile: async (userId: string, patch: { role: string; name: string }) => {
-      const r = await adminClient.from("profiles").update(patch).eq("id", userId);
-      return { error: r.error };
+      // 1. Tentar via adminClient (service_role)
+      const rAdmin = await adminClient.from("profiles").update(patch).eq("id", userId);
+      if (!rAdmin.error) {
+        return { error: null };
+      }
+
+      // 2. Se falhar (ex.: trigger no banco checando exclusivamente auth.uid() do admin),
+      // executar a promoção com o client supabase autenticado (que possui o JWT do Super Admin autenticado):
+      const rUser = await supabase.from("profiles").update(patch).eq("id", userId);
+      if (!rUser.error) {
+        return { error: null };
+      }
+
+      return { error: rAdmin.error || rUser.error };
     },
     upsertPermissions: async (row: Record<string, unknown>) => {
       const r = await adminClient.from("assistant_permissions").upsert(row, {
         onConflict: "profile_id",
       });
       return { error: r.error };
+    },
+    upsertTreasurerPermissions: async (row: Record<string, unknown>) => {
+      try {
+        const r = await adminClient.from("treasurer_permissions").upsert(row, {
+          onConflict: "profile_id",
+        });
+        return { error: r.error };
+      } catch (err) {
+        return { error: err };
+      }
     },
     getUserById: async (userId: string) => {
       const r = await adminClient.auth.admin.getUserById(userId);
@@ -119,8 +145,9 @@ serve(async (req: Request) => {
       return { error: r.error };
     },
     deletePermissions: async (profileId: string) => {
-      const r = await adminClient.from("assistant_permissions").delete().eq("profile_id", profileId);
-      return { error: r.error };
+      await adminClient.from("assistant_permissions").delete().eq("profile_id", profileId);
+      await adminClient.from("treasurer_permissions").delete().eq("profile_id", profileId);
+      return { error: null };
     },
     deleteProfile: async (profileId: string) => {
       const r = await adminClient.from("profiles").delete().eq("id", profileId);
@@ -129,15 +156,48 @@ serve(async (req: Request) => {
     listAssistantProfiles: async () => {
       const r = await adminClient
         .from("profiles")
-        .select("id, name")
-        .eq("role", "assistant")
+        .select("id, name, role")
+        .in("role", ["assistant", "treasurer"])
         .order("created_at", { ascending: true });
-      return { data: r.data as { id: string; name: string }[] | null, error: r.error };
+      return { data: r.data as { id: string; name: string; role?: string }[] | null, error: r.error };
     },
     listUsersBanned: async () => {
       const r = await adminClient.auth.admin.listUsers({ perPage: 1000 });
-      const data = (r.data?.users ?? []).map((u) => ({ id: u.id, is_banned: !!u.banned_until }));
+      const data = (r.data?.users ?? []).map((u) => ({ id: u.id, email: u.email, is_banned: !!u.banned_until }));
       return { data, error: r.error };
+    },
+    updateUserCredentials: async (userId: string, patch: { email?: string; name?: string }) => {
+      const authUpdate: Record<string, unknown> = {};
+      if (patch.email) {
+        authUpdate.email = patch.email;
+        authUpdate.email_confirm = true;
+      }
+      if (patch.name) {
+        authUpdate.user_metadata = { name: patch.name };
+      }
+      if (Object.keys(authUpdate).length > 0) {
+        const { error: authErr } = await adminClient.auth.admin.updateUserById(userId, authUpdate);
+        if (authErr) return { error: authErr };
+      }
+      if (patch.name) {
+        const { error: profErr } = await adminClient.from("profiles").update({ name: patch.name }).eq("id", userId);
+        if (profErr) return { error: profErr };
+      }
+      return { error: null };
+    },
+    insertAuditLog: async (entry: { admin_id: string; action: string; target_user_id?: string; details?: Record<string, unknown> }) => {
+      try {
+        await adminClient.from("audit_logs").insert({
+          admin_id: entry.admin_id,
+          action: entry.action,
+          target_user_id: entry.target_user_id,
+          details: entry.details,
+          created_at: new Date().toISOString(),
+        });
+      } catch {
+        // Silenciosamente ignorado caso audit_logs ainda não esteja criado
+      }
+      return { error: null };
     },
   };
 

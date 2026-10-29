@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
-import { DollarSign, Save, AlertCircle, Check, ClipboardList, History, ChevronDown, ChevronUp, FileText, Users, User, Shield, Plus, X, Loader2 } from 'lucide-react';
+import { DollarSign, Save, AlertCircle, Check, ClipboardList, History, ChevronDown, ChevronUp, FileText, Users, User, Shield, Plus, X, Loader2, Eye, EyeOff } from 'lucide-react';
 import LancarHistoricoManual from './LancarHistoricoManual';
 import ImportarPlanilha from './ImportarPlanilha';
 
@@ -66,6 +66,8 @@ export default function Configuracoes({
   const [createEmail, setCreateEmail] = useState('');
   const [createPassword, setCreatePassword] = useState('');
   const [createConfirmPassword, setCreateConfirmPassword] = useState('');
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [showCreateConfirmPassword, setShowCreateConfirmPassword] = useState(false);
   const [creatingAssistant, setCreatingAssistant] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState(false);
@@ -83,17 +85,32 @@ export default function Configuracoes({
   });
   const [savingPerms, setSavingPerms] = useState(false);
 
-  // Change password modal state
+  // Change password modal state (Redefinir Senha)
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pwAssistantId, setPwAssistantId] = useState<string | null>(null);
   const [pwAssistantName, setPwAssistantName] = useState('');
+  const [pwAssistantRole, setPwAssistantRole] = useState<'assistant' | 'treasurer'>('assistant');
+  const [pwAssistantEmail, setPwAssistantEmail] = useState<string>('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState<string | null>(null);
 
   // Status de ativação dos assistentes (active = true por padrão)
   const [assistantStatus, setAssistantStatus] = useState<Map<string, boolean>>(new Map());
+  const [userEmails, setUserEmails] = useState<Map<string, string>>(new Map());
+
+  // Edit credentials modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editUserId, setEditUserId] = useState<string | null>(null);
+  const [editUserName, setEditUserName] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserRole, setEditUserRole] = useState<'assistant' | 'treasurer'>('assistant');
+  const [editingCredentials, setEditingCredentials] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Current admin email
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
@@ -263,12 +280,14 @@ export default function Configuracoes({
     setCreateError(null);
     setCreateSuccess(false);
 
+    const isTreasurer = createRole === 'treasurer';
+
     if (!createName.trim()) {
-      setCreateError('Informe o nome do assistente.');
+      setCreateError(isTreasurer ? 'Informe o nome do tesoureiro.' : 'Informe o nome do assistente.');
       return;
     }
     if (!createEmail.trim()) {
-      setCreateError('Informe o e-mail do assistente.');
+      setCreateError(isTreasurer ? 'Informe o e-mail do tesoureiro.' : 'Informe o e-mail do assistente.');
       return;
     }
     if (!validatePassword(createPassword)) {
@@ -279,8 +298,8 @@ export default function Configuracoes({
       setCreateError('As senhas não conferem.');
       return;
     }
-    if (createRole === 'assistant' && assistants.length >= 2) {
-      setCreateError('Limite máximo de 2 assistentes atingido.');
+    if (createRole === 'assistant' && assistants.length >= 4) {
+      setCreateError('Limite máximo de 4 assistentes atingido.');
       return;
     }
     if (createRole === 'treasurer' && treasurers.length >= 1) {
@@ -305,6 +324,7 @@ export default function Configuracoes({
             'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
+            action: 'create',
             email: createEmail.trim(),
             password: createPassword,
             name: createName.trim(),
@@ -316,7 +336,7 @@ export default function Configuracoes({
       const result = await response.json();
 
       if (!response.ok) {
-        setCreateError(result.error || 'Erro ao criar assistente.');
+        setCreateError(result.error || (isTreasurer ? 'Erro ao criar tesoureiro.' : 'Erro ao criar assistente.'));
         return;
       }
 
@@ -325,6 +345,8 @@ export default function Configuracoes({
       setCreateEmail('');
       setCreatePassword('');
       setCreateConfirmPassword('');
+      setShowCreatePassword(false);
+      setShowCreateConfirmPassword(false);
 
       // Refresh assistants and treasurers list
       const { data: profiles } = await supabase
@@ -336,13 +358,14 @@ export default function Configuracoes({
         setAssistants(profiles.filter(p => p.role === 'assistant'));
         setTreasurers(profiles.filter(p => p.role === 'treasurer'));
       }
+      await loadAssistantStatus();
 
       setTimeout(() => {
         setShowCreateModal(false);
         setCreateSuccess(false);
       }, 1500);
     } catch (err: any) {
-      console.error('Erro ao criar assistente:', err);
+      console.error(isTreasurer ? 'Erro ao criar tesoureiro:' : 'Erro ao criar assistente:', err);
       setCreateError('Erro de conexão com o servidor.');
     } finally {
       setCreatingAssistant(false);
@@ -410,6 +433,7 @@ export default function Configuracoes({
 
   const handleChangePassword = async () => {
     setPwError(null);
+    setPwSuccess(null);
 
     if (!validatePassword(newPassword)) {
       setPwError('A senha deve conter exatamente 6 números.');
@@ -447,16 +471,21 @@ export default function Configuracoes({
       const result = await response.json();
 
       if (!response.ok) {
-        setPwError(result.error || 'Erro ao alterar senha.');
+        setPwError(result.error || 'Erro ao redefinir senha.');
         return;
       }
 
-      setShowPasswordModal(false);
-      setNewPassword('');
-      setConfirmNewPassword('');
-      alert('Senha alterada com sucesso!');
+      setPwSuccess('Senha redefinida com sucesso!');
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setShowNewPassword(false);
+        setShowConfirmNewPassword(false);
+        setPwSuccess(null);
+      }, 1400);
     } catch (err: any) {
-      console.error('Erro ao alterar senha:', err);
+      console.error('Erro ao redefinir senha:', err);
       setPwError('Erro de conexão com o servidor.');
     } finally {
       setChangingPassword(false);
@@ -482,11 +511,81 @@ export default function Configuracoes({
       const result = await response.json();
       if (response.ok && Array.isArray(result.assistants)) {
         const statusMap = new Map<string, boolean>();
-        result.assistants.forEach((a: any) => statusMap.set(a.id, a.active));
+        const emailsMap = new Map<string, string>();
+        result.assistants.forEach((a: any) => {
+          statusMap.set(a.id, a.active);
+          if (a.email) emailsMap.set(a.id, a.email);
+        });
         setAssistantStatus(statusMap);
+        setUserEmails(emailsMap);
       }
     } catch (err) {
       console.error('Erro ao carregar status dos assistentes:', err);
+    }
+  };
+
+  const handleUpdateCredentials = async () => {
+    setEditError(null);
+    if (!editUserName.trim()) {
+      setEditError('Informe o nome do usuário.');
+      return;
+    }
+    if (!editUserEmail.trim()) {
+      setEditError('Informe o e-mail do usuário.');
+      return;
+    }
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(editUserEmail.trim())) {
+      setEditError('Formato de e-mail inválido.');
+      return;
+    }
+
+    setEditingCredentials(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setEditError('Sessão não encontrada. Faça login novamente.');
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-assistant`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            action: 'update_credentials',
+            assistant_id: editUserId,
+            name: editUserName.trim(),
+            email: editUserEmail.trim().toLowerCase(),
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        setEditError(result.error || 'Erro ao atualizar credenciais.');
+        return;
+      }
+
+      if (editUserRole === 'treasurer') {
+        setTreasurers(prev => prev.map(t => t.id === editUserId ? { ...t, name: editUserName.trim() } : t));
+      } else {
+        setAssistants(prev => prev.map(a => a.id === editUserId ? { ...a, name: editUserName.trim() } : a));
+      }
+      const nextEmails = new Map(userEmails);
+      nextEmails.set(editUserId!, editUserEmail.trim().toLowerCase());
+      setUserEmails(nextEmails);
+
+      setShowEditModal(false);
+      alert('Credenciais atualizadas com sucesso!');
+    } catch (err: any) {
+      console.error('Erro ao atualizar credenciais:', err);
+      setEditError('Erro de conexão com o servidor.');
+    } finally {
+      setEditingCredentials(false);
     }
   };
 
@@ -1166,11 +1265,11 @@ export default function Configuracoes({
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>Assistentes</span>
                   <span style={{
                     fontSize: '0.75rem', fontWeight: 700, padding: '4px 10px', borderRadius: '8px',
-                    backgroundColor: assistants.length >= 2 ? 'rgba(239,68,68,0.12)' : 'rgba(99,102,241,0.12)',
-                    color: assistants.length >= 2 ? '#f87171' : '#818cf8',
-                    border: `1px solid ${assistants.length >= 2 ? 'rgba(239,68,68,0.25)' : 'rgba(99,102,241,0.25)'}`
+                    backgroundColor: assistants.length >= 4 ? 'rgba(239,68,68,0.12)' : 'rgba(99,102,241,0.12)',
+                    color: assistants.length >= 4 ? '#f87171' : '#818cf8',
+                    border: `1px solid ${assistants.length >= 4 ? 'rgba(239,68,68,0.25)' : 'rgba(99,102,241,0.25)'}`
                   }}>
-                    {assistants.length} / 2
+                    {assistants.length} / 4
                   </span>
                 </div>
 
@@ -1202,7 +1301,10 @@ export default function Configuracoes({
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                           <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff' }}>{assistant.name}</span>
-                          <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 600 }}>Assistente</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {userEmails.get(assistant.id) || 'Email não disponível'}
+                          </span>
+                          <span style={{ fontSize: '0.70rem', color: '#38bdf8', fontWeight: 600, marginTop: '2px' }}>Assistente</span>
                         </div>
                         <span style={{
                           fontSize: '0.65rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px',
@@ -1218,7 +1320,7 @@ export default function Configuracoes({
                           onClick={() => openPermissions(assistant)}
                           disabled={!isActive}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
                             color: '#818cf8', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
                             opacity: isActive ? 1 : 0.5
@@ -1228,27 +1330,52 @@ export default function Configuracoes({
                         </button>
                         <button
                           onClick={() => {
-                            setPwAssistantId(assistant.id);
-                            setPwAssistantName(assistant.name);
-                            setShowPasswordModal(true);
-                            setNewPassword('');
-                            setConfirmNewPassword('');
-                            setPwError(null);
+                            setEditUserId(assistant.id);
+                            setEditUserName(assistant.name);
+                            setEditUserEmail(userEmails.get(assistant.id) || '');
+                            setEditUserRole('assistant');
+                            setEditError(null);
+                            setShowEditModal(true);
                           }}
                           disabled={!isActive}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
                             color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
                             opacity: isActive ? 1 : 0.5
                           }}
                         >
-                          Alterar Senha
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPwAssistantId(assistant.id);
+                            setPwAssistantName(assistant.name);
+                            setPwAssistantRole('assistant');
+                            setPwAssistantEmail(userEmails.get(assistant.id) || '');
+                            setShowPasswordModal(true);
+                            setNewPassword('');
+                            setConfirmNewPassword('');
+                            setShowNewPassword(false);
+                            setShowConfirmNewPassword(false);
+                            setPwError(null);
+                            setPwSuccess(null);
+                          }}
+                          disabled={!isActive}
+                          title="Redefinir senha do assistente"
+                          style={{
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
+                            backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                            color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
+                            opacity: isActive ? 1 : 0.5
+                          }}
+                        >
+                          Redefinir Senha
                         </button>
                         <button
                           onClick={() => isActive ? handleDisableAssistant(assistant.id) : handleEnableAssistant(assistant.id)}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: isActive ? 'rgba(245,158,11,0.08)' : 'rgba(34,197,94,0.08)',
                             border: `1px solid ${isActive ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.25)'}`,
                             color: isActive ? '#fbbf24' : '#4ade80', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
@@ -1259,7 +1386,7 @@ export default function Configuracoes({
                         <button
                           onClick={() => handleDeleteAssistant(assistant)}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
                             color: '#f87171', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
                           }}
@@ -1272,7 +1399,7 @@ export default function Configuracoes({
                   })
                 )}
 
-                {assistants.length < 2 && (
+                {assistants.length < 4 && (
                   <button
                     onClick={() => {
                       setCreateRole('assistant');
@@ -1281,6 +1408,8 @@ export default function Configuracoes({
                       setCreateEmail('');
                       setCreatePassword('');
                       setCreateConfirmPassword('');
+                      setShowCreatePassword(false);
+                      setShowCreateConfirmPassword(false);
                       setCreateError(null);
                       setCreateSuccess(false);
                     }}
@@ -1292,17 +1421,17 @@ export default function Configuracoes({
                     }}
                   >
                     <Plus size={16} />
-                    {assistants.length === 0 ? 'Criar Assistente' : 'Criar Segundo Assistente'}
+                    {assistants.length === 0 ? 'Criar Assistente' : `Criar Assistente (${assistants.length + 1}/4)`}
                   </button>
                 )}
 
-                {assistants.length >= 2 && (
+                {assistants.length >= 4 && (
                   <div style={{
                     textAlign: 'center', padding: '10px', fontSize: '0.78rem', fontWeight: 600,
                     color: 'var(--text-muted)', borderRadius: '8px',
                     backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)'
                   }}>
-                    Limite de 2 assistentes atingido.
+                    Limite de 4 assistentes atingido.
                   </div>
                 )}
               </div>
@@ -1349,7 +1478,10 @@ export default function Configuracoes({
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                           <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff' }}>{treasurer.name}</span>
-                          <span style={{ fontSize: '0.72rem', color: '#fbbf24', fontWeight: 600 }}>Tesoureiro</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {userEmails.get(treasurer.id) || 'Email não disponível'}
+                          </span>
+                          <span style={{ fontSize: '0.70rem', color: '#fbbf24', fontWeight: 600, marginTop: '2px' }}>Tesoureiro</span>
                         </div>
                         <span style={{
                           fontSize: '0.65rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px',
@@ -1363,27 +1495,52 @@ export default function Configuracoes({
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <button
                           onClick={() => {
-                            setPwAssistantId(treasurer.id);
-                            setPwAssistantName(treasurer.name);
-                            setShowPasswordModal(true);
-                            setNewPassword('');
-                            setConfirmNewPassword('');
-                            setPwError(null);
+                            setEditUserId(treasurer.id);
+                            setEditUserName(treasurer.name);
+                            setEditUserEmail(userEmails.get(treasurer.id) || '');
+                            setEditUserRole('treasurer');
+                            setEditError(null);
+                            setShowEditModal(true);
                           }}
                           disabled={!isActive}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
                             color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
                             opacity: isActive ? 1 : 0.5
                           }}
                         >
-                          Alterar Senha
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPwAssistantId(treasurer.id);
+                            setPwAssistantName(treasurer.name);
+                            setPwAssistantRole('treasurer');
+                            setPwAssistantEmail(userEmails.get(treasurer.id) || '');
+                            setShowPasswordModal(true);
+                            setNewPassword('');
+                            setConfirmNewPassword('');
+                            setShowNewPassword(false);
+                            setShowConfirmNewPassword(false);
+                            setPwError(null);
+                            setPwSuccess(null);
+                          }}
+                          disabled={!isActive}
+                          title="Redefinir senha do tesoureiro"
+                          style={{
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
+                            backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                            color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
+                            opacity: isActive ? 1 : 0.5
+                          }}
+                        >
+                          Redefinir Senha
                         </button>
                         <button
                           onClick={() => isActive ? handleDisableAssistant(treasurer.id, 'tesoureiro') : handleEnableAssistant(treasurer.id, 'tesoureiro')}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: isActive ? 'rgba(245,158,11,0.08)' : 'rgba(34,197,94,0.08)',
                             border: `1px solid ${isActive ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.25)'}`,
                             color: isActive ? '#fbbf24' : '#4ade80', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
@@ -1394,7 +1551,7 @@ export default function Configuracoes({
                         <button
                           onClick={() => handleDeleteAssistant(treasurer, 'tesoureiro')}
                           style={{
-                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '90px',
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
                             color: '#f87171', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
                           }}
@@ -1416,6 +1573,8 @@ export default function Configuracoes({
                       setCreateEmail('');
                       setCreatePassword('');
                       setCreateConfirmPassword('');
+                      setShowCreatePassword(false);
+                      setShowCreateConfirmPassword(false);
                       setCreateError(null);
                       setCreateSuccess(false);
                     }}
@@ -1556,10 +1715,57 @@ export default function Configuracoes({
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }} />
               <input type="email" placeholder="E-mail" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }} />
-              <input type="password" placeholder="Senha (6 números)" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} maxLength={6}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }} />
-              <input type="password" placeholder="Confirmar senha" value={createConfirmPassword} onChange={(e) => setCreateConfirmPassword(e.target.value)} maxLength={6}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }} />
+
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showCreatePassword ? 'text' : 'password'}
+                  placeholder="Senha (6 números)"
+                  value={createPassword}
+                  onChange={(e) => setCreatePassword(e.target.value)}
+                  maxLength={6}
+                  style={{ width: '100%', padding: '10px 42px 10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePassword(prev => !prev)}
+                  title={showCreatePassword ? "Ocultar senha" : "Ver senha"}
+                  aria-label={showCreatePassword ? "Ocultar senha" : "Ver senha"}
+                  style={{
+                    position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: showCreatePassword ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '6px', minWidth: '36px', minHeight: '36px', touchAction: 'manipulation'
+                  }}
+                >
+                  {showCreatePassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showCreateConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirmar senha"
+                  value={createConfirmPassword}
+                  onChange={(e) => setCreateConfirmPassword(e.target.value)}
+                  maxLength={6}
+                  style={{ width: '100%', padding: '10px 42px 10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCreateConfirmPassword(prev => !prev)}
+                  title={showCreateConfirmPassword ? "Ocultar confirmação de senha" : "Ver confirmação de senha"}
+                  aria-label={showCreateConfirmPassword ? "Ocultar confirmação de senha" : "Ver confirmação de senha"}
+                  style={{
+                    position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: showCreateConfirmPassword ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '6px', minWidth: '36px', minHeight: '36px', touchAction: 'manipulation'
+                  }}
+                >
+                  {showCreateConfirmPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+
               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '-4px' }}>A senha deve conter exatamente 6 números.</span>
             </div>
 
@@ -1641,46 +1847,262 @@ export default function Configuracoes({
         </div>
       )}
 
-      {/* ── MODAL: ALTERAR SENHA ── */}
+      {/* ── MODAL: REDEFINIR SENHA ── */}
       {showPasswordModal && (
         <div style={{
           position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 9999, backdropFilter: 'blur(4px)'
-        }} onClick={() => setShowPasswordModal(false)}>
+        }} onClick={() => {
+          setShowPasswordModal(false);
+          setPwSuccess(null);
+        }}>
           <div onClick={(e) => e.stopPropagation()} style={{
             backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '20px', padding: '28px 24px', width: '320px',
+            borderRadius: '20px', padding: '28px 24px', width: '340px',
+            display: 'flex', flexDirection: 'column', gap: '16px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.8)'
+          }}>
+            {/* Identificação do usuário selecionado */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>Redefinir Senha</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: pwAssistantRole === 'treasurer' ? 'rgba(251,191,36,0.15)' : 'rgba(99,102,241,0.15)',
+                    color: pwAssistantRole === 'treasurer' ? '#fbbf24' : '#818cf8',
+                    border: pwAssistantRole === 'treasurer' ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(99,102,241,0.3)',
+                  }}>
+                    {pwAssistantRole === 'treasurer' ? 'Tesoureiro' : 'Assistente'}
+                  </span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {pwAssistantName}
+                  </span>
+                </div>
+                {pwAssistantEmail && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                    {pwAssistantEmail}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPwSuccess(null);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                aria-label="Fechar modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Campos de senha */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  placeholder="Nova senha (6 números)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  maxLength={6}
+                  style={{
+                    width: '100%',
+                    padding: '10px 42px 10px 12px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#fff',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    letterSpacing: '0.2em'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(prev => !prev)}
+                  title={showNewPassword ? 'Ocultar senha' : 'Ver senha'}
+                  aria-label={showNewPassword ? 'Ocultar senha' : 'Ver senha'}
+                  style={{
+                    position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: showNewPassword ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '6px', minWidth: '36px', minHeight: '36px', touchAction: 'manipulation'
+                  }}
+                >
+                  {showNewPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showConfirmNewPassword ? 'text' : 'password'}
+                  placeholder="Confirmar nova senha"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  maxLength={6}
+                  style={{
+                    width: '100%',
+                    padding: '10px 42px 10px 12px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#fff',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    letterSpacing: '0.2em'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmNewPassword(prev => !prev)}
+                  title={showConfirmNewPassword ? 'Ocultar confirmação de senha' : 'Ver confirmação de senha'}
+                  aria-label={showConfirmNewPassword ? 'Ocultar confirmação de senha' : 'Ver confirmação de senha'}
+                  style={{
+                    position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: showConfirmNewPassword ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '6px', minWidth: '36px', minHeight: '36px', touchAction: 'manipulation'
+                  }}
+                >
+                  {showConfirmNewPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '-4px' }}>
+                A senha deve conter exatamente 6 números.
+              </span>
+            </div>
+
+            {pwError && (
+              <div style={{
+                padding: '8px 12px', borderRadius: '8px',
+                backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                color: '#f87171', fontSize: '0.8rem', fontWeight: 600
+              }}>
+                {pwError}
+              </div>
+            )}
+
+            {pwSuccess && (
+              <div style={{
+                padding: '8px 12px', borderRadius: '8px',
+                backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)',
+                color: '#4ade80', fontSize: '0.8rem', fontWeight: 600
+              }}>
+                {pwSuccess}
+              </div>
+            )}
+
+            {/* Botões Cancelar e Salvar Nova Senha */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setNewPassword('');
+                  setConfirmNewPassword('');
+                  setShowNewPassword(false);
+                  setShowConfirmNewPassword(false);
+                  setPwError(null);
+                  setPwSuccess(null);
+                }}
+                disabled={changingPassword}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.04)',
+                  color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleChangePassword}
+                disabled={changingPassword || !!pwSuccess}
+                style={{
+                  flex: 1.5, padding: '12px', borderRadius: '10px', border: 'none',
+                  background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', color: '#fff',
+                  fontSize: '0.9rem', fontWeight: 700,
+                  cursor: (changingPassword || !!pwSuccess) ? 'not-allowed' : 'pointer',
+                  opacity: (changingPassword || !!pwSuccess) ? 0.7 : 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                }}
+              >
+                {changingPassword ? 'Salvando...' : 'Salvar Nova Senha'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: EDITAR CREDENCIAIS ── */}
+      {showEditModal && (
+        <div style={{
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, backdropFilter: 'blur(4px)'
+        }} onClick={() => setShowEditModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '20px', padding: '28px 24px', width: '340px',
             display: 'flex', flexDirection: 'column', gap: '16px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.8)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: 0 }}>Alterar Senha</h3>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pwAssistantName}</span>
+                <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: 0 }}>
+                  Editar Credenciais
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  {editUserRole === 'treasurer' ? 'Tesoureiro' : 'Assistente'}
+                </span>
               </div>
-              <button onClick={() => setShowPasswordModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <button onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <X size={18} />
               </button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <input type="password" placeholder="Nova senha (6 números)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} maxLength={6}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }} />
-              <input type="password" placeholder="Confirmar nova senha" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} maxLength={6}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }} />
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '-4px' }}>A senha deve conter exatamente 6 números.</span>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Nome Completo</label>
+                <input
+                  type="text"
+                  placeholder="Nome do usuário"
+                  value={editUserName}
+                  onChange={(e) => setEditUserName(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>E-mail de Acesso</label>
+                <input
+                  type="email"
+                  placeholder="exemplo@rda.com"
+                  value={editUserEmail}
+                  onChange={(e) => setEditUserEmail(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
             </div>
 
-            {pwError && (
+            {editError && (
               <div style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', fontSize: '0.8rem', fontWeight: 600 }}>
-                {pwError}
+                {editError}
               </div>
             )}
 
-            <button onClick={handleChangePassword} disabled={changingPassword}
-              style={{ padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', color: '#fff', fontSize: '0.9rem', fontWeight: 700, cursor: changingPassword ? 'not-allowed' : 'pointer', opacity: changingPassword ? 0.7 : 1 }}>
-              {changingPassword ? 'Alterando...' : 'Alterar Senha'}
+            <button onClick={handleUpdateCredentials} disabled={editingCredentials}
+              style={{ padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', color: '#fff', fontSize: '0.9rem', fontWeight: 700, cursor: editingCredentials ? 'not-allowed' : 'pointer', opacity: editingCredentials ? 0.7 : 1 }}>
+              {editingCredentials ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>
         </div>

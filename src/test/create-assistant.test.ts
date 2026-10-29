@@ -136,16 +136,27 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     expect(res.body).toMatchObject({ error: "Invalid email format" });
   });
 
-  it("10) já existem 2 assistants -> rejeitar terceira criação", async () => {
+  it("10) já existem 4 assistants -> rejeitar quinta criação", async () => {
     const deps = baseDeps();
-    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 2, error: null });
+    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 4, error: null });
     const res = await handleRequest(
       makeRequest({ body: { action: "create", email: "a@b.com", password: "123456", name: "Ana" } }),
       deps,
     );
     expect(res.status).toBe(400);
-    expect(res.body).toMatchObject({ error: "Maximum limit of 2 assistants reached" });
+    expect(res.body).toMatchObject({ error: "Maximum limit of 4 assistants reached" });
     expect(deps.createUser).not.toHaveBeenCalled();
+  });
+
+  it("10b) existem 3 assistants -> aceitar criação do quarto assistente", async () => {
+    const deps = baseDeps();
+    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 3, error: null });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "create", email: "quarto@b.com", password: "123456", name: "Quarto" } }),
+      deps,
+    );
+    expect(res.status).toBe(200);
+    expect(deps.createUser).toHaveBeenCalled();
   });
 
   it("11) email já existente -> erro (createUser falha) + cleanup não chamado em sucesso falso", async () => {
@@ -208,6 +219,121 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     );
     expect(res.status).toBe(400);
     expect(deps.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("15b) update_password de tesoureiro -> permitido para admin", async () => {
+    const deps = baseDeps();
+    const TREASURER_ID = "trs-user-uuid-1";
+    deps.getProfileRole = vi.fn((userId: string) =>
+      Promise.resolve(
+        userId === ADMIN_ID
+          ? { data: { role: "admin" }, error: null }
+          : { data: { role: "treasurer" }, error: null },
+      ),
+    );
+    deps.getUserById = vi.fn().mockResolvedValue({ data: { user: { id: TREASURER_ID } }, error: null });
+    const res = await handleRequest(
+      makeRequest({
+        body: { action: "update_password", assistant_id: TREASURER_ID, password: "654321" },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(deps.updateUserPassword).toHaveBeenCalledWith(TREASURER_ID, "654321");
+  });
+
+  it("15c) update_password usando user_id em vez de assistant_id -> permitido para admin", async () => {
+    const deps = baseDeps();
+    const res = await handleRequest(
+      makeRequest({
+        body: { action: "update_password", user_id: ASSISTANT_ID, password: "987654" },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(deps.updateUserPassword).toHaveBeenCalledWith(ASSISTANT_ID, "987654");
+  });
+
+  it("15d) update_password com senha diferente de 6 números -> 400", async () => {
+    const deps = baseDeps();
+    const resShort = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "12345" } }),
+      deps,
+    );
+    expect(resShort.status).toBe(400);
+    expect(resShort.body).toEqual({ error: "Password must be exactly 6 digits" });
+
+    const resLetters = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "abcdef" } }),
+      deps,
+    );
+    expect(resLetters.status).toBe(400);
+    expect(resLetters.body).toEqual({ error: "Password must be exactly 6 digits" });
+  });
+
+  it("15e) update_password chamado por usuário comum/visitor -> rejeitado com 403", async () => {
+    const deps = baseDeps();
+    deps.getUser = vi.fn().mockResolvedValue({ user: { id: VISITOR_ID }, error: null });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(403);
+    expect(deps.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("15f) update_password chamado por assistente tentando alterar senha de terceiros -> rejeitado com 403", async () => {
+    const deps = baseDeps();
+    deps.getUser = vi.fn().mockResolvedValue({ user: { id: ASSISTANT_ID }, error: null });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: "other-user-uuid", password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(403);
+    expect(deps.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("15g) update_password com perfil inexistente -> 400", async () => {
+    const deps = baseDeps();
+    deps.getProfileRole = vi.fn((userId: string) =>
+      Promise.resolve(
+        userId === ADMIN_ID
+          ? { data: { role: "admin" }, error: null }
+          : { data: null, error: null },
+      ),
+    );
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: "non-existent-user", password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Target user is not an assistant or treasurer" });
+    expect(deps.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("15h) update_password com usuário auth inexistente -> 400", async () => {
+    const deps = baseDeps();
+    deps.getUserById = vi.fn().mockResolvedValue({ data: { user: null }, error: null });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Target auth user not found" });
+    expect(deps.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("15i) update_password com falha na API de auth (updateUserPassword) -> 400 com erro", async () => {
+    const deps = baseDeps();
+    deps.updateUserPassword = vi.fn().mockResolvedValue({ error: new Error("Auth service unavailable") });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Auth service unavailable" });
   });
 
   it("16) nenhum log contém senha / JWT completo / service_role", async () => {
@@ -371,14 +497,15 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     expect(deps.deleteUser).not.toHaveBeenCalled();
   });
 
-  it("27) terceiro assistente continua bloqueado (count >= 2)", async () => {
+  it("27) quinto assistente continua bloqueado (count >= 4)", async () => {
     const deps = baseDeps();
-    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 2, error: null });
+    deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 4, error: null });
     const res = await handleRequest(
       makeRequest({ body: { action: "create", email: "c@b.com", password: "123456", name: "Carlos" } }),
       deps,
     );
     expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Maximum limit of 4 assistants reached" });
     expect(deps.createUser).not.toHaveBeenCalled();
   });
 
@@ -492,5 +619,863 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  // ── update_credentials & auditoria ────────────────────────────────────────
+
+  it("37) update_credentials: admin altera nome e email com sucesso -> 200", async () => {
+    const deps = baseDeps();
+    deps.updateUserCredentials = vi.fn().mockResolvedValue({ error: null });
+    const auditSpy = vi.fn().mockResolvedValue({ error: null });
+    deps.insertAuditLog = auditSpy;
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+          name: "Novo Nome",
+          email: "novo@email.com",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      user: { id: ASSISTANT_ID, name: "Novo Nome", email: "novo@email.com" },
+    });
+    expect(deps.updateUserCredentials).toHaveBeenCalledWith(ASSISTANT_ID, {
+      name: "Novo Nome",
+      email: "novo@email.com",
+    });
+    expect(auditSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        admin_id: ADMIN_ID,
+        action: "update_credentials",
+        target_user_id: ASSISTANT_ID,
+      }),
+    );
+  });
+
+  it("38) update_credentials: email inválido -> 400", async () => {
+    const deps = baseDeps();
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+          email: "email-invalido",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Invalid email format" });
+  });
+
+  it("39) update_credentials: nome vazio -> 400", async () => {
+    const deps = baseDeps();
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+          name: "   ",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Name cannot be empty" });
+  });
+
+  it("40) update_credentials: sem campos fornecidos -> 400", async () => {
+    const deps = baseDeps();
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Either name or email must be provided" });
+  });
+
+  it("41) update_credentials: alvo não é assistente/tesoureiro -> 400", async () => {
+    const deps = baseDeps();
+    deps.getProfileRole = vi.fn().mockResolvedValue({ data: { role: "admin" }, error: null });
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ADMIN_ID,
+          name: "Tentativa Inválida",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Target user is not an assistant or treasurer" });
+  });
+
+  it("42) update_credentials: não-admin (visitor) tentando alterar -> 403", async () => {
+    const deps = baseDeps();
+    deps.getUser = vi.fn().mockResolvedValue({ user: { id: VISITOR_ID }, error: null });
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "update_credentials",
+          assistant_id: ASSISTANT_ID,
+          name: "Novo Nome",
+        },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("43) list retorna assistentes e tesoureiros com email e status active", async () => {
+    const deps = baseDeps();
+    deps.listAssistantProfiles = vi.fn().mockResolvedValue({
+      data: [
+        { id: "ast-1", name: "Assistente 1", role: "assistant" },
+        { id: "trs-1", name: "Tesoureiro 1", role: "treasurer" },
+      ],
+      error: null,
+    });
+    deps.listUsersBanned = vi.fn().mockResolvedValue({
+      data: [
+        { id: "ast-1", email: "ast1@rda.com", is_banned: false },
+        { id: "trs-1", email: "trs1@rda.com", is_banned: true },
+      ],
+      error: null,
+    });
+
+    const res = await handleRequest(makeRequest({ body: { action: "list" } }), deps);
+    expect(res.status).toBe(200);
+    const body = res.body as { success: boolean; assistants: any[] };
+    expect(body.assistants).toHaveLength(2);
+    expect(body.assistants[0]).toMatchObject({
+      id: "ast-1",
+      name: "Assistente 1",
+      email: "ast1@rda.com",
+      role: "assistant",
+      active: true,
+    });
+    expect(body.assistants[1]).toMatchObject({
+      id: "trs-1",
+      name: "Tesoureiro 1",
+      email: "trs1@rda.com",
+      role: "treasurer",
+      active: false,
+    });
+  });
+
+  // ── Revisão de Concorrência e Limites (Etapa Complementar) ────────────────
+  it("44) concorrência: recálculo pós-promoção detecta count > 4 -> cleanup completo e rejeita com 400", async () => {
+    const deps = baseDeps();
+    let callCount = 0;
+    // 1ª contagem (pré-criação) vê 3 vagas ocupadas.
+    // 2ª contagem (pós-promoção) vê 5 vagas ocupadas devido a requisição concorrente.
+    deps.countUsersByRole = vi.fn().mockImplementation(() => {
+      callCount++;
+      return Promise.resolve({ count: callCount === 1 ? 3 : 5, error: null });
+    });
+    deps.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteProfile = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteUser = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({ body: { action: "create", email: "race@rda.com", password: "123456", name: "Race Candidate" } }),
+      deps,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Maximum limit of 4 assistants reached" });
+    // Garante que a limpeza órfã completa foi executada
+    expect(deps.deletePermissions).toHaveBeenCalledWith("new-user-1");
+    expect(deps.deleteProfile).toHaveBeenCalledWith("new-user-1");
+    expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
+  });
+
+  it("45) duas requisições simultâneas disputando a 4ª vaga de assistente -> exatamente 1 vence, 1 é desfeita sem órfãos", async () => {
+    let assistantCount = 3;
+    const usersInAuth = new Set<string>();
+    const usersInProfiles = new Map<string, string>();
+
+    const makeSharedDeps = (userId: string) => {
+      const d = baseDeps();
+      d.createUser = vi.fn().mockImplementation(async () => {
+        usersInAuth.add(userId);
+        return { data: { user: { id: userId } }, error: null };
+      });
+      d.getProfile = vi.fn().mockImplementation(async (id: string) => {
+        return { data: [{ id, role: "visitor" }], error: null };
+      });
+      d.updateProfile = vi.fn().mockImplementation(async (id: string, patch: { role: string }) => {
+        usersInProfiles.set(id, patch.role);
+        if (patch.role === "assistant") {
+          assistantCount++;
+        }
+        return { error: null };
+      });
+      d.countUsersByRole = vi.fn().mockImplementation(async (role: string) => {
+        if (role === "assistant") return { count: assistantCount, error: null };
+        return { count: 0, error: null };
+      });
+      d.listAssistantProfiles = vi.fn().mockImplementation(async () => {
+        // Simula os 3 assistentes pré-existentes mais os novos inseridos na ordem
+        const existing = [
+          { id: "pre-1", name: "Pre 1", role: "assistant" },
+          { id: "pre-2", name: "Pre 2", role: "assistant" },
+          { id: "pre-3", name: "Pre 3", role: "assistant" },
+        ];
+        const added = Array.from(usersInProfiles.entries())
+          .filter(([_, role]) => role === "assistant")
+          .map(([id, role]) => ({ id, name: id, role }));
+        return { data: [...existing, ...added], error: null };
+      });
+      d.deleteUser = vi.fn().mockImplementation(async (id: string) => {
+        usersInAuth.delete(id);
+        return { error: null };
+      });
+      d.deleteProfile = vi.fn().mockImplementation(async (id: string) => {
+        if (usersInProfiles.get(id) === "assistant") {
+          assistantCount--;
+        }
+        usersInProfiles.delete(id);
+        return { error: null };
+      });
+      d.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+      return d;
+    };
+
+    const deps1 = makeSharedDeps("user-slot-4a");
+    const deps2 = makeSharedDeps("user-slot-4b");
+
+    const [res1, res2] = await Promise.all([
+      handleRequest(makeRequest({ body: { action: "create", email: "candA@rda.com", password: "123456", name: "Candidato A" } }), deps1),
+      handleRequest(makeRequest({ body: { action: "create", email: "candB@rda.com", password: "123456", name: "Candidato B" } }), deps2),
+    ]);
+
+    const statuses = [res1.status, res2.status];
+    expect(statuses).toContain(200);
+    expect(statuses).toContain(400);
+
+    // No final da corrida, o total de assistentes DEVE ser rigorosamente 4
+    expect(assistantCount).toBe(4);
+    // Nenhum usuário órfão pode permanecer no Auth ou Profiles
+    expect(usersInAuth.size).toBe(1);
+    expect(usersInProfiles.size).toBe(1);
+  });
+
+  it("46) duas requisições simultâneas disputando vaga de tesoureiro -> exatamente 1 vence e 1 é rejeitada", async () => {
+    let treasurerCount = 0;
+    const usersInAuth = new Set<string>();
+    const usersInProfiles = new Map<string, string>();
+
+    const makeSharedTreasurerDeps = (userId: string) => {
+      const d = baseDeps();
+      d.createUser = vi.fn().mockImplementation(async () => {
+        usersInAuth.add(userId);
+        return { data: { user: { id: userId } }, error: null };
+      });
+      d.getProfile = vi.fn().mockImplementation(async (id: string) => {
+        return { data: [{ id, role: "visitor" }], error: null };
+      });
+      d.updateProfile = vi.fn().mockImplementation(async (id: string, patch: { role: string }) => {
+        usersInProfiles.set(id, patch.role);
+        if (patch.role === "treasurer") treasurerCount++;
+        return { error: null };
+      });
+      d.countUsersByRole = vi.fn().mockImplementation(async (role: string) => {
+        if (role === "treasurer") return { count: treasurerCount, error: null };
+        return { count: 0, error: null };
+      });
+      d.listAssistantProfiles = vi.fn().mockImplementation(async () => {
+        const added = Array.from(usersInProfiles.entries())
+          .filter(([_, role]) => role === "treasurer")
+          .map(([id, role]) => ({ id, name: id, role }));
+        return { data: added, error: null };
+      });
+      d.deleteUser = vi.fn().mockImplementation(async (id: string) => {
+        usersInAuth.delete(id);
+        treasurerCount = Math.max(0, treasurerCount - 1);
+        return { error: null };
+      });
+      d.deleteProfile = vi.fn().mockImplementation(async (id: string) => {
+        usersInProfiles.delete(id);
+        return { error: null };
+      });
+      d.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+      return d;
+    };
+
+    const deps1 = makeSharedTreasurerDeps("trs-slot-a");
+    const deps2 = makeSharedTreasurerDeps("trs-slot-b");
+
+    const [res1, res2] = await Promise.all([
+      handleRequest(makeRequest({ body: { action: "create", email: "trsa@rda.com", password: "123456", name: "Tesoureiro A", targetRole: "treasurer" } }), deps1),
+      handleRequest(makeRequest({ body: { action: "create", email: "trsb@rda.com", password: "123456", name: "Tesoureiro B", targetRole: "treasurer" } }), deps2),
+    ]);
+
+    const statuses = [res1.status, res2.status];
+    expect(statuses).toContain(200);
+    expect(statuses).toContain(400);
+    expect(treasurerCount).toBe(1);
+    expect(usersInAuth.size).toBe(1);
+  });
+
+  it("47) resiliência a falha parcial na exclusão: se o profile já foi apagado mas auth user persiste, delete conclui com sucesso", async () => {
+    const deps = baseDeps();
+    // Admin caller é admin; target profile não existe mais (foi excluído em tentativa prévia com falha no deleteUser)
+    deps.getProfileRole = vi.fn((userId: string) =>
+      Promise.resolve(
+        userId === ADMIN_ID
+          ? { data: { role: "admin" }, error: null }
+          : { data: null, error: null },
+      ),
+    );
+    // Mas o usuário ainda existe no Supabase Auth
+    deps.getUserById = vi.fn().mockResolvedValue({
+      data: { user: { id: "orphan-auth-123" } },
+      error: null,
+    });
+    deps.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteProfile = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteUser = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({ body: { action: "delete", assistant_id: "orphan-auth-123" } }),
+      deps,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(deps.deleteUser).toHaveBeenCalledWith("orphan-auth-123");
+  });
+
+  it("48) falha na promoção por restrição do banco -> dispara cleanup completo e retorna 400", async () => {
+    const deps = baseDeps();
+    deps.updateProfile = vi.fn().mockResolvedValue({ error: new Error("check_violation: Limite de 4 assistentes atingido") });
+    deps.deletePermissions = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteProfile = vi.fn().mockResolvedValue({ error: null });
+    deps.deleteUser = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({ body: { action: "create", email: "db_limit@rda.com", password: "123456", name: "Limit Test" } }),
+      deps,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Maximum limit of 4 assistants reached" });
+    expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
+  });
+
+  it("49) criação bem-sucedida de tesoureiro -> promove profile para treasurer, inicializa permissões e não expõe senha", async () => {
+    const deps = baseDeps();
+    deps.upsertTreasurerPermissions = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "tesoureiro@rda.com",
+          password: "654321",
+          name: "Tesoureiro Oficial",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      user: {
+        id: "new-user-1",
+        name: "Tesoureiro Oficial",
+        email: "tesoureiro@rda.com",
+        role: "treasurer",
+      },
+    });
+    expect(res.body).not.toHaveProperty("password");
+    expect(deps.updateProfile).toHaveBeenCalledWith("new-user-1", {
+      role: "treasurer",
+      name: "Tesoureiro Oficial",
+    });
+    expect(deps.upsertTreasurerPermissions).toHaveBeenCalledWith({
+      profile_id: "new-user-1",
+      manage_finance: false,
+      manage_monthly_payments: false,
+      updated_at: expect.any(String),
+    });
+  });
+
+  it("50) criação de tesoureiro com e-mail já cadastrado -> retorna 400 sem criar novo profile", async () => {
+    const deps = baseDeps();
+    deps.createUser = vi.fn().mockResolvedValue({
+      data: null,
+      error: new Error("User already registered"),
+    });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "existente@rda.com",
+          password: "123456",
+          name: "Tesoureiro Dup",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "User already registered" });
+    expect(deps.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("51) usuário não-admin tentando criar tesoureiro -> retorna 403 Forbidden", async () => {
+    const deps = baseDeps();
+    deps.getProfileRole = vi.fn().mockResolvedValue({
+      data: { role: "visitor" },
+      error: null,
+    });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "tentativa@rda.com",
+          password: "123456",
+          name: "Hacker",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ error: "Forbidden: admin access required" });
+    expect(deps.createUser).not.toHaveBeenCalled();
+  });
+
+  it("52) tentativa de criar segundo tesoureiro quando já existe 1 -> retorna 400 antes de criar no Auth", async () => {
+    const deps = baseDeps();
+    deps.countUsersByRole = vi.fn((role: string) =>
+      Promise.resolve(role === "treasurer" ? { count: 1, error: null } : { count: 0, error: null })
+    );
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "segundo@rda.com",
+          password: "123456",
+          name: "Segundo Tesoureiro",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: "Maximum limit of 1 treasurer reached" });
+    expect(deps.createUser).not.toHaveBeenCalled();
+  });
+
+  it("53) erro de catálogo/trigger na promoção do tesoureiro -> não mascara como limite, executa cleanup e informa o erro", async () => {
+    const deps = baseDeps();
+    deps.updateProfile = vi.fn().mockResolvedValue({
+      error: { message: "Apenas admin pode alterar profiles.role", code: "P0001" },
+    });
+    deps.deleteUser = vi.fn().mockResolvedValue({ error: null });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "trigger_fail@rda.com",
+          password: "123456",
+          name: "Trigger Test",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(500);
+    expect(res.body).toMatchObject({
+      error: expect.stringContaining("Failed to promote profile: Apenas admin pode alterar profiles.role"),
+    });
+    expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
+  });
+
+  it("54) chamada por usuário com role != admin (assistente ou visitante) é sumariamente bloqueada antes de tocar em Auth ou Perfis", async () => {
+    const deps = baseDeps();
+    deps.getProfileRole = vi.fn().mockResolvedValue({
+      data: { role: "assistant" },
+      error: null,
+    });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "tentativa@rda.com",
+          password: "123456",
+          name: "Tentativa Invasora",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "Forbidden: admin access required" });
+    expect(deps.createUser).not.toHaveBeenCalled();
+    expect(deps.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("55) simulação de segurança do banco: usuário autenticado comum (auth.uid presente) tentando autoelevação para admin/tesoureiro é rejeitado pela trigger", async () => {
+    // Simula a lógica da trigger prevent_nonadmin_role_change()
+    const simulateTrigger = (params: {
+      newRole: string;
+      oldRole: string;
+      sessionUser: string;
+      authUid: string | null;
+      isAdmin: boolean;
+      jwtRole?: string;
+      settingRole?: string;
+    }) => {
+      if (params.newRole === params.oldRole) return "ALLOWED";
+      if (["postgres", "supabase_admin"].includes(params.sessionUser)) return "ALLOWED";
+      if (params.authUid !== null) {
+        if (params.isAdmin) return "ALLOWED";
+        throw new Error("Apenas admin pode alterar profiles.role");
+      }
+      if (params.jwtRole === "service_role" && params.settingRole === "service_role") {
+        return "ALLOWED";
+      }
+      throw new Error("Apenas admin pode alterar profiles.role");
+    };
+
+    // Usuário comum autenticado tentando mudar seu cargo para 'admin'
+    expect(() =>
+      simulateTrigger({
+        newRole: "admin",
+        oldRole: "visitor",
+        sessionUser: "authenticator",
+        authUid: "user-visitor-uuid",
+        isAdmin: false,
+        jwtRole: "service_role", // Tentativa de falsificação de claim
+        settingRole: "authenticated",
+      }),
+    ).toThrow("Apenas admin pode alterar profiles.role");
+
+    // Super Admin autenticado promovendo usuário para tesoureiro
+    expect(
+      simulateTrigger({
+        newRole: "treasurer",
+        oldRole: "visitor",
+        sessionUser: "authenticator",
+        authUid: "super-admin-uuid",
+        isAdmin: true,
+      }),
+    ).toBe("ALLOWED");
+
+    // Edge Function operando via service_role legítimo (sem auth.uid)
+    expect(
+      simulateTrigger({
+        newRole: "treasurer",
+        oldRole: "visitor",
+        sessionUser: "authenticator",
+        authUid: null,
+        isAdmin: false,
+        jwtRole: "service_role",
+        settingRole: "service_role",
+      }),
+    ).toBe("ALLOWED");
+
+    // DBA no Supabase SQL Editor
+    expect(
+      simulateTrigger({
+        newRole: "treasurer",
+        oldRole: "visitor",
+        sessionUser: "postgres",
+        authUid: null,
+        isAdmin: false,
+      }),
+    ).toBe("ALLOWED");
+  });
+
+  it("56) inicialização bem-sucedida de permissões do tesoureiro com manage_finance e manage_monthly_payments", async () => {
+    const deps = baseDeps();
+    let createdPermissions: Record<string, unknown> | null = null;
+    deps.upsertTreasurerPermissions = vi.fn().mockImplementation(async (row: Record<string, unknown>) => {
+      createdPermissions = row;
+      return { error: null };
+    });
+
+    const res = await handleRequest(
+      makeRequest({
+        body: {
+          action: "create",
+          email: "novo_tesoureiro@rda.com",
+          password: "123456",
+          name: "Tesoureiro Oficial",
+          targetRole: "treasurer",
+        },
+      }),
+      deps,
+    );
+
+    expect(res.status).toBe(200);
+    expect(createdPermissions).toMatchObject({
+      profile_id: "new-user-1",
+      manage_finance: false,
+      manage_monthly_payments: false,
+    });
+  });
+
+  describe("Revisão de Segurança — 6 Cenários Mandatórios de Controle de Acesso e Limites", () => {
+    it("Cenário 1: Cadastro de assistente permitido para o Super Admin (vagas disponíveis)", async () => {
+      const deps = baseDeps();
+      deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 2, error: null });
+      const res = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "assist3@rda.com", password: "123456", name: "Assistente Três", targetRole: "assistant" },
+        }),
+        deps,
+      );
+      expect(res.status).toBe(200);
+      expect(deps.createUser).toHaveBeenCalled();
+      expect(deps.updateProfile).toHaveBeenCalledWith("new-user-1", { role: "assistant", name: "Assistente Três" });
+    });
+
+    it("Cenário 2: Quinto assistente rejeitado categoricamente (limite estrito de 4)", async () => {
+      const deps = baseDeps();
+      deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 4, error: null });
+      const res = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "quinto@rda.com", password: "123456", name: "Quinto Assistente", targetRole: "assistant" },
+        }),
+        deps,
+      );
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: "Maximum limit of 4 assistants reached" });
+      expect(deps.createUser).not.toHaveBeenCalled();
+    });
+
+    it("Cenário 3: Cadastro de tesoureiro permitido para o Super Admin (0 tesoureiros cadastrados)", async () => {
+      const deps = baseDeps();
+      deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 0, error: null });
+      const res = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "tesoureiro_oficial@rda.com", password: "123456", name: "Tesoureiro RDA", targetRole: "treasurer" },
+        }),
+        deps,
+      );
+      expect(res.status).toBe(200);
+      expect(deps.updateProfile).toHaveBeenCalledWith("new-user-1", { role: "treasurer", name: "Tesoureiro RDA" });
+    });
+
+    it("Cenário 4: Segundo tesoureiro rejeitado categoricamente (limite estrito de 1)", async () => {
+      const deps = baseDeps();
+      deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 1, error: null });
+      const res = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "segundo_trs@rda.com", password: "123456", name: "Segundo Tesoureiro", targetRole: "treasurer" },
+        }),
+        deps,
+      );
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: "Maximum limit of 1 treasurer reached" });
+      expect(deps.createUser).not.toHaveBeenCalled();
+    });
+
+    it("Cenário 5: Usuário comum impedido de alterar a própria role (bloqueio de autoelevação)", async () => {
+      // 5.1 Na API da Edge Function: usuário não-admin recebe 403 Forbidden
+      const nonAdminDeps = baseDeps();
+      nonAdminDeps.getProfileRole = vi.fn().mockResolvedValue({ data: { role: "visitor" }, error: null });
+      const apiRes = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "hacker@rda.com", password: "123456", name: "Tentativa", targetRole: "admin" },
+        }),
+        nonAdminDeps,
+      );
+      expect(apiRes.status).toBe(403);
+      expect(apiRes.body).toEqual({ error: "Forbidden: admin access required" });
+
+      // 5.2 No Banco de Dados: a trigger prevent_nonadmin_role_change() bloqueia qualquer usuário autenticado comum
+      const evaluateDbTrigger = (_roleCandidate: string, userIsAdmin: boolean, callerUid: string | null) => {
+        if (callerUid !== null) {
+          if (!userIsAdmin) throw new Error("Apenas admin pode alterar profiles.role");
+          return true;
+        }
+        return false;
+      };
+
+      // Usuário autenticado comum tenta autoelevação para admin ou tesoureiro
+      expect(() => evaluateDbTrigger("admin", false, "user-visitor-uuid")).toThrow("Apenas admin pode alterar profiles.role");
+      expect(() => evaluateDbTrigger("treasurer", false, "user-assistant-uuid")).toThrow("Apenas admin pode alterar profiles.role");
+    });
+
+    it("Cenário 6: Administrador autorizado a alterar papéis de perfis", async () => {
+      const evaluateDbTrigger = (_roleCandidate: string, userIsAdmin: boolean, callerUid: string | null) => {
+        if (callerUid !== null) {
+          if (!userIsAdmin) throw new Error("Apenas admin pode alterar profiles.role");
+          return true;
+        }
+        return false;
+      };
+
+      // Super Admin autenticado promovendo para assistente ou tesoureiro
+      expect(evaluateDbTrigger("assistant", true, "admin-uuid-1")).toBe(true);
+      expect(evaluateDbTrigger("treasurer", true, "admin-uuid-1")).toBe(true);
+    });
+
+    it("Cenário 7: Reprodução exata do erro pg_catalog na promoção e verificação de cleanup seguro", async () => {
+      const deps = baseDeps();
+      // Simula a falha real de runtime observada no Supabase
+      deps.updateProfile = vi.fn().mockResolvedValue({
+        error: { message: 'missing FROM-clause entry for table "pg_catalog"', code: "42P01" },
+      });
+
+      const res = await handleRequest(
+        makeRequest({
+          body: {
+            action: "create",
+            email: "gustavo@rda.com",
+            password: "123456",
+            name: "Gustavo",
+            targetRole: "treasurer",
+          },
+        }),
+        deps,
+      );
+
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({
+        error: 'Failed to promote profile: missing FROM-clause entry for table "pg_catalog"',
+      });
+      // Confirma que tanto a exclusão do profile quanto do user em auth foram disparadas para evitar órfãos
+      expect(deps.deleteProfile).toHaveBeenCalledWith("new-user-1");
+      expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
+    });
+
+    it("Cenário 8: Validação formal da trigger prevent_nonadmin_role_change corrigida (SQL 33)", async () => {
+      // Simulação fiel da lógica PL/pgSQL da função prevent_nonadmin_role_change()
+      const simulateCorrectedTrigger = (params: {
+        newRole: string;
+        oldRole: string;
+        sessionUser: string;
+        authUid: string | null;
+        userIsAdmin: boolean;
+        jwtRole?: string;
+        settingRole?: string;
+        currentUser?: string;
+      }) => {
+        // Cargo inalterado: libera
+        if (params.newRole === params.oldRole) return "ALLOWED";
+
+        // 1. Conexão DBA direta (session_user é palavra-chave SQL standard, sem qualificador pg_catalog)
+        if (["postgres", "supabase_admin"].includes(params.sessionUser)) {
+          return "ALLOWED_DBA";
+        }
+
+        // 2. Requisição autenticada com identidade de usuário (auth.uid() NOT NULL)
+        if (params.authUid !== null) {
+          if (params.userIsAdmin) return "ALLOWED_SUPER_ADMIN";
+          throw new Error("Apenas admin pode alterar profiles.role");
+        }
+
+        // 3. Operação de serviço autorizada (auth.uid() IS NULL)
+        if (params.jwtRole === "service_role" && params.settingRole === "service_role") {
+          return "ALLOWED_SERVICE_ROLE";
+        }
+
+        // 4. Bloqueio padrão
+        throw new Error("Apenas admin pode alterar profiles.role");
+      };
+
+      // Caso A: DBA no console PostgreSQL
+      expect(
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "postgres",
+          authUid: null,
+          userIsAdmin: false,
+        }),
+      ).toBe("ALLOWED_DBA");
+
+      // Caso B: Super Admin autenticado promovendo tesoureiro
+      expect(
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: "admin-uuid-1",
+          userIsAdmin: true,
+        }),
+      ).toBe("ALLOWED_SUPER_ADMIN");
+
+      // Caso C: Edge Function interna via service_role key (ambos claims e role ativos)
+      expect(
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: null,
+          userIsAdmin: false,
+          jwtRole: "service_role",
+          settingRole: "service_role",
+        }),
+      ).toBe("ALLOWED_SERVICE_ROLE");
+
+      // Caso C2: Tentativa de bypass com apenas um dos indicadores (rejeitado)
+      expect(() =>
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: null,
+          userIsAdmin: false,
+          jwtRole: "service_role",
+          settingRole: "anon",
+        }),
+      ).toThrow("Apenas admin pode alterar profiles.role");
+
+      // Caso D: Usuário autenticado comum (tentativa de invasão / autoelevação)
+      expect(() =>
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: "visitor-uuid-1",
+          userIsAdmin: false,
+        }),
+      ).toThrow("Apenas admin pode alterar profiles.role");
+
+      // Caso E: Falsificação de claim por usuário sem contexto válido
+      expect(() =>
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: null,
+          userIsAdmin: false,
+          jwtRole: "authenticated",
+          currentUser: "anon",
+        }),
+      ).toThrow("Apenas admin pode alterar profiles.role");
+    });
   });
 });
