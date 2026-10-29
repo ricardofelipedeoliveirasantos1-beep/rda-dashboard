@@ -92,6 +92,10 @@ serve(async (req: Request) => {
       const r = await adminClient.auth.admin.deleteUser(userId, true);
       return { error: r.error };
     },
+    deleteProfile: async (profileId: string) => {
+      const r = await adminClient.from("profiles").delete().eq("id", profileId);
+      return { error: r.error };
+    },
     getProfile: async (userId: string) => {
       const r = await adminClient.from("profiles").select("id, role").eq("id", userId);
       return { data: r.data as { id: string; role?: string }[] | null, error: r.error };

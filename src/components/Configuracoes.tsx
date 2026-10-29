@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache';
-import { DollarSign, Save, AlertCircle, Check, ClipboardList, History, ChevronDown, ChevronUp, FileText, Users, User, Shield, Plus, X, Loader2 } from 'lucide-react';
+import { DollarSign, Save, AlertCircle, Check, ClipboardList, History, ChevronDown, ChevronUp, FileText, Users, User, Shield, Plus, X, Loader2, Eye, EyeOff } from 'lucide-react';
 import LancarHistoricoManual from './LancarHistoricoManual';
 import ImportarPlanilha from './ImportarPlanilha';
 
@@ -66,6 +66,8 @@ export default function Configuracoes({
   const [createEmail, setCreateEmail] = useState('');
   const [createPassword, setCreatePassword] = useState('');
   const [createConfirmPassword, setCreateConfirmPassword] = useState('');
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [showCreateConfirmPassword, setShowCreateConfirmPassword] = useState(false);
   const [creatingAssistant, setCreatingAssistant] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState(false);
@@ -83,14 +85,19 @@ export default function Configuracoes({
   });
   const [savingPerms, setSavingPerms] = useState(false);
 
-  // Change password modal state
+  // Change password modal state (Redefinir Senha)
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pwAssistantId, setPwAssistantId] = useState<string | null>(null);
   const [pwAssistantName, setPwAssistantName] = useState('');
+  const [pwAssistantRole, setPwAssistantRole] = useState<'assistant' | 'treasurer'>('assistant');
+  const [pwAssistantEmail, setPwAssistantEmail] = useState<string>('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState<string | null>(null);
 
   // Status de ativação dos assistentes (active = true por padrão)
   const [assistantStatus, setAssistantStatus] = useState<Map<string, boolean>>(new Map());
@@ -338,6 +345,8 @@ export default function Configuracoes({
       setCreateEmail('');
       setCreatePassword('');
       setCreateConfirmPassword('');
+      setShowCreatePassword(false);
+      setShowCreateConfirmPassword(false);
 
       // Refresh assistants and treasurers list
       const { data: profiles } = await supabase
@@ -424,6 +433,7 @@ export default function Configuracoes({
 
   const handleChangePassword = async () => {
     setPwError(null);
+    setPwSuccess(null);
 
     if (!validatePassword(newPassword)) {
       setPwError('A senha deve conter exatamente 6 números.');
@@ -461,16 +471,21 @@ export default function Configuracoes({
       const result = await response.json();
 
       if (!response.ok) {
-        setPwError(result.error || 'Erro ao alterar senha.');
+        setPwError(result.error || 'Erro ao redefinir senha.');
         return;
       }
 
-      setShowPasswordModal(false);
-      setNewPassword('');
-      setConfirmNewPassword('');
-      alert('Senha alterada com sucesso!');
+      setPwSuccess('Senha redefinida com sucesso!');
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setShowNewPassword(false);
+        setShowConfirmNewPassword(false);
+        setPwSuccess(null);
+      }, 1400);
     } catch (err: any) {
-      console.error('Erro ao alterar senha:', err);
+      console.error('Erro ao redefinir senha:', err);
       setPwError('Erro de conexão com o servidor.');
     } finally {
       setChangingPassword(false);
@@ -1336,12 +1351,18 @@ export default function Configuracoes({
                           onClick={() => {
                             setPwAssistantId(assistant.id);
                             setPwAssistantName(assistant.name);
+                            setPwAssistantRole('assistant');
+                            setPwAssistantEmail(userEmails.get(assistant.id) || '');
                             setShowPasswordModal(true);
                             setNewPassword('');
                             setConfirmNewPassword('');
+                            setShowNewPassword(false);
+                            setShowConfirmNewPassword(false);
                             setPwError(null);
+                            setPwSuccess(null);
                           }}
                           disabled={!isActive}
+                          title="Redefinir senha do assistente"
                           style={{
                             flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
@@ -1349,7 +1370,7 @@ export default function Configuracoes({
                             opacity: isActive ? 1 : 0.5
                           }}
                         >
-                          Alterar Senha
+                          Redefinir Senha
                         </button>
                         <button
                           onClick={() => isActive ? handleDisableAssistant(assistant.id) : handleEnableAssistant(assistant.id)}
@@ -1387,6 +1408,8 @@ export default function Configuracoes({
                       setCreateEmail('');
                       setCreatePassword('');
                       setCreateConfirmPassword('');
+                      setShowCreatePassword(false);
+                      setShowCreateConfirmPassword(false);
                       setCreateError(null);
                       setCreateSuccess(false);
                     }}
@@ -1493,12 +1516,18 @@ export default function Configuracoes({
                           onClick={() => {
                             setPwAssistantId(treasurer.id);
                             setPwAssistantName(treasurer.name);
+                            setPwAssistantRole('treasurer');
+                            setPwAssistantEmail(userEmails.get(treasurer.id) || '');
                             setShowPasswordModal(true);
                             setNewPassword('');
                             setConfirmNewPassword('');
+                            setShowNewPassword(false);
+                            setShowConfirmNewPassword(false);
                             setPwError(null);
+                            setPwSuccess(null);
                           }}
                           disabled={!isActive}
+                          title="Redefinir senha do tesoureiro"
                           style={{
                             flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
                             backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
@@ -1506,7 +1535,7 @@ export default function Configuracoes({
                             opacity: isActive ? 1 : 0.5
                           }}
                         >
-                          Alterar Senha
+                          Redefinir Senha
                         </button>
                         <button
                           onClick={() => isActive ? handleDisableAssistant(treasurer.id, 'tesoureiro') : handleEnableAssistant(treasurer.id, 'tesoureiro')}
@@ -1544,6 +1573,8 @@ export default function Configuracoes({
                       setCreateEmail('');
                       setCreatePassword('');
                       setCreateConfirmPassword('');
+                      setShowCreatePassword(false);
+                      setShowCreateConfirmPassword(false);
                       setCreateError(null);
                       setCreateSuccess(false);
                     }}
@@ -1684,10 +1715,57 @@ export default function Configuracoes({
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }} />
               <input type="email" placeholder="E-mail" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }} />
-              <input type="password" placeholder="Senha (6 números)" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} maxLength={6}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }} />
-              <input type="password" placeholder="Confirmar senha" value={createConfirmPassword} onChange={(e) => setCreateConfirmPassword(e.target.value)} maxLength={6}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }} />
+
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showCreatePassword ? 'text' : 'password'}
+                  placeholder="Senha (6 números)"
+                  value={createPassword}
+                  onChange={(e) => setCreatePassword(e.target.value)}
+                  maxLength={6}
+                  style={{ width: '100%', padding: '10px 42px 10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePassword(prev => !prev)}
+                  title={showCreatePassword ? "Ocultar senha" : "Ver senha"}
+                  aria-label={showCreatePassword ? "Ocultar senha" : "Ver senha"}
+                  style={{
+                    position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: showCreatePassword ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '6px', minWidth: '36px', minHeight: '36px', touchAction: 'manipulation'
+                  }}
+                >
+                  {showCreatePassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showCreateConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirmar senha"
+                  value={createConfirmPassword}
+                  onChange={(e) => setCreateConfirmPassword(e.target.value)}
+                  maxLength={6}
+                  style={{ width: '100%', padding: '10px 42px 10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCreateConfirmPassword(prev => !prev)}
+                  title={showCreateConfirmPassword ? "Ocultar confirmação de senha" : "Ver confirmação de senha"}
+                  aria-label={showCreateConfirmPassword ? "Ocultar confirmação de senha" : "Ver confirmação de senha"}
+                  style={{
+                    position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: showCreateConfirmPassword ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '6px', minWidth: '36px', minHeight: '36px', touchAction: 'manipulation'
+                  }}
+                >
+                  {showCreateConfirmPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+
               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '-4px' }}>A senha deve conter exatamente 6 números.</span>
             </div>
 
@@ -1769,47 +1847,199 @@ export default function Configuracoes({
         </div>
       )}
 
-      {/* ── MODAL: ALTERAR SENHA ── */}
+      {/* ── MODAL: REDEFINIR SENHA ── */}
       {showPasswordModal && (
         <div style={{
           position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 9999, backdropFilter: 'blur(4px)'
-        }} onClick={() => setShowPasswordModal(false)}>
+        }} onClick={() => {
+          setShowPasswordModal(false);
+          setPwSuccess(null);
+        }}>
           <div onClick={(e) => e.stopPropagation()} style={{
             backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '20px', padding: '28px 24px', width: '320px',
+            borderRadius: '20px', padding: '28px 24px', width: '340px',
             display: 'flex', flexDirection: 'column', gap: '16px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.8)'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Identificação do usuário selecionado */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: 0 }}>Alterar Senha</h3>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pwAssistantName}</span>
+                <h3 style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>Redefinir Senha</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: pwAssistantRole === 'treasurer' ? 'rgba(251,191,36,0.15)' : 'rgba(99,102,241,0.15)',
+                    color: pwAssistantRole === 'treasurer' ? '#fbbf24' : '#818cf8',
+                    border: pwAssistantRole === 'treasurer' ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(99,102,241,0.3)',
+                  }}>
+                    {pwAssistantRole === 'treasurer' ? 'Tesoureiro' : 'Assistente'}
+                  </span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {pwAssistantName}
+                  </span>
+                </div>
+                {pwAssistantEmail && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                    {pwAssistantEmail}
+                  </span>
+                )}
               </div>
-              <button onClick={() => setShowPasswordModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPwSuccess(null);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                aria-label="Fechar modal"
+              >
                 <X size={18} />
               </button>
             </div>
 
+            {/* Campos de senha */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <input type="password" placeholder="Nova senha (6 números)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} maxLength={6}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }} />
-              <input type="password" placeholder="Confirmar nova senha" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} maxLength={6}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', letterSpacing: '0.2em' }} />
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '-4px' }}>A senha deve conter exatamente 6 números.</span>
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  placeholder="Nova senha (6 números)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  maxLength={6}
+                  style={{
+                    width: '100%',
+                    padding: '10px 42px 10px 12px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#fff',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    letterSpacing: '0.2em'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(prev => !prev)}
+                  title={showNewPassword ? 'Ocultar senha' : 'Ver senha'}
+                  aria-label={showNewPassword ? 'Ocultar senha' : 'Ver senha'}
+                  style={{
+                    position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: showNewPassword ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '6px', minWidth: '36px', minHeight: '36px', touchAction: 'manipulation'
+                  }}
+                >
+                  {showNewPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showConfirmNewPassword ? 'text' : 'password'}
+                  placeholder="Confirmar nova senha"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  maxLength={6}
+                  style={{
+                    width: '100%',
+                    padding: '10px 42px 10px 12px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#fff',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    letterSpacing: '0.2em'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmNewPassword(prev => !prev)}
+                  title={showConfirmNewPassword ? 'Ocultar confirmação de senha' : 'Ver confirmação de senha'}
+                  aria-label={showConfirmNewPassword ? 'Ocultar confirmação de senha' : 'Ver confirmação de senha'}
+                  style={{
+                    position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: showConfirmNewPassword ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '6px', minWidth: '36px', minHeight: '36px', touchAction: 'manipulation'
+                  }}
+                >
+                  {showConfirmNewPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '-4px' }}>
+                A senha deve conter exatamente 6 números.
+              </span>
             </div>
 
             {pwError && (
-              <div style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', fontSize: '0.8rem', fontWeight: 600 }}>
+              <div style={{
+                padding: '8px 12px', borderRadius: '8px',
+                backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                color: '#f87171', fontSize: '0.8rem', fontWeight: 600
+              }}>
                 {pwError}
               </div>
             )}
 
-            <button onClick={handleChangePassword} disabled={changingPassword}
-              style={{ padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', color: '#fff', fontSize: '0.9rem', fontWeight: 700, cursor: changingPassword ? 'not-allowed' : 'pointer', opacity: changingPassword ? 0.7 : 1 }}>
-              {changingPassword ? 'Alterando...' : 'Alterar Senha'}
-            </button>
+            {pwSuccess && (
+              <div style={{
+                padding: '8px 12px', borderRadius: '8px',
+                backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)',
+                color: '#4ade80', fontSize: '0.8rem', fontWeight: 600
+              }}>
+                {pwSuccess}
+              </div>
+            )}
+
+            {/* Botões Cancelar e Salvar Nova Senha */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setNewPassword('');
+                  setConfirmNewPassword('');
+                  setShowNewPassword(false);
+                  setShowConfirmNewPassword(false);
+                  setPwError(null);
+                  setPwSuccess(null);
+                }}
+                disabled={changingPassword}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.04)',
+                  color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleChangePassword}
+                disabled={changingPassword || !!pwSuccess}
+                style={{
+                  flex: 1.5, padding: '12px', borderRadius: '10px', border: 'none',
+                  background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', color: '#fff',
+                  fontSize: '0.9rem', fontWeight: 700,
+                  cursor: (changingPassword || !!pwSuccess) ? 'not-allowed' : 'pointer',
+                  opacity: (changingPassword || !!pwSuccess) ? 0.7 : 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                }}
+              >
+                {changingPassword ? 'Salvando...' : 'Salvar Nova Senha'}
+              </button>
+            </div>
           </div>
         </div>
       )}

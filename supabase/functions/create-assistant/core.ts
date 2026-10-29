@@ -360,9 +360,9 @@ async function handleUpdateCredentials(
 async function handleUpdatePassword(
   deps: Deps,
   adminId: string,
-  body: { assistant_id?: unknown; password?: unknown },
+  body: { assistant_id?: unknown; user_id?: unknown; password?: unknown },
 ) {
-  const assistantId = body.assistant_id as string | undefined;
+  const assistantId = (body.assistant_id ?? body.user_id) as string | undefined;
   const password = body.password as string | undefined;
 
   if (!assistantId) {

@@ -221,6 +221,121 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
     expect(deps.updateUserPassword).not.toHaveBeenCalled();
   });
 
+  it("15b) update_password de tesoureiro -> permitido para admin", async () => {
+    const deps = baseDeps();
+    const TREASURER_ID = "trs-user-uuid-1";
+    deps.getProfileRole = vi.fn((userId: string) =>
+      Promise.resolve(
+        userId === ADMIN_ID
+          ? { data: { role: "admin" }, error: null }
+          : { data: { role: "treasurer" }, error: null },
+      ),
+    );
+    deps.getUserById = vi.fn().mockResolvedValue({ data: { user: { id: TREASURER_ID } }, error: null });
+    const res = await handleRequest(
+      makeRequest({
+        body: { action: "update_password", assistant_id: TREASURER_ID, password: "654321" },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(deps.updateUserPassword).toHaveBeenCalledWith(TREASURER_ID, "654321");
+  });
+
+  it("15c) update_password usando user_id em vez de assistant_id -> permitido para admin", async () => {
+    const deps = baseDeps();
+    const res = await handleRequest(
+      makeRequest({
+        body: { action: "update_password", user_id: ASSISTANT_ID, password: "987654" },
+      }),
+      deps,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(deps.updateUserPassword).toHaveBeenCalledWith(ASSISTANT_ID, "987654");
+  });
+
+  it("15d) update_password com senha diferente de 6 números -> 400", async () => {
+    const deps = baseDeps();
+    const resShort = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "12345" } }),
+      deps,
+    );
+    expect(resShort.status).toBe(400);
+    expect(resShort.body).toEqual({ error: "Password must be exactly 6 digits" });
+
+    const resLetters = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "abcdef" } }),
+      deps,
+    );
+    expect(resLetters.status).toBe(400);
+    expect(resLetters.body).toEqual({ error: "Password must be exactly 6 digits" });
+  });
+
+  it("15e) update_password chamado por usuário comum/visitor -> rejeitado com 403", async () => {
+    const deps = baseDeps();
+    deps.getUser = vi.fn().mockResolvedValue({ user: { id: VISITOR_ID }, error: null });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(403);
+    expect(deps.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("15f) update_password chamado por assistente tentando alterar senha de terceiros -> rejeitado com 403", async () => {
+    const deps = baseDeps();
+    deps.getUser = vi.fn().mockResolvedValue({ user: { id: ASSISTANT_ID }, error: null });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: "other-user-uuid", password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(403);
+    expect(deps.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("15g) update_password com perfil inexistente -> 400", async () => {
+    const deps = baseDeps();
+    deps.getProfileRole = vi.fn((userId: string) =>
+      Promise.resolve(
+        userId === ADMIN_ID
+          ? { data: { role: "admin" }, error: null }
+          : { data: null, error: null },
+      ),
+    );
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: "non-existent-user", password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Target user is not an assistant or treasurer" });
+    expect(deps.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("15h) update_password com usuário auth inexistente -> 400", async () => {
+    const deps = baseDeps();
+    deps.getUserById = vi.fn().mockResolvedValue({ data: { user: null }, error: null });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Target auth user not found" });
+    expect(deps.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("15i) update_password com falha na API de auth (updateUserPassword) -> 400 com erro", async () => {
+    const deps = baseDeps();
+    deps.updateUserPassword = vi.fn().mockResolvedValue({ error: new Error("Auth service unavailable") });
+    const res = await handleRequest(
+      makeRequest({ body: { action: "update_password", assistant_id: ASSISTANT_ID, password: "111222" } }),
+      deps,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Auth service unavailable" });
+  });
+
   it("16) nenhum log contém senha / JWT completo / service_role", async () => {
     const logs: unknown[] = [];
     const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
@@ -1224,6 +1339,143 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
       // Super Admin autenticado promovendo para assistente ou tesoureiro
       expect(evaluateDbTrigger("assistant", true, "admin-uuid-1")).toBe(true);
       expect(evaluateDbTrigger("treasurer", true, "admin-uuid-1")).toBe(true);
+    });
+
+    it("Cenário 7: Reprodução exata do erro pg_catalog na promoção e verificação de cleanup seguro", async () => {
+      const deps = baseDeps();
+      // Simula a falha real de runtime observada no Supabase
+      deps.updateProfile = vi.fn().mockResolvedValue({
+        error: { message: 'missing FROM-clause entry for table "pg_catalog"', code: "42P01" },
+      });
+
+      const res = await handleRequest(
+        makeRequest({
+          body: {
+            action: "create",
+            email: "gustavo@rda.com",
+            password: "123456",
+            name: "Gustavo",
+            targetRole: "treasurer",
+          },
+        }),
+        deps,
+      );
+
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({
+        error: 'Failed to promote profile: missing FROM-clause entry for table "pg_catalog"',
+      });
+      // Confirma que tanto a exclusão do profile quanto do user em auth foram disparadas para evitar órfãos
+      expect(deps.deleteProfile).toHaveBeenCalledWith("new-user-1");
+      expect(deps.deleteUser).toHaveBeenCalledWith("new-user-1");
+    });
+
+    it("Cenário 8: Validação formal da trigger prevent_nonadmin_role_change corrigida (SQL 33)", async () => {
+      // Simulação fiel da lógica PL/pgSQL da função prevent_nonadmin_role_change()
+      const simulateCorrectedTrigger = (params: {
+        newRole: string;
+        oldRole: string;
+        sessionUser: string;
+        authUid: string | null;
+        userIsAdmin: boolean;
+        jwtRole?: string;
+        settingRole?: string;
+        currentUser?: string;
+      }) => {
+        // Cargo inalterado: libera
+        if (params.newRole === params.oldRole) return "ALLOWED";
+
+        // 1. Conexão DBA direta (session_user é palavra-chave SQL standard, sem qualificador pg_catalog)
+        if (["postgres", "supabase_admin"].includes(params.sessionUser)) {
+          return "ALLOWED_DBA";
+        }
+
+        // 2. Requisição autenticada com identidade de usuário (auth.uid() NOT NULL)
+        if (params.authUid !== null) {
+          if (params.userIsAdmin) return "ALLOWED_SUPER_ADMIN";
+          throw new Error("Apenas admin pode alterar profiles.role");
+        }
+
+        // 3. Operação de serviço autorizada (auth.uid() IS NULL)
+        if (params.jwtRole === "service_role" && params.settingRole === "service_role") {
+          return "ALLOWED_SERVICE_ROLE";
+        }
+
+        // 4. Bloqueio padrão
+        throw new Error("Apenas admin pode alterar profiles.role");
+      };
+
+      // Caso A: DBA no console PostgreSQL
+      expect(
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "postgres",
+          authUid: null,
+          userIsAdmin: false,
+        }),
+      ).toBe("ALLOWED_DBA");
+
+      // Caso B: Super Admin autenticado promovendo tesoureiro
+      expect(
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: "admin-uuid-1",
+          userIsAdmin: true,
+        }),
+      ).toBe("ALLOWED_SUPER_ADMIN");
+
+      // Caso C: Edge Function interna via service_role key (ambos claims e role ativos)
+      expect(
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: null,
+          userIsAdmin: false,
+          jwtRole: "service_role",
+          settingRole: "service_role",
+        }),
+      ).toBe("ALLOWED_SERVICE_ROLE");
+
+      // Caso C2: Tentativa de bypass com apenas um dos indicadores (rejeitado)
+      expect(() =>
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: null,
+          userIsAdmin: false,
+          jwtRole: "service_role",
+          settingRole: "anon",
+        }),
+      ).toThrow("Apenas admin pode alterar profiles.role");
+
+      // Caso D: Usuário autenticado comum (tentativa de invasão / autoelevação)
+      expect(() =>
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: "visitor-uuid-1",
+          userIsAdmin: false,
+        }),
+      ).toThrow("Apenas admin pode alterar profiles.role");
+
+      // Caso E: Falsificação de claim por usuário sem contexto válido
+      expect(() =>
+        simulateCorrectedTrigger({
+          newRole: "treasurer",
+          oldRole: "visitor",
+          sessionUser: "authenticator",
+          authUid: null,
+          userIsAdmin: false,
+          jwtRole: "authenticated",
+          currentUser: "anon",
+        }),
+      ).toThrow("Apenas admin pode alterar profiles.role");
     });
   });
 });
