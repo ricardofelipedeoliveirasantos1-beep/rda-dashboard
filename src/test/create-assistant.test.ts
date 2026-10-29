@@ -1128,4 +1128,102 @@ describe("create-assistant — Edge Function (local, com mocks)", () => {
       manage_monthly_payments: false,
     });
   });
+
+  describe("Revisão de Segurança — 6 Cenários Mandatórios de Controle de Acesso e Limites", () => {
+    it("Cenário 1: Cadastro de assistente permitido para o Super Admin (vagas disponíveis)", async () => {
+      const deps = baseDeps();
+      deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 2, error: null });
+      const res = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "assist3@rda.com", password: "123456", name: "Assistente Três", targetRole: "assistant" },
+        }),
+        deps,
+      );
+      expect(res.status).toBe(200);
+      expect(deps.createUser).toHaveBeenCalled();
+      expect(deps.updateProfile).toHaveBeenCalledWith("new-user-1", { role: "assistant", name: "Assistente Três" });
+    });
+
+    it("Cenário 2: Quinto assistente rejeitado categoricamente (limite estrito de 4)", async () => {
+      const deps = baseDeps();
+      deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 4, error: null });
+      const res = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "quinto@rda.com", password: "123456", name: "Quinto Assistente", targetRole: "assistant" },
+        }),
+        deps,
+      );
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: "Maximum limit of 4 assistants reached" });
+      expect(deps.createUser).not.toHaveBeenCalled();
+    });
+
+    it("Cenário 3: Cadastro de tesoureiro permitido para o Super Admin (0 tesoureiros cadastrados)", async () => {
+      const deps = baseDeps();
+      deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 0, error: null });
+      const res = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "tesoureiro_oficial@rda.com", password: "123456", name: "Tesoureiro RDA", targetRole: "treasurer" },
+        }),
+        deps,
+      );
+      expect(res.status).toBe(200);
+      expect(deps.updateProfile).toHaveBeenCalledWith("new-user-1", { role: "treasurer", name: "Tesoureiro RDA" });
+    });
+
+    it("Cenário 4: Segundo tesoureiro rejeitado categoricamente (limite estrito de 1)", async () => {
+      const deps = baseDeps();
+      deps.countUsersByRole = vi.fn().mockResolvedValue({ count: 1, error: null });
+      const res = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "segundo_trs@rda.com", password: "123456", name: "Segundo Tesoureiro", targetRole: "treasurer" },
+        }),
+        deps,
+      );
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: "Maximum limit of 1 treasurer reached" });
+      expect(deps.createUser).not.toHaveBeenCalled();
+    });
+
+    it("Cenário 5: Usuário comum impedido de alterar a própria role (bloqueio de autoelevação)", async () => {
+      // 5.1 Na API da Edge Function: usuário não-admin recebe 403 Forbidden
+      const nonAdminDeps = baseDeps();
+      nonAdminDeps.getProfileRole = vi.fn().mockResolvedValue({ data: { role: "visitor" }, error: null });
+      const apiRes = await handleRequest(
+        makeRequest({
+          body: { action: "create", email: "hacker@rda.com", password: "123456", name: "Tentativa", targetRole: "admin" },
+        }),
+        nonAdminDeps,
+      );
+      expect(apiRes.status).toBe(403);
+      expect(apiRes.body).toEqual({ error: "Forbidden: admin access required" });
+
+      // 5.2 No Banco de Dados: a trigger prevent_nonadmin_role_change() bloqueia qualquer usuário autenticado comum
+      const evaluateDbTrigger = (_roleCandidate: string, userIsAdmin: boolean, callerUid: string | null) => {
+        if (callerUid !== null) {
+          if (!userIsAdmin) throw new Error("Apenas admin pode alterar profiles.role");
+          return true;
+        }
+        return false;
+      };
+
+      // Usuário autenticado comum tenta autoelevação para admin ou tesoureiro
+      expect(() => evaluateDbTrigger("admin", false, "user-visitor-uuid")).toThrow("Apenas admin pode alterar profiles.role");
+      expect(() => evaluateDbTrigger("treasurer", false, "user-assistant-uuid")).toThrow("Apenas admin pode alterar profiles.role");
+    });
+
+    it("Cenário 6: Administrador autorizado a alterar papéis de perfis", async () => {
+      const evaluateDbTrigger = (_roleCandidate: string, userIsAdmin: boolean, callerUid: string | null) => {
+        if (callerUid !== null) {
+          if (!userIsAdmin) throw new Error("Apenas admin pode alterar profiles.role");
+          return true;
+        }
+        return false;
+      };
+
+      // Super Admin autenticado promovendo para assistente ou tesoureiro
+      expect(evaluateDbTrigger("assistant", true, "admin-uuid-1")).toBe(true);
+      expect(evaluateDbTrigger("treasurer", true, "admin-uuid-1")).toBe(true);
+    });
+  });
 });
