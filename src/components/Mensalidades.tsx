@@ -35,8 +35,8 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
   const [error, setError] = useState<string | null>(null);
 
   const canManageMonthlyPayments = _userRole === 'admin' ||
-    (_userRole === 'assistant' && _can('manage_finance')) ||
-    (_userRole === 'treasurer' && _can('manage_monthly_payments'));
+    (_userRole === 'assistant' && (_can('manage_finance') || _can('manage_monthly_payments'))) ||
+    (_userRole === 'treasurer' && (_can('manage_finance') || _can('manage_monthly_payments')));
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [showMonthSelect, setShowMonthSelect] = useState(false);
@@ -263,7 +263,7 @@ export default function Mensalidades({ userRole: _userRole, can: _can }: { userR
   const pendentesVal = previstosVal - recebidosVal;
 
   const filteredMensalistas = mensalistasWithStatus.filter(m => {
-    const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (m.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     if (statusFilter === 'all') return matchesSearch;
     return matchesSearch && m.payment_status === statusFilter;
   });

@@ -45,7 +45,7 @@ describe('RDA — Nova Funcionalidade: Ajuste do Saldo Acumulado com Permissão 
       });
     });
 
-    it('2. Administrador consegue corrigir o saldo total com cálculo automático da diferença', async () => {
+    it('2. Administrador consegue diminuir valor do caixa (Opção 2 — Saída de R$ 16,00)', async () => {
       render(<Financeiro userRole="admin" can={() => true} />);
 
       await waitFor(() => {
@@ -53,11 +53,11 @@ describe('RDA — Nova Funcionalidade: Ajuste do Saldo Acumulado com Permissão 
       });
 
       fireEvent.click(screen.getByText('Ajustar Saldo Acumulado'));
-      fireEvent.click(screen.getByText('Corrigir saldo total'));
+      fireEvent.click(screen.getByText('Diminuir valores'));
 
-      const amountInput = screen.getByPlaceholderText('Ex: 310,00');
-      fireEvent.change(amountInput, { target: { value: '310,00' } });
-      fireEvent.change(screen.getByPlaceholderText(/Ex: Conciliação/i), {
+      const amountInput = screen.getByPlaceholderText('Ex: 50,00');
+      fireEvent.change(amountInput, { target: { value: '16,00' } });
+      fireEvent.change(screen.getByPlaceholderText(/Ex: Ajuste de conferência/i), {
         target: { value: 'Conferência física de caixa' },
       });
 
@@ -67,9 +67,9 @@ describe('RDA — Nova Funcionalidade: Ajuste do Saldo Acumulado com Permissão 
         const stored = localStorage.getItem('rda_local_adjustments');
         expect(stored).not.toBeNull();
         const parsed = JSON.parse(stored || '[]');
-        expect(parsed[0].type).toBe('entry');
-        expect(parsed[0].new_balance).toBe(310.00);
-        expect(parsed[0].amount).toBeGreaterThan(0);
+        expect(parsed[0].type).toBe('exit');
+        expect(parsed[0].amount).toBe(16.00);
+        expect(parsed[0].description).toBe('Conferência física de caixa');
       });
     });
   });

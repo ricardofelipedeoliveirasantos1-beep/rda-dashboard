@@ -4,21 +4,7 @@ import { getCachedData, invalidateCache, CACHE_TTL } from '../services/dataCache
 import { DollarSign, Save, AlertCircle, Check, ClipboardList, History, ChevronDown, ChevronUp, FileText, Users, User, Shield, Plus, X, Loader2, Eye, EyeOff } from 'lucide-react';
 import LancarHistoricoManual from './LancarHistoricoManual';
 import ImportarPlanilha from './ImportarPlanilha';
-
-interface AssistantPermissions {
-  create_notices: boolean;
-  edit_notices: boolean;
-  delete_notices: boolean;
-  create_match: boolean;
-  edit_match: boolean;
-  insert_stats: boolean;
-  edit_players: boolean;
-  delete_players: boolean;
-  manage_finance: boolean;
-  manage_expenses: boolean;
-  import_history: boolean;
-  adjust_balance?: boolean;
-}
+import type { AssistantPermissions } from '../App';
 
 interface ConfiguracoesProps {
   userRole: 'admin' | 'assistant' | 'visitor' | 'treasurer';
@@ -76,12 +62,15 @@ export default function Configuracoes({
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [editingAssistantId, setEditingAssistantId] = useState<string | null>(null);
   const [editingAssistantName, setEditingAssistantName] = useState('');
+  const [editingAssistantRole, setEditingAssistantRole] = useState<'assistant' | 'treasurer'>('assistant');
   const [editPerms, setEditPerms] = useState<AssistantPermissions>({
+    view_finance: false,
     create_match: false, edit_match: false, insert_stats: false,
     edit_players: false, delete_players: false, manage_finance: false,
-    manage_expenses: false, create_notices: false,
-    edit_notices: false, delete_notices: false, import_history: false,
-    adjust_balance: false,
+    manage_expenses: false, edit_expenses: false, delete_expenses: false,
+    manage_monthly_payments: false,
+    create_notices: false, edit_notices: false, delete_notices: false,
+    import_history: false, adjust_balance: false,
   });
   const [savingPerms, setSavingPerms] = useState(false);
 
@@ -118,7 +107,7 @@ export default function Configuracoes({
   const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
   const [isTreasurerPermissionsOpen, setIsTreasurerPermissionsOpen] = useState(false);
 
-  const [treasurerPermissionsMap, setTreasurerPermissionsMap] = useState<Map<string, { manage_finance: boolean; manage_monthly_payments: boolean; adjust_balance?: boolean }>>(new Map());
+  const [treasurerPermissionsMap, setTreasurerPermissionsMap] = useState<Map<string, Record<string, boolean>>>(new Map());
 
   const formatCurrencyBRL = (value: number): string => {
     return (value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -372,19 +361,22 @@ export default function Configuracoes({
     }
   };
 
-  const openPermissions = async (assistant: AssistantProfile) => {
-    setEditingAssistantId(assistant.id);
-    setEditingAssistantName(assistant.name);
+  const openPermissions = async (profile: AssistantProfile) => {
+    setEditingAssistantId(profile.id);
+    setEditingAssistantName(profile.name);
+    setEditingAssistantRole(profile.role as 'assistant' | 'treasurer');
     setShowPermissionsModal(true);
 
+    const targetTable = profile.role === 'treasurer' ? 'treasurer_permissions' : 'assistant_permissions';
     const { data: perms } = await supabase
-      .from('assistant_permissions')
+      .from(targetTable)
       .select('*')
-      .eq('profile_id', assistant.id)
+      .eq('profile_id', profile.id)
       .single();
 
     if (perms) {
       setEditPerms({
+        view_finance: perms.view_finance ?? false,
         create_match: perms.create_match ?? false,
         edit_match: perms.edit_match ?? false,
         insert_stats: perms.insert_stats ?? false,
@@ -392,6 +384,9 @@ export default function Configuracoes({
         delete_players: perms.delete_players ?? false,
         manage_finance: perms.manage_finance ?? false,
         manage_expenses: perms.manage_expenses ?? false,
+        edit_expenses: perms.edit_expenses ?? false,
+        delete_expenses: perms.delete_expenses ?? false,
+        manage_monthly_payments: perms.manage_monthly_payments ?? false,
         create_notices: perms.create_notices ?? false,
         edit_notices: perms.edit_notices ?? false,
         delete_notices: perms.delete_notices ?? false,
@@ -400,10 +395,13 @@ export default function Configuracoes({
       });
     } else {
       setEditPerms({
+        view_finance: false,
         create_match: false, edit_match: false, insert_stats: false,
-        edit_players: false, delete_players: false, manage_finance: false, manage_expenses: false, create_notices: false,
-        edit_notices: false, delete_notices: false, import_history: false,
-        adjust_balance: false,
+        edit_players: false, delete_players: false, manage_finance: false,
+        manage_expenses: false, edit_expenses: false, delete_expenses: false,
+        manage_monthly_payments: false,
+        create_notices: false, edit_notices: false, delete_notices: false,
+        import_history: false, adjust_balance: false,
       });
     }
   };
@@ -412,8 +410,9 @@ export default function Configuracoes({
     if (!editingAssistantId) return;
     setSavingPerms(true);
     try {
+      const targetTable = editingAssistantRole === 'treasurer' ? 'treasurer_permissions' : 'assistant_permissions';
       const { error } = await supabase
-        .from('assistant_permissions')
+        .from(targetTable)
         .upsert({
           profile_id: editingAssistantId,
           ...editPerms,
@@ -421,6 +420,13 @@ export default function Configuracoes({
         }, { onConflict: 'profile_id' });
 
       if (error) throw error;
+
+      if (editingAssistantRole === 'treasurer') {
+        const newMap = new Map(treasurerPermissionsMap);
+        newMap.set(editingAssistantId, { ...(treasurerPermissionsMap.get(editingAssistantId) || {}), ...editPerms });
+        setTreasurerPermissionsMap(newMap);
+      }
+
       setShowPermissionsModal(false);
       alert('Permissões salvas com sucesso!');
     } catch (err: any) {
@@ -1043,17 +1049,22 @@ export default function Configuracoes({
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', marginTop: '4px' }}>
             {[
-              { key: 'create_notices' as const, label: 'Criar Avisos' },
-              { key: 'edit_notices' as const, label: 'Editar Avisos' },
-              { key: 'delete_notices' as const, label: 'Excluir Avisos' },
+              { key: 'view_finance' as const, label: 'Visualizar Financeiro (somente leitura)', description: 'Permite consultar valores reais, navegar entre os meses e visualizar relatórios, sem cadastrar, editar, excluir ou ajustar valores.' },
+              { key: 'manage_finance' as const, label: 'Gerenciar Financeiro', description: 'Permite cadastrar gastos, realizar lançamentos e operar o financeiro.' },
+              { key: 'adjust_balance' as const, label: 'Ajustar Saldo Acumulado', description: 'Permite adicionar valores ou corrigir o saldo acumulado do caixa na área Financeira.' },
+              { key: 'manage_monthly_payments' as const, label: 'Gerenciar Mensalidades', description: 'Permite registrar ou alterar pagamentos de mensalistas.' },
+              { key: 'manage_expenses' as const, label: 'Adicionar Despesas', description: 'Permite adicionar novas despesas no mês selecionado.' },
+              { key: 'edit_expenses' as const, label: 'Editar Despesas', description: 'Permite editar despesas já lançadas.' },
+              { key: 'delete_expenses' as const, label: 'Excluir Despesas', description: 'Permite excluir despesas registradas.' },
               { key: 'create_match' as const, label: 'Criar Partidas' },
               { key: 'edit_match' as const, label: 'Editar/Excluir Partidas' },
               { key: 'insert_stats' as const, label: 'Lançar/Editar Estatísticas' },
               { key: 'edit_players' as const, label: 'Editar Jogadores' },
               { key: 'delete_players' as const, label: 'Excluir Jogadores' },
-              { key: 'manage_finance' as const, label: 'Gerenciar Financeiro' },
+              { key: 'create_notices' as const, label: 'Criar Avisos' },
+              { key: 'edit_notices' as const, label: 'Editar Avisos' },
+              { key: 'delete_notices' as const, label: 'Excluir Avisos' },
               { key: 'import_history' as const, label: 'Importar Histórico' },
-              { key: 'adjust_balance' as const, label: 'Ajustar Saldo Acumulado', description: 'Permite adicionar valores ou corrigir o saldo acumulado do caixa na área Financeira.' }
             ].map((item) => {
               const isChecked = Boolean(assistantPermissions[item.key]);
               return (
@@ -1145,7 +1156,7 @@ export default function Configuracoes({
           {isTreasurerPermissionsOpen && (
             <>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.83rem', margin: 0 }}>
-                Configure as permissões específicas para cada Tesoureiro cadastrado.
+                Configure a matriz completa de permissões para cada Tesoureiro cadastrado.
               </p>
 
               {treasurers.length === 0 ? (
@@ -1154,29 +1165,57 @@ export default function Configuracoes({
                 </div>
               ) : (
                 treasurers.map(treasurer => {
-                  const perms = treasurerPermissionsMap.get(treasurer.id) || { manage_finance: false, manage_monthly_payments: false };
+                  const perms = (treasurerPermissionsMap.get(treasurer.id) || {}) as Record<string, boolean>;
+
+                  const TREASURER_PERMS_ITEMS = [
+                    { key: 'view_finance', label: 'Visualizar Financeiro (somente leitura)', description: 'Permite consultar valores reais, navegar entre os meses e visualizar relatórios, sem cadastrar, editar, excluir ou ajustar valores.' },
+                    { key: 'manage_finance', label: 'Gerenciar Financeiro', description: 'Permite cadastrar gastos, realizar lançamentos e operar o financeiro.' },
+                    { key: 'adjust_balance', label: 'Ajustar Saldo Acumulado', description: 'Permite adicionar valores ou corrigir o saldo acumulado do caixa na área Financeira.' },
+                    { key: 'manage_monthly_payments', label: 'Gerenciar Mensalidades', description: 'Permite registrar ou alterar pagamentos de mensalistas.' },
+                    { key: 'manage_expenses', label: 'Adicionar Despesas', description: 'Permite adicionar novas despesas no mês selecionado.' },
+                    { key: 'edit_expenses', label: 'Editar Despesas', description: 'Permite editar despesas já lançadas.' },
+                    { key: 'delete_expenses', label: 'Excluir Despesas', description: 'Permite excluir despesas registradas.' },
+                    { key: 'create_match', label: 'Criar Partidas', description: 'Permite criar novas partidas e escalações.' },
+                    { key: 'edit_match', label: 'Editar/Excluir Partidas', description: 'Permite editar e excluir partidas.' },
+                    { key: 'insert_stats', label: 'Lançar/Editar Estatísticas', description: 'Permite lançar notas e estatísticas.' },
+                    { key: 'edit_players', label: 'Editar Jogadores', description: 'Permite alterar cadastro de jogadores.' },
+                    { key: 'delete_players', label: 'Excluir Jogadores', description: 'Permite remover jogadores.' },
+                    { key: 'create_notices', label: 'Criar Avisos', description: 'Permite publicar avisos.' },
+                    { key: 'edit_notices', label: 'Editar Avisos', description: 'Permite modificar avisos.' },
+                    { key: 'delete_notices', label: 'Excluir Avisos', description: 'Permite remover avisos.' },
+                    { key: 'import_history', label: 'Importar Histórico', description: 'Permite importar dados do histórico.' },
+                  ];
 
                   return (
-                    <div key={treasurer.id} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '14px', backgroundColor: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '12px' }}>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fbbf24' }}>{treasurer.name}</span>
+                    <div key={treasurer.id} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.015)', border: '1px solid rgba(251,191,36,0.15)', borderRadius: '14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fbbf24' }}>💰 {treasurer.name}</span>
+                        <button
+                          onClick={() => openPermissions(treasurer)}
+                          style={{
+                            padding: '6px 12px', borderRadius: '8px',
+                            backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)',
+                            color: '#fbbf24', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'
+                          }}
+                        >
+                          Abrir Modal Completo
+                        </button>
+                      </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-                        {[
-                          { key: 'manage_finance' as const, label: 'Gerenciar Financeiro' },
-                          { key: 'manage_monthly_payments' as const, label: 'Gerenciar Mensalidades' },
-                          { key: 'adjust_balance' as const, label: 'Ajustar Saldo Acumulado' }
-                        ].map(item => {
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+                        {TREASURER_PERMS_ITEMS.map(item => {
                           const isChecked = Boolean(perms[item.key]);
                           return (
                             <label
                               key={item.key}
                               style={{
-                                display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px',
-                                backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
+                                display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px',
+                                backgroundColor: isChecked ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.02)',
+                                border: isChecked ? '1px solid rgba(251,191,36,0.2)' : '1px solid rgba(255,255,255,0.04)',
                                 borderRadius: '12px', cursor: 'pointer', userSelect: 'none', transition: 'var(--transition)'
                               }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isChecked ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.04)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isChecked ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.02)'}
                             >
                               <input
                                 type="checkbox"
@@ -1200,9 +1239,14 @@ export default function Configuracoes({
                                     console.error('Erro ao salvar permissões de tesoureiro no banco:', err);
                                   }
                                 }}
-                                style={{ width: '16px', height: '16px', accentColor: '#fbbf24', cursor: 'pointer' }}
+                                style={{ width: '16px', height: '16px', accentColor: '#fbbf24', cursor: 'pointer', marginTop: '2px' }}
                               />
-                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isChecked ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{item.label}</span>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.84rem', fontWeight: 600, color: isChecked ? '#fff' : 'var(--text-secondary)' }}>{item.label}</span>
+                                {item.description && (
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.25 }}>{item.description}</span>
+                                )}
+                              </div>
                             </label>
                           );
                         })}
@@ -1493,6 +1537,18 @@ export default function Configuracoes({
                         </span>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => openPermissions(treasurer)}
+                          disabled={!isActive}
+                          style={{
+                            flex: 1, padding: '8px', borderRadius: '8px', minWidth: '80px',
+                            backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)',
+                            color: '#fbbf24', fontSize: '0.75rem', fontWeight: 700, cursor: isActive ? 'pointer' : 'not-allowed',
+                            opacity: isActive ? 1 : 0.5
+                          }}
+                        >
+                          Permissões
+                        </button>
                         <button
                           onClick={() => {
                             setEditUserId(treasurer.id);
@@ -1805,7 +1861,12 @@ export default function Configuracoes({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: 0 }}>Permissões</h3>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{editingAssistantName}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{editingAssistantName}</span>
+                  <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: editingAssistantRole === 'treasurer' ? 'rgba(251,191,36,0.15)' : 'rgba(99,102,241,0.15)', color: editingAssistantRole === 'treasurer' ? '#fbbf24' : '#818cf8', fontWeight: 700 }}>
+                    {editingAssistantRole === 'treasurer' ? 'Tesoureiro' : 'Assistente'}
+                  </span>
+                </div>
               </div>
               <button onClick={() => setShowPermissionsModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <X size={18} />
@@ -1814,29 +1875,41 @@ export default function Configuracoes({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {[
-                { key: 'create_match' as const, label: 'Criar Partida' },
-                { key: 'edit_match' as const, label: 'Editar Partida' },
-                { key: 'insert_stats' as const, label: 'Lançar Estatísticas' },
-                { key: 'edit_players' as const, label: 'Editar Jogadores' },
-                { key: 'delete_players' as const, label: 'Excluir Jogadores' },
-                { key: 'manage_finance' as const, label: 'Gerenciar Financeiro' },
-                { key: 'adjust_balance' as const, label: 'Ajustar Saldo Acumulado' },
-                { key: 'create_notices' as const, label: 'Criar Avisos' },
-                { key: 'edit_notices' as const, label: 'Editar Avisos' },
-                { key: 'delete_notices' as const, label: 'Excluir Avisos' },
-                { key: 'import_history' as const, label: 'Importar Histórico' },
-              ].map((item) => (
-                <label key={item.key} style={{
-                  display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                  backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
-                  borderRadius: '10px', cursor: 'pointer', userSelect: 'none'
-                }}>
-                  <input type="checkbox" checked={editPerms[item.key]}
-                    onChange={() => setEditPerms(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
-                    style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }} />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: editPerms[item.key] ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{item.label}</span>
-                </label>
-              ))}
+                { key: 'view_finance' as const, label: 'Visualizar Financeiro (somente leitura)', desc: 'Permite consultar valores reais, navegar entre meses e ver relatórios, sem cadastrar, editar, excluir ou ajustar valores.' },
+                { key: 'manage_finance' as const, label: 'Gerenciar Financeiro', desc: 'Permite cadastrar gastos, realizar lançamentos e operar o financeiro.' },
+                { key: 'adjust_balance' as const, label: 'Ajustar Saldo Acumulado', desc: 'Permite adicionar valores ou corrigir o saldo acumulado do caixa na área Financeira.' },
+                { key: 'manage_monthly_payments' as const, label: 'Gerenciar Mensalidades', desc: 'Permite registrar ou alterar pagamentos de mensalistas.' },
+                { key: 'manage_expenses' as const, label: 'Adicionar Despesas', desc: 'Permite adicionar novas despesas no mês selecionado.' },
+                { key: 'edit_expenses' as const, label: 'Editar Despesas', desc: 'Permite editar despesas já lançadas.' },
+                { key: 'delete_expenses' as const, label: 'Excluir Despesas', desc: 'Permite excluir despesas registradas.' },
+                { key: 'create_match' as const, label: 'Criar Partidas', desc: 'Permite criar novas partidas e escalações.' },
+                { key: 'edit_match' as const, label: 'Editar/Excluir Partidas', desc: 'Permite editar e excluir partidas.' },
+                { key: 'insert_stats' as const, label: 'Lançar/Editar Estatísticas', desc: 'Permite lançar notas e estatísticas.' },
+                { key: 'edit_players' as const, label: 'Editar Jogadores', desc: 'Permite alterar cadastro de jogadores.' },
+                { key: 'delete_players' as const, label: 'Excluir Jogadores', desc: 'Permite remover jogadores.' },
+                { key: 'create_notices' as const, label: 'Criar Avisos', desc: 'Permite publicar avisos.' },
+                { key: 'edit_notices' as const, label: 'Editar Avisos', desc: 'Permite modificar avisos.' },
+                { key: 'delete_notices' as const, label: 'Excluir Avisos', desc: 'Permite remover avisos.' },
+                { key: 'import_history' as const, label: 'Importar Histórico', desc: 'Permite importar dados do histórico.' },
+              ].map((item) => {
+                const isChecked = Boolean(editPerms[item.key]);
+                return (
+                  <label key={item.key} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px',
+                    backgroundColor: isChecked ? (editingAssistantRole === 'treasurer' ? 'rgba(251,191,36,0.06)' : 'rgba(99,102,241,0.06)') : 'rgba(255,255,255,0.02)',
+                    border: isChecked ? (editingAssistantRole === 'treasurer' ? '1px solid rgba(251,191,36,0.25)' : '1px solid rgba(99,102,241,0.25)') : '1px solid rgba(255,255,255,0.04)',
+                    borderRadius: '10px', cursor: 'pointer', userSelect: 'none'
+                  }}>
+                    <input type="checkbox" checked={isChecked}
+                      onChange={() => setEditPerms(prev => ({ ...prev, [item.key]: !isChecked }))}
+                      style={{ width: '16px', height: '16px', accentColor: editingAssistantRole === 'treasurer' ? '#fbbf24' : '#6366f1', cursor: 'pointer', marginTop: '2px' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isChecked ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{item.label}</span>
+                      <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.25 }}>{item.desc}</span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
 
             <button onClick={savePermissions} disabled={savingPerms}

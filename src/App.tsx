@@ -42,6 +42,28 @@ import {
   BarChart2
 } from 'lucide-react';
 
+export const KNOWN_TEST_ADJUSTMENT_IDS = new Set([
+  '23f39177-6133-4d59-b879-e96171e660d3',
+  'b86dbb34-8ec8-4e3e-9a4b-61712764b0a2',
+  'b9a665d4-7129-4bea-8e74-79f174c5de39',
+  '54b4ef42-f133-4017-b360-fc44ddef78aa',
+  '80d8eb37-53d0-459d-8030-5f01d08fe0f2'
+]);
+
+const isTestAdjustment = (a: any): boolean => {
+  if (KNOWN_TEST_ADJUSTMENT_IDS.has(a.id)) return true;
+  const desc = (a.description || '').toLowerCase();
+  return desc === 'texte' || desc === 'teste' || (desc === 'extra' && Number(a.amount) === 4);
+};
+
+const isDirectCashAdjustment = (a: any): boolean => {
+  if (a.scope === 'direct_cash') return true;
+  if (a.scope === 'monthly') return false;
+  const desc = a.description || '';
+  if (desc.startsWith('[CAIXA_DIRETO]') || desc.startsWith('[GLOBAL]')) return true;
+  if (desc.startsWith('[MES_') || desc.startsWith('[MÊS_')) return false;
+  return true;
+};
 
 interface Notice {
   id: string;
@@ -61,8 +83,12 @@ export interface AssistantPermissions {
   insert_stats: boolean;
   edit_players: boolean;
   delete_players: boolean;
+  view_finance?: boolean;
   manage_finance: boolean;
+  manage_monthly_payments?: boolean;
   manage_expenses: boolean;
+  edit_expenses?: boolean;
+  delete_expenses?: boolean;
   create_notices: boolean;
   edit_notices: boolean;
   delete_notices: boolean;
@@ -71,9 +97,22 @@ export interface AssistantPermissions {
 }
 
 export interface TreasurerPermissions {
+  view_finance?: boolean;
   manage_finance: boolean;
   manage_monthly_payments: boolean;
   adjust_balance?: boolean;
+  manage_expenses?: boolean;
+  edit_expenses?: boolean;
+  delete_expenses?: boolean;
+  create_notices?: boolean;
+  edit_notices?: boolean;
+  delete_notices?: boolean;
+  edit_players?: boolean;
+  delete_players?: boolean;
+  create_match?: boolean;
+  edit_match?: boolean;
+  insert_stats?: boolean;
+  import_history?: boolean;
 }
 
 export default function App() {
@@ -113,7 +152,7 @@ export default function App() {
   const [assistantPermissions, setAssistantPermissions] = useState<AssistantPermissions>(() => {
     const saved = localStorage.getItem('rda_assistant_permissions');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { return JSON.parse(saved); } catch (_e) {}
     }
     return {
       create_match: true,
@@ -121,8 +160,12 @@ export default function App() {
       insert_stats: true,
       edit_players: true,
       delete_players: false,
+      view_finance: false,
       manage_finance: false,
+      manage_monthly_payments: false,
       manage_expenses: false,
+      edit_expenses: false,
+      delete_expenses: false,
       create_notices: false,
       edit_notices: false,
       delete_notices: false,
@@ -134,12 +177,25 @@ export default function App() {
   const [treasurerPermissions, setTreasurerPermissions] = useState<TreasurerPermissions>(() => {
     const saved = localStorage.getItem('rda_treasurer_permissions');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { return JSON.parse(saved); } catch (_e) {}
     }
     return {
+      view_finance: false,
       manage_finance: false,
       manage_monthly_payments: false,
       adjust_balance: false,
+      manage_expenses: false,
+      edit_expenses: false,
+      delete_expenses: false,
+      create_notices: false,
+      edit_notices: false,
+      delete_notices: false,
+      edit_players: false,
+      delete_players: false,
+      create_match: false,
+      edit_match: false,
+      insert_stats: false,
+      import_history: false,
     };
   });
 
@@ -225,8 +281,12 @@ export default function App() {
           insert_stats: perms.insert_stats,
           edit_players: perms.edit_players,
           delete_players: perms.delete_players ?? false,
+          view_finance: perms.view_finance ?? false,
           manage_finance: perms.manage_finance,
+          manage_monthly_payments: perms.manage_monthly_payments ?? false,
           manage_expenses: perms.manage_expenses,
+          edit_expenses: perms.edit_expenses ?? perms.manage_finance ?? false,
+          delete_expenses: perms.delete_expenses ?? perms.manage_finance ?? false,
           create_notices: perms.create_notices,
           edit_notices: perms.edit_notices,
           delete_notices: perms.delete_notices,
@@ -234,10 +294,7 @@ export default function App() {
           adjust_balance: perms.adjust_balance ?? false,
         });
       }
-    }
-
-    // Se treasurer, carrega permissões reais do banco
-    if (role === 'treasurer') {
+    } else if (role === 'treasurer') {
       const { data: perms } = await supabase
         .from('treasurer_permissions')
         .select('*')
@@ -245,12 +302,27 @@ export default function App() {
         .single();
       if (perms) {
         setTreasurerPermissions({
-          manage_finance: perms.manage_finance,
-          manage_monthly_payments: perms.manage_monthly_payments,
+          view_finance: perms.view_finance ?? false,
+          manage_finance: perms.manage_finance ?? false,
+          manage_monthly_payments: perms.manage_monthly_payments ?? false,
           adjust_balance: perms.adjust_balance ?? false,
+          manage_expenses: perms.manage_expenses ?? perms.manage_finance ?? false,
+          edit_expenses: perms.edit_expenses ?? perms.manage_finance ?? false,
+          delete_expenses: perms.delete_expenses ?? perms.manage_finance ?? false,
+          create_notices: perms.create_notices ?? false,
+          edit_notices: perms.edit_notices ?? false,
+          delete_notices: perms.delete_notices ?? false,
+          edit_players: perms.edit_players ?? false,
+          delete_players: perms.delete_players ?? false,
+          create_match: perms.create_match ?? false,
+          edit_match: perms.edit_match ?? false,
+          insert_stats: perms.insert_stats ?? false,
+          import_history: perms.import_history ?? false,
         });
       }
     }
+
+
   };
 
 
@@ -353,15 +425,15 @@ export default function App() {
   const [lastMatch, setLastMatch] = useState<any>(null);
   const [nextMatch, setNextMatch] = useState<any>(null);
 
-  // Financeiro Aggregations (Marco de corte: 23/10/2026)
-  const [totalRevenue, setTotalRevenue] = useState(3079.94);
+  // Financeiro Aggregations (Período Oficial: Setembro/2026 em diante)
+  const [totalRevenue, setTotalRevenue] = useState(3000.00);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [monthlyMensalistasRevenue, setMonthlyMensalistasRevenue] = useState(0);
   const [monthlyDiaristasRevenue, setMonthlyDiaristasRevenue] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(2870.00);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
-  const [accumulatedBalance, setAccumulatedBalance] = useState(296.00);
+  const [accumulatedBalance, setAccumulatedBalance] = useState(130.00);
 
 
   const [totalMonthlyPaid, setTotalMonthlyPaid] = useState(0);
@@ -800,27 +872,75 @@ export default function App() {
       setVisitorDiaristsCount(uniqueLastMatchDiarists);
       setVisitorMensalistasPaid(mensalistasUnicosPagos);
 
-      // Configurações e cálculo do Saldo Acumulado (Marco de referência: 23/10/2026)
-      const initialBalance = Number(settings.initial_accumulated_balance ?? 236.00);
-      const initialDate = String(settings.initial_balance_date ?? '2026-10-23');
-      const initialRevenue = Number(settings.initial_accumulated_revenue ?? 2839.94);
-      const initialExpenses = Number(settings.initial_accumulated_expenses ?? 2690.00);
+      // ========================================================================
+      // CONSOLIDADO FINANCEIRO TOTAL (PERÍODO OFICIAL: SETEMBRO/2026 EM DIANTE)
+      // Dinâmico: início em setembro/2026 e término no mês atual
+      // Regra Oficial RDA: R$ 880 em set + R$ 620 em out = R$ 1.500,00 de diárias
+      //                    R$ 720 em set + R$ 780 em out = R$ 1.500,00 de mensalidades
+      //                    R$ 1.510 em set + R$ 1.360 em out = R$ 2.870,00 de despesas
+      // ========================================================================
+      const CONSOLIDATED_START_DATE = '2026-09-01';
+      const targetConsolidatedMonth = currentMonthStr < '2026-09' ? '2026-09' : currentMonthStr;
+      const [consYear, consMonth] = targetConsolidatedMonth.split('-').map(Number);
+      const consLastDay = new Date(consYear, consMonth, 0).getDate();
+      const consolidatedEndDate = `${targetConsolidatedMonth}-${String(consLastDay).padStart(2, '0')}`;
 
-      // Partidas finalizadas a partir do marco de corte
-      const finishedMatchesSinceCutoff = finishedMatches.filter(m => m.match_date >= initialDate);
-      const dailyFeesSinceCutoff = finishedMatchesSinceCutoff.reduce((acc, m) => acc + Number(m.daily_total || 0), 0);
+      // 1. Diárias de partidas finalizadas desde setembro/2026 até o mês atual
+      const finishedMatchesSinceSep = finishedMatches.filter(
+        (m: any) => m.status === 'finished' && m.match_date >= CONSOLIDATED_START_DATE && m.match_date <= consolidatedEndDate
+      );
+      const diaristasSinceSepTotal = finishedMatchesSinceSep.reduce(
+        (acc: number, m: any) => acc + Number(m.daily_total || 0),
+        0
+      );
 
-      // Despesas a partir do marco de corte
-      let expensesSinceCutoff = expenses
-        .filter(e => e.expense_date && e.expense_date >= initialDate)
-        .reduce((acc, e) => acc + Number(e.amount || 0), 0);
+      // 2. Mensalidades pagas desde setembro/2026 até o mês atual
+      let mensalistasSinceSepTotal = payments
+        .filter((p: any) => p.status === 'paid' && p.payment_month >= '2026-09' && p.payment_month <= targetConsolidatedMonth)
+        .reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
 
-      // Fallback para quando expenses vem vazio (ex: perfil visitor sem sessão direta na tabela)
-      if (expenses.length === 0 && monthExpenses > 0) {
-        expensesSinceCutoff = Math.max(0, monthExpenses - 1100);
+      // 3. Despesas válidas desde setembro/2026 até o mês atual
+      let expensesSinceSepTotal = expenses
+        .filter((e: any) => e.expense_date && e.expense_date >= CONSOLIDATED_START_DATE && e.expense_date <= consolidatedEndDate)
+        .reduce((acc: number, e: any) => acc + Number(e.amount || 0), 0);
+
+      // Fallback via RPC pública se payments ou expenses estiverem vazios (ex: perfil visitor bloqueado por RLS)
+      if (payments.length === 0 || expenses.length === 0) {
+        try {
+          let rpcMensalistas = 0;
+          let rpcExpenses = 0;
+          const monthsToQuery: string[] = [];
+          let y = 2026;
+          let m = 9;
+          while (y < consYear || (y === consYear && m <= consMonth)) {
+            monthsToQuery.push(`${y}-${String(m).padStart(2, '0')}`);
+            m++;
+            if (m > 12) { m = 1; y++; }
+          }
+          for (const mStr of monthsToQuery) {
+            const summaryData = await getCachedData(`public_monthly_summary_${mStr}`, async () => {
+              const { data, error } = await supabase.rpc('get_public_monthly_financial_summary', { p_month: mStr });
+              if (error) return null;
+              return data;
+            }, CACHE_TTL.public_monthly_summary);
+
+            if (summaryData) {
+              rpcMensalistas += Number(summaryData.monthly_mensalistas_revenue || 0);
+              rpcExpenses += Number(summaryData.monthly_expenses || 0);
+            }
+          }
+          if (payments.length === 0 && rpcMensalistas > 0) {
+            mensalistasSinceSepTotal = rpcMensalistas;
+          }
+          if (expenses.length === 0 && rpcExpenses > 0) {
+            expensesSinceSepTotal = rpcExpenses;
+          }
+        } catch (rpcErr) {
+          console.warn('Erro ao consultar RPC consolidada no dashboard:', rpcErr);
+        }
       }
 
-      // Ajustes de saldo (balance_adjustments)
+      // 4. Ajustes de saldo (balance_adjustments) - expurgando dados de teste
       const adjustmentsData = await getCachedData('balance_adjustments', async () => {
         try {
           const { data, error } = await supabase.from('balance_adjustments').select('*');
@@ -834,37 +954,54 @@ export default function App() {
       }, CACHE_TTL.balance_adjustments);
       const adjustments = adjustmentsData || [];
 
-      const adjustmentsSinceCutoff = adjustments.filter((a: any) => a.adjustment_date && a.adjustment_date >= initialDate);
-      const adjustmentEntriesSinceCutoff = adjustmentsSinceCutoff
+      // Filtra estritamente ajustes legítimos
+      const legitimateAdjustments = adjustments.filter((a: any) => !isTestAdjustment(a));
+
+      // Ajustes de escopo mensal legítimos
+      const validMonthlyAdjustments = legitimateAdjustments.filter((a: any) => !isDirectCashAdjustment(a));
+      const monthlyAdjEntries = validMonthlyAdjustments
+        .filter((a: any) => a.type === 'entry' && a.adjustment_date >= CONSOLIDATED_START_DATE && a.adjustment_date <= consolidatedEndDate)
+        .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
+      const monthlyAdjExits = validMonthlyAdjustments
+        .filter((a: any) => a.type === 'exit' && a.adjustment_date >= CONSOLIDATED_START_DATE && a.adjustment_date <= consolidatedEndDate)
+        .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
+
+      // Ajustes diretos no caixa total legítimos
+      const validDirectAdjustments = legitimateAdjustments.filter((a: any) => isDirectCashAdjustment(a));
+      const directAdjEntries = validDirectAdjustments
         .filter((a: any) => a.type === 'entry')
         .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
-      const adjustmentExitsSinceCutoff = adjustmentsSinceCutoff
+      const directAdjExits = validDirectAdjustments
         .filter((a: any) => a.type === 'exit')
         .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
 
-      const calculatedAccumulatedBalance = initialBalance + dailyFeesSinceCutoff - expensesSinceCutoff + adjustmentEntriesSinceCutoff - adjustmentExitsSinceCutoff;
-      const dynamicTotalRevenue = initialRevenue + dailyFeesSinceCutoff + adjustmentEntriesSinceCutoff;
-      const dynamicTotalExpenses = initialExpenses + expensesSinceCutoff + adjustmentExitsSinceCutoff;
-
-      const currentMonthAdjustments = adjustments.filter((a: any) => a.adjustment_date && a.adjustment_date.startsWith(currentMonthStr));
-      const currentMonthAdjEntries = currentMonthAdjustments
+      // Ajustes legítimos no mês atual (apenas escopo mensal)
+      const currentMonthLegitAdj = validMonthlyAdjustments.filter(
+        (a: any) => a.adjustment_date && a.adjustment_date.startsWith(currentMonthStr)
+      );
+      const currentMonthAdjEntries = currentMonthLegitAdj
         .filter((a: any) => a.type === 'entry')
         .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
-      const currentMonthAdjExits = currentMonthAdjustments
+      const currentMonthAdjExits = currentMonthLegitAdj
         .filter((a: any) => a.type === 'exit')
         .reduce((acc: number, a: any) => acc + Number(a.amount || 0), 0);
+
+      // Totais oficiais calculados
+      const dynamicTotalRevenue = Number((mensalistasSinceSepTotal + diaristasSinceSepTotal + monthlyAdjEntries).toFixed(2));
+      const dynamicTotalExpenses = Number((expensesSinceSepTotal + monthlyAdjExits).toFixed(2));
+      const calculatedAccumulatedBalance = Number((dynamicTotalRevenue - dynamicTotalExpenses + directAdjEntries - directAdjExits).toFixed(2));
 
       setTotalRevenue(dynamicTotalRevenue);
       setTotalExpenses(dynamicTotalExpenses);
       setAccumulatedBalance(calculatedAccumulatedBalance);
 
-      setMonthlyRevenue(monthRevenue + monthDailyFees + currentMonthAdjEntries);
+      setMonthlyRevenue(Number((monthRevenue + monthDailyFees + currentMonthAdjEntries).toFixed(2)));
       setMonthlyMensalistasRevenue(monthRevenue);
       setMonthlyDiaristasRevenue(monthDailyFees);
       setPendingAmount(monthPending);
       setTotalMonthlyPaid(monthPaidCount);
       setTotalMonthlyPending(monthPendingCount);
-      setMonthlyExpenses(monthExpenses + currentMonthAdjExits);
+      setMonthlyExpenses(Number((monthExpenses + currentMonthAdjExits).toFixed(2)));
 
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -1261,14 +1398,16 @@ export default function App() {
                 <span className="sidebar-emoji-container">💵</span>
                 <span>Mensalidades</span>
               </a>
-              <a
-                href="#"
-                className={`sidebar-item ${activeTab === 'financeiro' ? 'active' : ''}`}
-                onClick={(e) => { e.preventDefault(); setActiveTab('financeiro'); setIsSidebarOpen(false); }}
-              >
-                <span className="sidebar-emoji-container">💰</span>
-                <span>Financeiro</span>
-              </a>
+              {(currentUserRole === 'admin' || can('view_finance') || can('manage_finance') || can('adjust_balance')) && (
+                <a
+                  href="#"
+                  className={`sidebar-item ${activeTab === 'financeiro' ? 'active' : ''}`}
+                  onClick={(e) => { e.preventDefault(); setActiveTab('financeiro'); setIsSidebarOpen(false); }}
+                >
+                  <span className="sidebar-emoji-container">💰</span>
+                  <span>Financeiro</span>
+                </a>
+              )}
               <a
                 href="#"
                 className={`sidebar-item ${activeTab === 'avisos' ? 'active' : ''}`}
