@@ -262,3 +262,4 @@ WHERE table_schema = 'public'
     'edit_match', 'insert_stats', 'edit_players', 'delete_players',
     'create_notices', 'edit_notices', 'delete_notices', 'import_history'
   );
+

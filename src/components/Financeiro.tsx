@@ -1598,12 +1598,12 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       {/* ==================================================================== */}
       {showExpenseModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div style={{ backgroundColor: '#11161d', width: '92%', maxWidth: '390px', borderRadius: '18px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1.5px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.7)' }}>
+          <div style={{ backgroundColor: '#11161d', width: '92%', maxWidth: '390px', borderRadius: '18px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1.5px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.7)', boxSizing: 'border-box' }}>
             
             {/* CABEÇALHO DO MODAL */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Wallet size={20} color="#ef4444" />
                 </div>
                 <div>
@@ -1616,46 +1616,46 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             </div>
 
             {/* LINHA 1: MÊS E VALOR */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>Mês da despesa</label>
-                <div style={{ height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '0.8rem', color: '#94a3b8', gap: '6px' }}>
-                  <CalendarDays size={14} color="#38bdf8" />
-                  <span>{MONTHS_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Mês da despesa</label>
+                <div style={{ height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '0.8rem', color: '#94a3b8', gap: '6px', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+                  <CalendarDays size={14} color="#38bdf8" style={{ flexShrink: 0 }} />
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{MONTHS_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>Valor da despesa (R$) *</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Valor da despesa (R$) *</label>
                 <input
                   type="number"
                   step="0.01"
                   placeholder="0.00"
                   value={newExpense.amount}
                   onChange={e => setNewExpense({ ...newExpense, amount: e.target.value })}
-                  style={{ height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.9rem', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
+                  style={{ width: '100%', maxWidth: '100%', height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.9rem', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
                 />
               </div>
             </div>
 
             {/* LINHA 2: DATA E CATEGORIA */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>Data da despesa *</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Data da despesa *</label>
                 <input
                   type="date"
                   value={newExpense.date}
                   onChange={e => setNewExpense({ ...newExpense, date: e.target.value })}
-                  style={{ height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem', padding: '0 8px', boxSizing: 'border-box', outline: 'none' }}
+                  style={{ width: '100%', maxWidth: '100%', height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem', padding: '0 8px', boxSizing: 'border-box', outline: 'none' }}
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>Categoria *</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Categoria *</label>
                 <select
                   value={newExpense.category}
                   onChange={e => setNewExpense({ ...newExpense, category: e.target.value })}
-                  style={{ height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem', padding: '0 8px', boxSizing: 'border-box', outline: 'none' }}
+                  style={{ width: '100%', maxWidth: '100%', height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem', padding: '0 8px', boxSizing: 'border-box', outline: 'none' }}
                 >
                   <option value="Campo">Campo</option>
                   <option value="Churrasco">Churrasco</option>
@@ -1670,7 +1670,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             </div>
 
             {/* LINHA 3: DESCRIÇÃO / MOTIVO */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%', minWidth: 0 }}>
               <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>Descrição / Motivo *</label>
               <input
                 type="text"
@@ -1678,7 +1678,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                 placeholder="Informe o motivo ou detalhe do gasto"
                 value={newExpense.description}
                 onChange={e => setNewExpense({ ...newExpense, description: e.target.value })}
-                style={{ height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.85rem', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
+                style={{ width: '100%', maxWidth: '100%', height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.85rem', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
               />
             </div>
 
@@ -1801,10 +1801,10 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       {/* ==================================================================== */}
       {showAdjustModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div style={{ backgroundColor: '#11161d', width: '92%', maxWidth: '420px', borderRadius: '18px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1.5px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.7)' }}>
+          <div style={{ backgroundColor: '#11161d', width: '92%', maxWidth: '420px', borderRadius: '18px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1.5px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.7)', boxSizing: 'border-box' }}>
             
             {/* SELETOR DE ABA: AJUSTE DO MÊS (SCREEN D) OU AJUSTE DIRETO NO CAIXA (SCREEN E) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', backgroundColor: '#090d14', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px', backgroundColor: '#090d14', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
               <button
                 type="button"
                 onClick={() => setAdjustModalTab('monthly')}
@@ -1881,7 +1881,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             {/* OPERAÇÃO: DUAS OPÇÕES VISÍVEIS (SOMAR VALORES / DIMINUIR VALORES) */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>Operação</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
                 {/* SOMAR */}
                 <button
                   type="button"
@@ -1942,9 +1942,9 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             </div>
 
             {/* VALOR E DATA */}
-            <div style={{ display: 'grid', gridTemplateColumns: adjustModalTab === 'direct_cash' ? '1fr 1fr' : '1fr', gap: '8px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: adjustModalTab === 'direct_cash' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {adjustOpType === 'add' ? 'Valor a adicionar (R$)' : 'Valor a subtrair (R$)'} *
                 </label>
                 <input
@@ -1953,25 +1953,25 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                   placeholder="Ex: 50,00"
                   value={adjustAmountInput}
                   onChange={e => setAdjustAmountInput(e.target.value)}
-                  style={{ height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.9rem', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
+                  style={{ width: '100%', maxWidth: '100%', height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.9rem', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
                 />
               </div>
 
               {adjustModalTab === 'direct_cash' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>Data do ajuste *</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                  <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Data do ajuste *</label>
                   <input
                     type="date"
                     value={adjustDate}
                     onChange={e => setAdjustDate(e.target.value)}
-                    style={{ height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem', padding: '0 8px', boxSizing: 'border-box', outline: 'none' }}
+                    style={{ width: '100%', maxWidth: '100%', height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem', padding: '0 8px', boxSizing: 'border-box', outline: 'none' }}
                   />
                 </div>
               )}
             </div>
 
             {/* JUSTIFICATIVA / MOTIVO */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%', minWidth: 0 }}>
               <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>Justificativa / Motivo *</label>
               <input
                 type="text"
@@ -1982,7 +1982,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
                 }
                 value={adjustDescription}
                 onChange={e => setAdjustDescription(e.target.value)}
-                style={{ height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.85rem', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
+                style={{ width: '100%', maxWidth: '100%', height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.85rem', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
               />
               <span style={{ display: 'none' }}>Ex: Ajuste de conferência</span>
             </div>
@@ -2038,7 +2038,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       {/* ==================================================================== */}
       {showDateModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={() => setShowDateModal(false)}>
-          <div style={{ backgroundColor: '#171717', width: '90%', maxWidth: '340px', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid rgba(255,255,255,0.08)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ backgroundColor: '#171717', width: '90%', maxWidth: '340px', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid rgba(255,255,255,0.08)', boxSizing: 'border-box' }} onClick={e => e.stopPropagation()}>
             <h3 style={{ margin: 0, color: '#fff', fontSize: '1.1rem' }}>Selecionar Período</h3>
             <div style={{ display: 'flex', gap: '8px' }}>
               <select
@@ -2066,7 +2066,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       {/* ==================================================================== */}
       {showAnnualModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={() => setShowAnnualModal(false)}>
-          <div style={{ backgroundColor: '#121212', width: '92%', maxWidth: '380px', borderRadius: '18px', padding: '20px', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', flexDirection: 'column', gap: '14px', color: '#fff' }} onClick={e => e.stopPropagation()}>
+          <div style={{ backgroundColor: '#121212', width: '92%', maxWidth: '380px', borderRadius: '18px', padding: '20px', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', flexDirection: 'column', gap: '14px', color: '#fff', boxSizing: 'border-box' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>Resumo Anual ({currentYearStr})</h3>
               <button onClick={() => setShowAnnualModal(false)} style={{ background: 'none', border: 'none', color: '#a1a1aa', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
