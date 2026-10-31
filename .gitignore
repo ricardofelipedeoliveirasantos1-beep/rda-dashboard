@@ -30,3 +30,8 @@ dist-ssr
 
 # Scratch files
 scratch/
+
+# Temporary backup and OS cache
+_backup_versoes_anteriores_migracao35/
+Microsoft/
+etapa-35.3/
