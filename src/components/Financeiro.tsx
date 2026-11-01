@@ -974,7 +974,6 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             margin-bottom: 12px;
           }
           .fin-color-card {
-            border: 1.5px solid #ffffff;
             border-radius: 16px;
             padding: 8px 6px;
             display: flex;
@@ -983,17 +982,126 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             justify-content: center;
             text-align: center;
             min-height: 58px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
             box-sizing: border-box;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
           }
+          .fin-color-card:hover {
+            transform: translateY(-1px);
+          }
+
+          /* 1. Mensalidade Recebida Mês — Verde Translúcido */
+          .fin-card-mensalidade-mes {
+            background: linear-gradient(135deg, rgba(16, 85, 48, 0.68) 0%, rgba(8, 45, 26, 0.58) 100%);
+            border: 1px solid rgba(52, 211, 153, 0.65);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 10px 0 rgba(16, 185, 129, 0.22), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-mensalidade-mes:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 14px 0 rgba(16, 185, 129, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
+          /* 2. Valor Total Mensalistas — Verde-Água / Ciano Translúcido */
+          .fin-card-mensalistas-total {
+            background: linear-gradient(135deg, rgba(8, 90, 95, 0.68) 0%, rgba(4, 52, 58, 0.58) 100%);
+            border: 1px solid rgba(34, 211, 238, 0.65);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 10px 0 rgba(6, 182, 212, 0.22), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-mensalistas-total:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 14px 0 rgba(6, 182, 212, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
+          /* 3. Total Diaristas no Mês — Dourado Translúcido */
+          .fin-card-diaristas-mes {
+            background: linear-gradient(135deg, rgba(105, 75, 10, 0.68) 0%, rgba(65, 45, 6, 0.58) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.65);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 10px 0 rgba(245, 158, 11, 0.22), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-diaristas-mes:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 14px 0 rgba(245, 158, 11, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
+          /* 4. Diaristas (Consolidado) — Amarelo / Dourado Translúcido */
+          .fin-card-diaristas-total {
+            background: linear-gradient(135deg, rgba(95, 75, 10, 0.68) 0%, rgba(60, 45, 6, 0.58) 100%);
+            border: 1px solid rgba(234, 179, 8, 0.65);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 10px 0 rgba(234, 179, 8, 0.22), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-diaristas-total:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 14px 0 rgba(234, 179, 8, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
+          /* 5. Soma Total do Mês — Roxo Translúcido */
+          .fin-card-soma-mes {
+            background: linear-gradient(135deg, rgba(90, 24, 195, 0.68) 0%, rgba(55, 12, 135, 0.58) 100%);
+            border: 1px solid rgba(192, 132, 252, 0.65);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 10px 0 rgba(168, 85, 247, 0.22), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-soma-mes:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 14px 0 rgba(168, 85, 247, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
+          /* 6. Soma Total Anual — Roxo / Índigo Translúcido */
+          .fin-card-soma-anual {
+            background: linear-gradient(135deg, rgba(80, 30, 190, 0.68) 0%, rgba(48, 15, 130, 0.58) 100%);
+            border: 1px solid rgba(167, 139, 250, 0.65);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 10px 0 rgba(139, 92, 246, 0.22), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-soma-anual:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 14px 0 rgba(139, 92, 246, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
+          /* 7. Despesas no Mês — Vermelho Translúcido */
+          .fin-card-despesas-mes {
+            background: linear-gradient(135deg, rgba(190, 30, 45, 0.68) 0%, rgba(120, 18, 28, 0.58) 100%);
+            border: 1px solid rgba(248, 113, 113, 0.65);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 10px 0 rgba(239, 68, 68, 0.22), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-despesas-mes:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 14px 0 rgba(239, 68, 68, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
+          /* 8. Despesas Total Anual — Vermelho / Rosa Translúcido */
+          .fin-card-despesas-anual {
+            background: linear-gradient(135deg, rgba(185, 25, 60, 0.68) 0%, rgba(115, 15, 38, 0.58) 100%);
+            border: 1px solid rgba(251, 113, 133, 0.65);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 10px 0 rgba(244, 63, 94, 0.22), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-despesas-anual:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 14px 0 rgba(244, 63, 94, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
+          /* 9. Valor Líquido do Mês — Verde Translúcido */
+          .fin-card-liquido-mes {
+            background: linear-gradient(135deg, rgba(16, 85, 48, 0.68) 0%, rgba(8, 45, 26, 0.58) 100%);
+            border: 1px solid rgba(74, 222, 128, 0.65);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 10px 0 rgba(34, 197, 94, 0.22), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-liquido-mes:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 14px 0 rgba(34, 197, 94, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
+          /* 10. Valor Líquido Caixa — Verde-Esmeralda / Turquesa Translúcido */
+          .fin-card-liquido-caixa {
+            background: linear-gradient(135deg, rgba(0, 135, 78, 0.68) 0%, rgba(0, 80, 48, 0.58) 100%);
+            border: 1px solid rgba(52, 211, 153, 0.75);
+            box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.45), 0 0 12px 0 rgba(0, 189, 104, 0.26), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          }
+          .fin-card-liquido-caixa:hover {
+            box-shadow: 0 6px 22px 0 rgba(0, 0, 0, 0.5), 0 0 16px 0 rgba(0, 189, 104, 0.38), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+          }
+
           .fin-card-label {
             font-size: 8px;
             font-weight: 800;
             color: #ffffff;
             text-transform: uppercase;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.03em;
             line-height: 1.15;
             margin-bottom: 2px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
           }
           .fin-card-val {
             font-size: 15.5px;
@@ -1001,6 +1109,7 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             color: #ffffff;
             line-height: 1.1;
             letter-spacing: -0.01em;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
           }
           .fin-actions-grid {
             display: grid;
@@ -1097,107 +1206,107 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
       {/* ETAPA 2 — GRID PRINCIPAL DE CARDS (SCREEN A — EXATAMENTE DUAS COLUNAS NO CELULAR) */}
       <div className="fin-cards-grid">
         {/* PRIMEIRA LINHA: */}
-        {/* 1. Mensalidade Recebida Mês — cor verde-escura */}
-        <div className="fin-color-card" style={{ backgroundColor: '#0c4226' }}>
+        {/* 1. Mensalidade Recebida Mês — verde translúcido */}
+        <div className="fin-color-card fin-card-mensalidade-mes">
           <span className="fin-card-label">Mensalidade Recebida Mês</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <Users size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <Users size={14} color="#34d399" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {mensalidadeRecebidaMes.toFixed(2).replace('.', ',')}</span>
           </div>
         </div>
 
-        {/* 2. Valor Total Mensalistas (Set + Out) — cor verde-turquesa */}
-        <div className="fin-color-card" style={{ backgroundColor: '#06a798' }}>
+        {/* 2. Valor Total Mensalistas (Set + Out) — verde-água / ciano translúcido */}
+        <div className="fin-color-card fin-card-mensalistas-total">
           <span className="fin-card-label">Valor Total Mensalistas</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <Users size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <Users size={14} color="#22d3ee" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {valorTotalMensalistas.toFixed(2).replace('.', ',')}</span>
           </div>
-          <span style={{ fontSize: '7px', color: '#ccfbf1', opacity: 0.85 }}>{consolidatedLabel}</span>
+          <span style={{ fontSize: '7.5px', color: 'rgba(207, 250, 254, 0.85)', fontWeight: 600 }}>{consolidatedLabel}</span>
         </div>
 
         {/* SEGUNDA LINHA: */}
-        {/* 3. Total Diaristas no Mês — cor amarelo-escura/marrom */}
-        <div className="fin-color-card" style={{ backgroundColor: '#5c4308' }}>
+        {/* 3. Total Diaristas no Mês — dourado translúcido */}
+        <div className="fin-color-card fin-card-diaristas-mes">
           <span className="fin-card-label">Total Diaristas no Mês</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <Users size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <Users size={14} color="#fbbf24" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {totalDiaristasMes.toFixed(2).replace('.', ',')}</span>
           </div>
         </div>
 
-        {/* 4. Diaristas (Set + Out) — cor amarelo-escura/marrom */}
-        <div className="fin-color-card" style={{ backgroundColor: '#5c4308' }} title="Total de Diárias no Período (Set + Out)">
+        {/* 4. Diaristas (Set + Out) — amarelo / dourado translúcido */}
+        <div className="fin-color-card fin-card-diaristas-total" title="Total de Diárias no Período (Set + Out)">
           <span className="fin-card-label">
             Diaristas
             <span style={{ display: 'none' }}>Mensalidade Recebida</span>
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <Users size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <Users size={14} color="#facc15" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {totalDiaristasConsolidado.toFixed(2).replace('.', ',')}</span>
           </div>
-          <span style={{ fontSize: '7px', color: '#fef08a', opacity: 0.85 }}>{consolidatedLabel}</span>
+          <span style={{ fontSize: '7.5px', color: 'rgba(254, 240, 138, 0.85)', fontWeight: 600 }}>{consolidatedLabel}</span>
         </div>
 
         {/* TERCEIRA LINHA: */}
-        {/* 5. Soma Total do Mês (Entradas) — cor roxa */}
-        <div className="fin-color-card" style={{ backgroundColor: '#5e16ea' }}>
+        {/* 5. Soma Total do Mês (Entradas) — roxo translúcido */}
+        <div className="fin-color-card fin-card-soma-mes">
           <span className="fin-card-label">Soma Total do Mês</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <ArrowUpCircle size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <ArrowUpCircle size={14} color="#c084fc" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {somaTotalMes.toFixed(2).replace('.', ',')}</span>
           </div>
-          <span style={{ fontSize: '7px', color: '#ede9fe', opacity: 0.85 }}>(Entradas)</span>
+          <span style={{ fontSize: '7.5px', color: 'rgba(237, 233, 254, 0.85)', fontWeight: 600 }}>(Entradas)</span>
         </div>
 
-        {/* 6. Soma Total Anual (Set + Out) — cor roxa */}
-        <div className="fin-color-card" style={{ backgroundColor: '#5e16ea' }}>
+        {/* 6. Soma Total Anual (Set + Out) — roxo / índigo translúcido */}
+        <div className="fin-color-card fin-card-soma-anual">
           <span className="fin-card-label">Soma Total Anual</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <BarChart2 size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <BarChart2 size={14} color="#a78bfa" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {somaTotalAnual.toFixed(2).replace('.', ',')}</span>
           </div>
-          <span style={{ fontSize: '7px', color: '#ede9fe', opacity: 0.85 }}>{consolidatedLabel}</span>
+          <span style={{ fontSize: '7.5px', color: 'rgba(237, 233, 254, 0.85)', fontWeight: 600 }}>{consolidatedLabel}</span>
         </div>
 
         {/* QUARTA LINHA: */}
-        {/* 7. Despesas do Mês — vermelho */}
-        <div className="fin-color-card" style={{ backgroundColor: '#ff2533' }}>
+        {/* 7. Despesas do Mês — vermelho translúcido */}
+        <div className="fin-color-card fin-card-despesas-mes">
           <span className="fin-card-label">Despesas no Mês</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <CreditCard size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <CreditCard size={14} color="#f87171" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {despesasMes.toFixed(2).replace('.', ',')}</span>
           </div>
         </div>
 
-        {/* 8. Despesas Total Anual (Set + Out) — vermelho */}
-        <div className="fin-color-card" style={{ backgroundColor: '#ff2533' }}>
+        {/* 8. Despesas Total Anual (Set + Out) — vermelho / rosa translúcido */}
+        <div className="fin-color-card fin-card-despesas-anual">
           <span className="fin-card-label">Despesas Total Anual</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <TrendingDown size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <TrendingDown size={14} color="#fb7185" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {despesasTotalAnual.toFixed(2).replace('.', ',')}</span>
           </div>
-          <span style={{ fontSize: '7px', color: '#fee2e2', opacity: 0.85 }}>{consolidatedLabel}</span>
+          <span style={{ fontSize: '7.5px', color: 'rgba(254, 226, 226, 0.85)', fontWeight: 600 }}>{consolidatedLabel}</span>
         </div>
 
         {/* QUINTA LINHA: */}
-        {/* 9. Valor Líquido do Mês — verde-escuro */}
-        <div className="fin-color-card" style={{ backgroundColor: '#0c4226' }}>
+        {/* 9. Valor Líquido do Mês — verde translúcido */}
+        <div className="fin-color-card fin-card-liquido-mes">
           <span className="fin-card-label">Valor Líquido do Mês</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <DollarSign size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <DollarSign size={14} color="#4ade80" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {valorLiquidoMes.toFixed(2).replace('.', ',')}</span>
           </div>
         </div>
 
-        {/* 10. Valor Líquido Caixa (Set + Out) — verde vivo */}
-        <div className="fin-color-card" style={{ backgroundColor: '#00bd68' }}>
+        {/* 10. Valor Líquido Caixa (Set + Out) — verde-esmeralda / turquesa translúcido */}
+        <div className="fin-color-card fin-card-liquido-caixa">
           <span className="fin-card-label">Valor Líquido Caixa</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
-            <Coins size={14} color="#ffffff" strokeWidth={2.4} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '1px' }}>
+            <Coins size={14} color="#34d399" strokeWidth={2.4} />
             <span className="fin-card-val">R$ {valorLiquidoCaixa.toFixed(2).replace('.', ',')}</span>
           </div>
-          <span style={{ fontSize: '7px', color: '#f0fdf4', opacity: 0.85 }}>{consolidatedLabel}</span>
+          <span style={{ fontSize: '7.5px', color: 'rgba(209, 250, 229, 0.85)', fontWeight: 600 }}>{consolidatedLabel}</span>
         </div>
       </div>
 
@@ -2073,26 +2182,26 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.85rem' }}>
-              <div style={{ backgroundColor: '#0c4226', padding: '10px', borderRadius: '12px', border: '1.5px solid #ffffff', textAlign: 'center' }}>
-                <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#dcfce7' }}>MENSALISTAS (ANO)</div>
+              <div className="fin-color-card fin-card-mensalidade-mes" style={{ padding: '10px 6px', borderRadius: '14px', textAlign: 'center' }}>
+                <div style={{ fontSize: '8.5px', fontWeight: 800, color: '#dcfce7', letterSpacing: '0.02em' }}>MENSALISTAS (ANO)</div>
                 <div style={{ fontSize: '15px', fontWeight: 900, color: '#fff', marginTop: '2px' }}>R$ {valorTotalMensalistas.toFixed(2).replace('.', ',')}</div>
               </div>
-              <div style={{ backgroundColor: '#5c4308', padding: '10px', borderRadius: '12px', border: '1.5px solid #ffffff', textAlign: 'center' }}>
-                <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#fef08a' }}>DIARISTAS (ANO)</div>
+              <div className="fin-color-card fin-card-diaristas-mes" style={{ padding: '10px 6px', borderRadius: '14px', textAlign: 'center' }}>
+                <div style={{ fontSize: '8.5px', fontWeight: 800, color: '#fef08a', letterSpacing: '0.02em' }}>DIARISTAS (ANO)</div>
                 <div style={{ fontSize: '15px', fontWeight: 900, color: '#fff', marginTop: '2px' }}>R$ {totalDiaristasConsolidado.toFixed(2).replace('.', ',')}</div>
               </div>
-              <div style={{ backgroundColor: '#5e16ea', padding: '10px', borderRadius: '12px', border: '1.5px solid #ffffff', textAlign: 'center' }}>
-                <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#ede9fe' }}>SOMA TOTAL ANUAL</div>
+              <div className="fin-color-card fin-card-soma-anual" style={{ padding: '10px 6px', borderRadius: '14px', textAlign: 'center' }}>
+                <div style={{ fontSize: '8.5px', fontWeight: 800, color: '#ede9fe', letterSpacing: '0.02em' }}>SOMA TOTAL ANUAL</div>
                 <div style={{ fontSize: '15px', fontWeight: 900, color: '#fff', marginTop: '2px' }}>R$ {somaTotalAnual.toFixed(2).replace('.', ',')}</div>
               </div>
-              <div style={{ backgroundColor: '#ff2533', padding: '10px', borderRadius: '12px', border: '1.5px solid #ffffff', textAlign: 'center' }}>
-                <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#fee2e2' }}>DESPESAS (ANO)</div>
+              <div className="fin-color-card fin-card-despesas-anual" style={{ padding: '10px 6px', borderRadius: '14px', textAlign: 'center' }}>
+                <div style={{ fontSize: '8.5px', fontWeight: 800, color: '#fee2e2', letterSpacing: '0.02em' }}>DESPESAS (ANO)</div>
                 <div style={{ fontSize: '15px', fontWeight: 900, color: '#fff', marginTop: '2px' }}>R$ {despesasTotalAnual.toFixed(2).replace('.', ',')}</div>
               </div>
             </div>
 
-            <div style={{ backgroundColor: '#00bd68', padding: '12px', borderRadius: '14px', border: '1.5px solid #ffffff', textAlign: 'center' }}>
-              <div style={{ fontSize: '9.5px', fontWeight: 800, color: '#f0fdf4' }}>SALDO LÍQUIDO EM CAIXA</div>
+            <div className="fin-color-card fin-card-liquido-caixa" style={{ padding: '12px 10px', borderRadius: '14px', textAlign: 'center', marginTop: '2px' }}>
+              <div style={{ fontSize: '9.5px', fontWeight: 800, color: '#f0fdf4', letterSpacing: '0.02em' }}>SALDO LÍQUIDO EM CAIXA</div>
               <div style={{ fontSize: '19px', fontWeight: 900, color: '#fff', marginTop: '2px' }}>R$ {valorLiquidoCaixa.toFixed(2).replace('.', ',')}</div>
             </div>
 
