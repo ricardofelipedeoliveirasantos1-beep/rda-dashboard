@@ -92,7 +92,7 @@ describe('RDA — Permissão de Leitura Financeira, Consolidado Dinâmico e Matr
         expenses: mockExpenses,
       });
 
-      render(<Financeiro userRole="admin" can={() => true} />);
+      render(<Financeiro userRole="admin" can={() => true} initialDate={new Date(2026, 9, 29)} />);
 
       await waitFor(() => {
         expect(screen.getAllByText('(Set + Out)').length).toBeGreaterThan(0);
@@ -130,7 +130,7 @@ describe('RDA — Permissão de Leitura Financeira, Consolidado Dinâmico e Matr
         adjustments: mockAdjustments,
       });
 
-      render(<Financeiro userRole="assistant" can={mockCan} />);
+      render(<Financeiro userRole="assistant" can={mockCan} initialDate={new Date(2026, 9, 29)} />);
 
       await waitFor(() => {
         expect(screen.getByText('Financeiro')).toBeInTheDocument();
@@ -167,7 +167,7 @@ describe('RDA — Permissão de Leitura Financeira, Consolidado Dinâmico e Matr
         expenses: mockExpenses,
       });
 
-      render(<Financeiro userRole="treasurer" can={mockCan} />);
+      render(<Financeiro userRole="treasurer" can={mockCan} initialDate={new Date(2026, 9, 29)} />);
 
       await waitFor(() => {
         expect(screen.getByText('Financeiro')).toBeInTheDocument();
@@ -183,7 +183,7 @@ describe('RDA — Permissão de Leitura Financeira, Consolidado Dinâmico e Matr
 
       setupSupabaseMock({});
 
-      render(<Financeiro userRole="assistant" can={mockCan} />);
+      render(<Financeiro userRole="assistant" can={mockCan} initialDate={new Date(2026, 9, 29)} />);
 
       await waitFor(() => {
         expect(screen.getByText('Acesso Restrito')).toBeInTheDocument();
@@ -207,7 +207,7 @@ describe('RDA — Permissão de Leitura Financeira, Consolidado Dinâmico e Matr
         expenses: mockExpenses,
       });
 
-      render(<Financeiro userRole="treasurer" can={mockCan} />);
+      render(<Financeiro userRole="treasurer" can={mockCan} initialDate={new Date(2026, 9, 29)} />);
 
       await waitFor(() => {
         expect(screen.getByText('Financeiro')).toBeInTheDocument();
@@ -238,7 +238,7 @@ describe('RDA — Permissão de Leitura Financeira, Consolidado Dinâmico e Matr
         expenses: mockExpenses,
       });
 
-      render(<Financeiro userRole="assistant" can={mockCan} />);
+      render(<Financeiro userRole="assistant" can={mockCan} initialDate={new Date(2026, 9, 29)} />);
 
       await waitFor(() => {
         expect(screen.getByText('Financeiro')).toBeInTheDocument();
@@ -270,7 +270,7 @@ describe('RDA — Permissão de Leitura Financeira, Consolidado Dinâmico e Matr
         adjustments: mockAdjustments,
       });
 
-      render(<Financeiro userRole="admin" can={mockCan} />);
+      render(<Financeiro userRole="admin" can={mockCan} initialDate={new Date(2026, 9, 29)} />);
 
       await waitFor(() => {
         expect(screen.getByText('Financeiro')).toBeInTheDocument();
