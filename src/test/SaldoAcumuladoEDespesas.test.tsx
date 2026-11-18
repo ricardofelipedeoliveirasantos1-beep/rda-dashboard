@@ -109,6 +109,10 @@ describe('RDA — Saldo Acumulado e Descrição Obrigatória das Despesas', () =
         expect(screen.getByText('Nova Despesa')).toBeInTheDocument();
       });
 
+      // Seleciona categoria Outros (que obriga descrição)
+      const catSelect = screen.getByDisplayValue('Campo');
+      fireEvent.change(catSelect, { target: { value: 'Outros' } });
+
       // Preenche o valor mas deixa a descrição vazia
       const valorInput = screen.getByPlaceholderText('0.00');
       fireEvent.change(valorInput, { target: { value: '50.00' } });
@@ -139,6 +143,10 @@ describe('RDA — Saldo Acumulado e Descrição Obrigatória das Despesas', () =
       await waitFor(() => {
         expect(screen.getByText('Nova Despesa')).toBeInTheDocument();
       });
+
+      // Seleciona categoria Outros (que obriga descrição)
+      const catSelect = screen.getByDisplayValue('Campo');
+      fireEvent.change(catSelect, { target: { value: 'Outros' } });
 
       const valorInput = screen.getByPlaceholderText('0.00');
       fireEvent.change(valorInput, { target: { value: '25.00' } });

@@ -1418,26 +1418,28 @@ export default function Financeiro({ userRole: _userRole, can: _can, initialDate
                         </select>
                         <input type="number" step="0.01" value={editExpenseData.amount} onChange={e => setEditExpenseData({ ...editExpenseData, amount: e.target.value })} style={{ width: '90px', padding: '8px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.85rem' }} />
                       </div>
-                      <input type="text" placeholder="Descrição obrigatória" value={editExpenseData.description} onChange={e => setEditExpenseData({ ...editExpenseData, description: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                      <input type="text" placeholder={editExpenseData.category === 'Outros' ? "Descrição obrigatória *" : "Descrição (opcional)"} value={editExpenseData.description} onChange={e => setEditExpenseData({ ...editExpenseData, description: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.85rem', boxSizing: 'border-box' }} />
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                         <button onClick={() => setEditingExpenseId(null)} style={{ padding: '6px 12px', borderRadius: '6px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.75rem', cursor: 'pointer' }}>Cancelar</button>
                         <button onClick={async () => {
+                          const isOutros = editExpenseData.category === 'Outros';
                           const trimmedDesc = editExpenseData.description.trim();
-                          if (!trimmedDesc) {
+                          if (isOutros && !trimmedDesc) {
                             alert('Por favor, informe a descrição da despesa.');
                             return;
                           }
+                          const finalDesc = trimmedDesc || editExpenseData.category;
                           try {
                             const { error: updErr } = await supabase.from('expenses').update({
                               category: editExpenseData.category,
                               amount: Number(editExpenseData.amount),
-                              description: trimmedDesc,
+                              description: finalDesc,
                               expense_date: editExpenseData.date
                             }).eq('id', expense.id);
 
                             if (updErr) throw updErr;
                             invalidateCache('expenses');
-                            const updatedExpense = { ...expense, category: editExpenseData.category, amount: Number(editExpenseData.amount), description: trimmedDesc, expense_date: editExpenseData.date };
+                            const updatedExpense = { ...expense, category: editExpenseData.category, amount: Number(editExpenseData.amount), description: finalDesc, expense_date: editExpenseData.date };
 
                             setExpenses(prev => prev.map(e => e.id === expense.id ? updatedExpense : e));
                             setFeedback({ type: 'success', message: 'Despesa atualizada!' });
@@ -1780,11 +1782,17 @@ export default function Financeiro({ userRole: _userRole, can: _can, initialDate
 
             {/* LINHA 3: DESCRIÇÃO / MOTIVO */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%', minWidth: 0 }}>
-              <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>Descrição / Motivo *</label>
+              <label style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>
+                Descrição / Motivo {newExpense.category === 'Outros' ? '*' : '(Opcional)'}
+              </label>
               <input
                 type="text"
-                required
-                placeholder="Informe o motivo ou detalhe do gasto"
+                required={newExpense.category === 'Outros'}
+                placeholder={
+                  newExpense.category === 'Outros'
+                    ? "Informe o motivo ou detalhe do gasto *"
+                    : "Informe o motivo ou detalhe do gasto (opcional)"
+                }
                 value={newExpense.description}
                 onChange={e => setNewExpense({ ...newExpense, description: e.target.value })}
                 style={{ width: '100%', maxWidth: '100%', height: '38px', borderRadius: '8px', backgroundColor: '#090d14', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.85rem', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
@@ -1838,18 +1846,20 @@ export default function Financeiro({ userRole: _userRole, can: _can, initialDate
                     alert('Por favor, informe um valor válido para a despesa.');
                     return;
                   }
+                  const isOutros = newExpense.category === 'Outros';
                   const trimmedDesc = newExpense.description.trim();
-                  if (!trimmedDesc) {
+                  if (isOutros && !trimmedDesc) {
                     alert('Por favor, informe a descrição da despesa.');
                     return;
                   }
+                  const finalDescription = trimmedDesc || newExpense.category;
                   try {
                     const { currentUserId, currentUserName } = await getAuthenticatedOperatorInfo();
 
                     const expensePayload: any = {
                       category: newExpense.category,
                       amount: numAmount,
-                      description: trimmedDesc,
+                      description: finalDescription,
                       expense_date: newExpense.date,
                       created_by: currentUserId,
                       created_by_name: currentUserName
@@ -1865,7 +1875,7 @@ export default function Financeiro({ userRole: _userRole, can: _can, initialDate
                       const cleanPayload = {
                         category: newExpense.category,
                         amount: numAmount,
-                        description: trimmedDesc,
+                        description: finalDescription,
                         expense_date: newExpense.date
                       };
                       const { data: fbData, error: fbErr } = await supabase.from('expenses').insert([cleanPayload]).select();
