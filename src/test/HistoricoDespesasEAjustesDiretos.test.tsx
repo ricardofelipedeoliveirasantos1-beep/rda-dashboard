@@ -8,6 +8,7 @@ describe('RDA — Etapa Financeira: Histórico Detalhado, Saldos Dinâmicos, Aju
   const adminProps = {
     userRole: 'admin' as const,
     can: vi.fn().mockReturnValue(true),
+    initialDate: new Date(2026, 9, 29),
   };
 
   const setupSupabaseMock = (customExpenses: any[] = []) => {

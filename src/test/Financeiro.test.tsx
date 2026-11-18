@@ -188,7 +188,7 @@ describe('Financeiro Component — RDA Reprodução Fiel do Layout Mobile', () =
         } as any;
       });
 
-      render(<Financeiro {...defaultProps} />);
+      render(<Financeiro {...defaultProps} initialDate={new Date(2026, 9, 29)} />);
       await waitFor(() => {
         expect(screen.getByText(/Lançamento de teste homologação/i)).toBeInTheDocument();
       });

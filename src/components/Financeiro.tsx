@@ -88,7 +88,7 @@ const MONTHS_NAMES = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
 
-export default function Financeiro({ userRole: _userRole, can: _can }: { userRole: 'admin' | 'assistant' | 'visitor' | 'treasurer'; can: (action: any) => boolean }) {
+export default function Financeiro({ userRole: _userRole, can: _can, initialDate }: { userRole: 'admin' | 'assistant' | 'visitor' | 'treasurer'; can: (action: any) => boolean; initialDate?: Date }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,8 +112,8 @@ export default function Financeiro({ userRole: _userRole, can: _can }: { userRol
     (_userRole === 'assistant' && _can('adjust_balance')) ||
     (_userRole === 'treasurer' && _can('adjust_balance'));
 
-  // Default to October 2026 or current date
-  const [currentDate, setCurrentDate] = useState<Date>(() => new Date(2026, 9, 29)); // Outubro 2026
+  // Mês selecionado: inicia automaticamente no mês atual (vigente) ou data específica se injetada
+  const [currentDate, setCurrentDate] = useState<Date>(() => initialDate || new Date());
   const [showDateModal, setShowDateModal] = useState(false);
   const [showAnnualModal, setShowAnnualModal] = useState(false);
   const [showExpenseReport, setShowExpenseReport] = useState(true);
