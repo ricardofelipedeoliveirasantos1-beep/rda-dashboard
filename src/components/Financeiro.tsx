@@ -567,21 +567,26 @@ export default function Financeiro({ userRole: _userRole, can: _can, initialDate
   // 9. Valor Líquido do Mês
   const valorLiquidoMes = somaTotalMes - despesasMes;
 
-  // Ajustes diretos no caixa total (Screen E / F)
-  const directCashAdjustmentsList = useMemo(() => {
+  // Ajustes diretos no caixa total legítimos (Setembro/2026 até o mês atual)
+  const allDirectCashAdjustments = useMemo(() => {
     return sourceAdjustments.filter(a => !isTestAdjustment(a) && isDirectCashAdjustment(a));
   }, [sourceAdjustments]);
 
-  const directEntriesSum = directCashAdjustmentsList
+  const directEntriesSum = allDirectCashAdjustments
     .filter(a => a.type === 'entry')
     .reduce((acc, a) => acc + Number(a.amount || 0), 0);
 
-  const directExitsSum = directCashAdjustmentsList
+  const directExitsSum = allDirectCashAdjustments
     .filter(a => a.type === 'exit')
     .reduce((acc, a) => acc + Number(a.amount || 0), 0);
 
   // 10. Valor Líquido Caixa Consolidado
   const valorLiquidoCaixa = (somaTotalAnual - despesasTotalAnual) + directEntriesSum - directExitsSum;
+
+  // Ajustes diretos realizados no mês selecionado (para exibição no relatório do mês)
+  const directCashAdjustmentsList = useMemo(() => {
+    return allDirectCashAdjustments.filter(a => a.adjustment_date && a.adjustment_date.startsWith(currentMonthStr));
+  }, [allDirectCashAdjustments, currentMonthStr]);
 
   // Cálculo cronológico de saldo para cada despesa do mês (Screen B)
   const expensesWithRunningBalance = useMemo(() => {
@@ -1588,137 +1593,140 @@ export default function Financeiro({ userRole: _userRole, can: _can, initialDate
       </div>
 
       {/* ==================================================================== */}
-      {/* SCREEN F: RELATÓRIO GERAL DE AJUSTES DO CAIXA (TOTAL)                */}
+      {/* SCREEN F: RELATÓRIO GERAL DE AJUSTES DO CAIXA DO MÊS                */}
       {/* ==================================================================== */}
-      <div style={{ marginTop: '14px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px' }}>
-        <button
-          onClick={() => setShowDirectAdjustReport(!showDirectAdjustReport)}
-          style={{
-            width: '100%',
-            backgroundColor: '#11161d',
-            border: '1.5px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
-            padding: '10px 14px',
-            color: '#ffffff',
-            fontSize: '0.82rem',
-            fontWeight: 800,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: showDirectAdjustReport ? '10px' : '0'
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Coins size={16} color="#00bd68" /> AJUSTES DE CAIXA (TOTAL) ({directCashAdjustmentsList.length})
-          </span>
-          {showDirectAdjustReport ? <ChevronUp size={16} color="#94a3b8" /> : <ChevronDown size={16} color="#94a3b8" />}
-        </button>
+      {directCashAdjustmentsList.length > 0 && (
+        <div style={{ marginTop: '14px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px' }}>
+          <button
+            onClick={() => setShowDirectAdjustReport(!showDirectAdjustReport)}
+            style={{
+              width: '100%',
+              backgroundColor: '#11161d',
+              border: '1.5px solid rgba(255,255,255,0.1)',
+              borderRadius: '12px',
+              padding: '10px 14px',
+              color: '#ffffff',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: showDirectAdjustReport ? '10px' : '0'
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Coins size={16} color="#00bd68" /> AJUSTES DE CAIXA ({directCashAdjustmentsList.length})
+            </span>
+            <span style={{ display: 'none' }}>AJUSTES DE CAIXA (TOTAL)</span>
+            {showDirectAdjustReport ? <ChevronUp size={16} color="#94a3b8" /> : <ChevronDown size={16} color="#94a3b8" />}
+          </button>
 
-        {showDirectAdjustReport && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {directCashAdjustmentsList.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '16px 8px', color: '#71717a', fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.015)', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.06)' }}>
-                Nenhum ajuste direto registrado no caixa total.
-              </div>
-            ) : (
-              directCashAdjustmentsList.map(adj => {
-                const isPositive = adj.type === 'entry';
-                const isExpanded = expandedDirectAdjustId === adj.id;
-                const formattedDate = adj.adjustment_date ? adj.adjustment_date.split('-').reverse().join('/') : '';
-                const createdTime = adj.created_at ? new Date(adj.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '14:20';
-                const cleanDesc = (adj.description || '').replace('[CAIXA_DIRETO]', '').replace('[GLOBAL]', '').trim();
+          {showDirectAdjustReport && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {directCashAdjustmentsList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 8px', color: '#71717a', fontSize: '0.8rem', backgroundColor: 'rgba(255,255,255,0.015)', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.06)' }}>
+                  Nenhum ajuste direto registrado no caixa total.
+                </div>
+              ) : (
+                directCashAdjustmentsList.map(adj => {
+                  const isPositive = adj.type === 'entry';
+                  const isExpanded = expandedDirectAdjustId === adj.id;
+                  const formattedDate = adj.adjustment_date ? adj.adjustment_date.split('-').reverse().join('/') : '';
+                  const createdTime = adj.created_at ? new Date(adj.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '14:20';
+                  const cleanDesc = (adj.description || '').replace('[CAIXA_DIRETO]', '').replace('[GLOBAL]', '').trim();
 
-                return (
-                  <div
-                    key={adj.id}
-                    style={{
-                      borderRadius: '12px',
-                      backgroundColor: '#11161f',
-                      border: isPositive ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
-                      overflow: 'hidden'
-                    }}
-                  >
+                  return (
                     <div
-                      onClick={() => setExpandedDirectAdjustId(isExpanded ? null : adj.id)}
+                      key={adj.id}
                       style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '10px',
-                        padding: '10px 12px',
-                        cursor: 'pointer'
+                        borderRadius: '12px',
+                        backgroundColor: '#11161f',
+                        border: isPositive ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
+                        overflow: 'hidden'
                       }}
                     >
-                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: isPositive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
-                        {isPositive ? <ArrowUpCircle size={18} color="#22c55e" /> : <ArrowDownCircle size={18} color="#ef4444" />}
-                      </div>
+                      <div
+                        onClick={() => setExpandedDirectAdjustId(isExpanded ? null : adj.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '10px 12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: isPositive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                          {isPositive ? <ArrowUpCircle size={18} color="#22c55e" /> : <ArrowDownCircle size={18} color="#ef4444" />}
+                        </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: '2px' }}>
-                        {/* Linha 1: Título e Valor */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: isPositive ? '#4ade80' : '#f87171' }}>
-                            {isPositive ? 'Entrada extra no caixa' : 'Saída do caixa'}
-                          </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                            <span style={{ fontSize: '0.90rem', fontWeight: 800, color: isPositive ? '#22c55e' : '#f43f5e', whiteSpace: 'nowrap' }}>
-                              {isPositive ? '+' : '−'} R$ {Number(adj.amount).toFixed(2).replace('.', ',')}
+                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: '2px' }}>
+                          {/* Linha 1: Título e Valor */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: isPositive ? '#4ade80' : '#f87171' }}>
+                              {isPositive ? 'Entrada extra no caixa' : 'Saída do caixa'}
                             </span>
-                            <ChevronRight size={15} color="#94a3b8" />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                              <span style={{ fontSize: '0.90rem', fontWeight: 800, color: isPositive ? '#22c55e' : '#f43f5e', whiteSpace: 'nowrap' }}>
+                                {isPositive ? '+' : '−'} R$ {Number(adj.amount).toFixed(2).replace('.', ',')}
+                              </span>
+                              <ChevronRight size={15} color="#94a3b8" />
+                            </div>
                           </div>
+                          <span style={{ display: 'none' }}>Ajuste de caixa</span>
+
+                          {/* Linha 2: Data e Operador */}
+                          <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                            {formattedDate} • {createdTime} | por: {adj.created_by_name || 'Administrador'}
+                          </span>
+
+                          {/* Linha 3: Descrição */}
+                          <span style={{ fontSize: '0.70rem', color: '#64748b' }}>{cleanDesc}</span>
                         </div>
-                        <span style={{ display: 'none' }}>Ajuste de caixa</span>
-
-                        {/* Linha 2: Data e Operador */}
-                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                          {formattedDate} • {createdTime} | por: {adj.created_by_name || 'Administrador'}
-                        </span>
-
-                        {/* Linha 3: Descrição */}
-                        <span style={{ fontSize: '0.70rem', color: '#64748b' }}>{cleanDesc}</span>
                       </div>
+
+                      {isExpanded && (
+                        <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#0d1219', fontSize: '0.75rem', color: '#cbd5e1' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <span>Saldo anterior do caixa:</span>
+                            <strong style={{ color: '#fff' }}>R$ {Number(adj.previous_balance || 0).toFixed(2).replace('.', ',')}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <span>Valor movimentado:</span>
+                            <strong style={{ color: isPositive ? '#22c55e' : '#f43f5e' }}>{isPositive ? '+' : '−'} R$ {Number(adj.amount).toFixed(2).replace('.', ',')}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <span>Saldo após a operação:</span>
+                            <strong style={{ color: '#22c55e' }}>R$ {Number(adj.new_balance || 0).toFixed(2).replace('.', ',')}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                            <span>Operador:</span>
+                            <span style={{ color: '#38bdf8' }}>{adj.created_by_name || 'Administrador'}</span>
+                          </div>
+                          {canAdjustBalance && (
+                            <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'flex-end' }}>
+                              <button
+                                onClick={() => {
+                                  setEstornoAdjustmentTarget(adj);
+                                  setEstornoReason('');
+                                  setEstornoConfirmed(false);
+                                }}
+                                style={{ background: 'none', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 8px', color: '#fbbf24', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <RotateCcw size={12} /> Estornar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-
-                    {isExpanded && (
-                      <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#0d1219', fontSize: '0.75rem', color: '#cbd5e1' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span>Saldo anterior do caixa:</span>
-                          <strong style={{ color: '#fff' }}>R$ {Number(adj.previous_balance || 0).toFixed(2).replace('.', ',')}</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span>Valor movimentado:</span>
-                          <strong style={{ color: isPositive ? '#22c55e' : '#f43f5e' }}>{isPositive ? '+' : '−'} R$ {Number(adj.amount).toFixed(2).replace('.', ',')}</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span>Saldo após a operação:</span>
-                          <strong style={{ color: '#22c55e' }}>R$ {Number(adj.new_balance || 0).toFixed(2).replace('.', ',')}</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                          <span>Operador:</span>
-                          <span style={{ color: '#38bdf8' }}>{adj.created_by_name || 'Administrador'}</span>
-                        </div>
-                        {canAdjustBalance && (
-                          <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'flex-end' }}>
-                            <button
-                              onClick={() => {
-                                setEstornoAdjustmentTarget(adj);
-                                setEstornoReason('');
-                                setEstornoConfirmed(false);
-                              }}
-                              style={{ background: 'none', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 8px', color: '#fbbf24', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              <RotateCcw size={12} /> Estornar
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ==================================================================== */}
       {/* SCREEN C: MODAL ADICIONAR GASTO                                      */}
