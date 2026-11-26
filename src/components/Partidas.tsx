@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { invalidateCache } from '../services/dataCache';
-import { solveDraw } from '../services/sorteioService';
+import { solveDraw, validateAllTeamsTactical, evaluateTeamTacticalFormation } from '../services/sorteioService';
+import { AvisoJogadoresJuntos, TeamShield } from './AvisoJogadoresJuntos';
 import { 
   Calendar, 
   MapPin, 
@@ -208,6 +209,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   // Team menu active popover state
   const [activeTeamMenu, setActiveTeamMenu] = useState<{ playerId: string; teamName: string } | null>(null);
   const [drawHistoryMap, setDrawHistoryMap] = useState<Map<string, string[]>>(new Map());
+  const [lastTeamMap, setLastTeamMap] = useState<Map<string, string>>(new Map());
+  const [lastDrawQueryTimeMs, setLastDrawQueryTimeMs] = useState<number>(0);
   const [paymentUpdatingId, setPaymentUpdatingId] = useState<string | null>(null);
 
   // Stats view states
@@ -476,9 +479,11 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     return active;
   };
 
-  // Consulta desacoplada e robusta do histórico de partidas e campeão
+  // Consulta desacoplada e robusta exclusivamente da última partida finalizada e campeão
   const fetchDrawHistoryAndChampion = async (excludeMatchId?: string) => {
+    const startTime = performance.now();
     const drawHistory = new Map<string, string[]>();
+    const lastTeamMap = new Map<string, string>();
     let champTeamStr: string | null = null;
     let champPlayerIds = new Set<string>();
     let champPlayerShirts = new Map<string, number>();
@@ -493,7 +498,8 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         .eq('status', 'finished')
         .order('match_date', { ascending: false })
         .order('match_time', { ascending: false })
-        .limit(6);
+        .order('id', { ascending: false })
+        .limit(1);
 
       if (excludeMatchId) {
         query = query.neq('id', excludeMatchId);
@@ -502,10 +508,10 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       const { data: recentMatchesData, error: matchesError } = await query;
 
       if (!matchesError && recentMatchesData && recentMatchesData.length > 0) {
-        const lastFinishedWithChamp = recentMatchesData.find(m => m.champion_team);
-        if (lastFinishedWithChamp) {
-          champTeamStr = lastFinishedWithChamp.champion_team;
-          const champPlayers = (lastFinishedWithChamp.match_players || []).filter(mp => mp.team === champTeamStr);
+        const lastMatch = recentMatchesData[0];
+        if (lastMatch.champion_team) {
+          champTeamStr = lastMatch.champion_team;
+          const champPlayers = (lastMatch.match_players || []).filter(mp => mp.team === champTeamStr);
           champPlayerIds = new Set(champPlayers.map(p => p.player_id));
           champPlayers.forEach(p => {
             if (p.shirt_number) {
@@ -514,22 +520,23 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
           });
         }
 
-        recentMatchesData.forEach(m => {
-          (m.match_players || []).forEach(mp => {
-            if (mp.player_id && mp.team) {
-              const currentHist = drawHistory.get(mp.player_id) || [];
-              currentHist.push(mp.team);
-              drawHistory.set(mp.player_id, currentHist);
-            }
-          });
+        // Mapeia os times exclusivamente da última partida finalizada
+        (lastMatch.match_players || []).forEach(mp => {
+          if (mp.player_id && mp.team) {
+            lastTeamMap.set(mp.player_id, mp.team);
+            const currentHist = drawHistory.get(mp.player_id) || [];
+            currentHist.push(mp.team);
+            drawHistory.set(mp.player_id, currentHist);
+          }
         });
       }
     } catch (err) {
-      console.error("Erro ao buscar histórico de sorteios:", err);
+      console.error("Erro ao buscar histórico de sorteios da última partida:", err);
     }
 
+    const queryTimeMs = Math.round((performance.now() - startTime) * 100) / 100;
     const championInfo = champTeamStr ? { team: champTeamStr, playerIds: champPlayerIds, playerShirts: champPlayerShirts } : null;
-    return { drawHistory, championInfo };
+    return { drawHistory, lastTeamMap, championInfo, queryTimeMs };
   };
 
   // Transition from Selection (config) to Teams
@@ -554,10 +561,12 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     setValidationError(null);
     setSaving(true);
     
-    const { drawHistory, championInfo } = await fetchDrawHistoryAndChampion(editingMatchId || undefined);
+    const { drawHistory, lastTeamMap: fetchedLastTeamMap, championInfo, queryTimeMs } = await fetchDrawHistoryAndChampion(editingMatchId || undefined);
 
     setDrawHistoryMap(drawHistory);
+    setLastTeamMap(fetchedLastTeamMap);
     setLastChampionInfo(championInfo);
+    setLastDrawQueryTimeMs(queryTimeMs);
 
     const champTeamStr = championInfo?.team || null;
     const champPlayerIds = championInfo?.playerIds || new Set<string>();
@@ -735,15 +744,21 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
   const runFlashSorteio = async () => {
     const active = getActiveTeams();
     let history = drawHistoryMap;
+    let lTeamMap = lastTeamMap;
     let champInfo = lastChampionInfo;
+    let qTime = lastDrawQueryTimeMs;
 
     // Se o histórico não estiver carregado, busca sob demanda
-    if (history.size === 0) {
+    if (lTeamMap.size === 0 && history.size === 0) {
       const fetched = await fetchDrawHistoryAndChampion(editingMatchId || undefined);
       history = fetched.drawHistory;
+      lTeamMap = fetched.lastTeamMap;
       champInfo = fetched.championInfo;
+      qTime = fetched.queryTimeMs;
       setDrawHistoryMap(history);
+      setLastTeamMap(lTeamMap);
       setLastChampionInfo(champInfo);
+      setLastDrawQueryTimeMs(qTime);
     }
 
     const champTeamStr = champInfo?.team || null;
@@ -761,10 +776,12 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       activeTeams: active,
       champTeamStr,
       champPlayerIds,
+      lastTeamMap: lTeamMap,
       historyMap: history,
       maxPlayersPerTeam: 6,
       existingTeams: existingTeamsMap,
-      unlockedPlayerIds: unlockedChampionPlayerIds
+      unlockedPlayerIds: unlockedChampionPlayerIds,
+      queryTimeMs: qTime
     });
 
     setTeamBrasil(active.includes('brasil') ? (result.teamMap['brasil'] as Player[]) || [] : []);
@@ -818,6 +835,16 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
     if (uniqueIds.size !== allAssigned.length) {
       setValidationError('Erro de integridade: Existem jogadores duplicados nos times.');
       return;
+    }
+
+    // Validação Tática Obrigatória das Equipes (Regras Invioláveis do RDA)
+    const activeWithFullTeam = getActiveTeams().filter(t => (teamsWithShirts[t as keyof typeof teamsWithShirts] || []).length === 6);
+    if (activeWithFullTeam.length > 0) {
+      const tacticalValidation = validateAllTeamsTactical(teamsWithShirts, activeWithFullTeam, 6);
+      if (!tacticalValidation.isValid) {
+        setValidationError(`Formação tática inválida: ${tacticalValidation.globalErrors.join(' | ')}`);
+        return;
+      }
     }
     // We no longer require all players to be assigned
     // if (uniqueIds.size !== totalSelected) {
@@ -1134,9 +1161,11 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
       alert('Você não tem permissão para editar partidas.');
       return;
     }
-    const { drawHistory, championInfo } = await fetchDrawHistoryAndChampion(match.id);
+    const { drawHistory, lastTeamMap: fetchedLastTeamMap, championInfo, queryTimeMs } = await fetchDrawHistoryAndChampion(match.id);
     setDrawHistoryMap(drawHistory);
+    setLastTeamMap(fetchedLastTeamMap);
     setLastChampionInfo(championInfo);
+    setLastDrawQueryTimeMs(queryTimeMs);
     setUnlockedChampionPlayerIds(new Set());
     setEditingMatchId(match.id);
     setMatchDate(match.match_date);
@@ -2532,9 +2561,11 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <button
                 onClick={async () => {
-                  const { drawHistory, championInfo } = await fetchDrawHistoryAndChampion(activeMatchForStats.id);
+                  const { drawHistory, lastTeamMap: fetchedLastTeamMap, championInfo, queryTimeMs } = await fetchDrawHistoryAndChampion(activeMatchForStats.id);
                   setDrawHistoryMap(drawHistory);
+                  setLastTeamMap(fetchedLastTeamMap);
                   setLastChampionInfo(championInfo);
+                  setLastDrawQueryTimeMs(queryTimeMs);
                   setUnlockedChampionPlayerIds(new Set());
                   setEditingMatchId(activeMatchForStats.id);
                   setMatchDate(activeMatchForStats.match_date);
@@ -2599,9 +2630,11 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
               
               <button
                 onClick={async () => {
-                  const { drawHistory, championInfo } = await fetchDrawHistoryAndChampion(activeMatchForStats.id);
+                  const { drawHistory, lastTeamMap: fetchedLastTeamMap, championInfo, queryTimeMs } = await fetchDrawHistoryAndChampion(activeMatchForStats.id);
                   setDrawHistoryMap(drawHistory);
+                  setLastTeamMap(fetchedLastTeamMap);
                   setLastChampionInfo(championInfo);
+                  setLastDrawQueryTimeMs(queryTimeMs);
                   setUnlockedChampionPlayerIds(new Set());
                   setEditingMatchId(activeMatchForStats.id);
                   setMatchDate(activeMatchForStats.match_date);
@@ -3376,6 +3409,21 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         </button>
       </div>
 
+      {/* Relatório de Jogadores que voltaram a jogar juntos em relação à última partida */}
+      <AvisoJogadoresJuntos
+        teamMap={teamsWithShirts}
+        activeTeams={getActiveTeams()}
+        lastTeamMap={lastTeamMap}
+        champTeamStr={lastChampionInfo?.team || null}
+        hasFinishedMatchHistory={lastTeamMap.size > 0 || lastChampionInfo !== null}
+        isDrawnOrPopulated={
+          teamsWithShirts.brasil.length > 0 ||
+          teamsWithShirts.portugal.length > 0 ||
+          teamsWithShirts.japao.length > 0 ||
+          teamsWithShirts.uruguai.length > 0
+        }
+      />
+
       {availablePlayers.length > 0 ? (
         <section className="dashboard-card dashboard-card--neon" style={{ gap: '12px' }}>
           <div className="card-header">
@@ -3493,50 +3541,171 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
         </section>
       )}
 
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: '16px',
-        marginTop: '8px'
-      }}>
+      {/* RDA — Redesign Premium dos Cards das Equipes (Grid 2x2 no desktop, 1 col no mobile) */}
+      <div 
+        className="teams-neon-grid"
+        style={{ 
+          display: 'grid', 
+          gap: '32px 20px',
+          marginTop: '32px'
+        }}
+      >
         {[
-          { id: 'team-brasil', name: 'brasil', label: 'BRASIL', color: '#22c55e', bg: 'rgba(34,197,94,0.02)', players: teamsWithShirts.brasil },
-          { id: 'team-portugal', name: 'portugal', label: 'PORTUGAL', color: '#ef4444', bg: 'rgba(239,68,68,0.02)', players: teamsWithShirts.portugal },
-          { id: 'team-japao', name: 'japao', label: 'JAPÃO', color: '#ffffff', bg: 'rgba(255,255,255,0.01)', players: teamsWithShirts.japao },
-          { id: 'team-uruguai', name: 'uruguai', label: 'URUGUAI', color: '#38bdf8', bg: 'rgba(56,189,248,0.02)', players: teamsWithShirts.uruguai }
+          { 
+            id: 'team-brasil', 
+            name: 'brasil', 
+            label: 'BRASIL', 
+            neonColor: '#facc15', // Amarelo-neon obrigatório
+            glowShadow: '0 0 16px rgba(250, 204, 21, 0.45), 0 0 32px rgba(250, 204, 21, 0.2), inset 0 0 12px rgba(250, 204, 21, 0.04)',
+            players: teamsWithShirts.brasil 
+          },
+          { 
+            id: 'team-portugal', 
+            name: 'portugal', 
+            label: 'PORTUGAL', 
+            neonColor: '#ef4444', // Vermelho-neon
+            glowShadow: '0 0 16px rgba(239, 68, 68, 0.45), 0 0 32px rgba(239, 68, 68, 0.2), inset 0 0 12px rgba(239, 68, 68, 0.04)',
+            players: teamsWithShirts.portugal 
+          },
+          { 
+            id: 'team-japao', 
+            name: 'japao', 
+            label: 'JAPÃO', 
+            neonColor: '#ffffff', // Branco/prata-neon
+            glowShadow: '0 0 16px rgba(255, 255, 255, 0.5), 0 0 32px rgba(255, 255, 255, 0.25), inset 0 0 12px rgba(255, 255, 255, 0.04)',
+            players: teamsWithShirts.japao 
+          },
+          { 
+            id: 'team-uruguai', 
+            name: 'uruguai', 
+            label: 'URUGUAI', 
+            neonColor: '#38bdf8', // Azul-neon
+            glowShadow: '0 0 16px rgba(56, 189, 248, 0.45), 0 0 32px rgba(56, 189, 248, 0.2), inset 0 0 12px rgba(56, 189, 248, 0.04)',
+            players: teamsWithShirts.uruguai 
+          }
         ].filter(team => getActiveTeams().includes(team.name)).map((team) => {
           const isCardActive = activeTeamMenu?.teamName === team.name;
+          const tacticalEval = evaluateTeamTacticalFormation(team.players, 6);
           return (
             <div 
               key={team.id}
               id={team.id}
-              className="dashboard-card" 
               style={{ 
-                borderLeft: `4px solid ${team.color}`, 
-                backgroundColor: team.bg,
-                gap: '12px',
                 position: 'relative',
-                zIndex: isCardActive ? 60 : 1
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: '20px',
+                backgroundColor: '#040812',
+                border: `2px solid ${team.neonColor}`,
+                boxShadow: team.glowShadow,
+                padding: '28px 14px 14px 14px',
+                gap: '10px',
+                zIndex: isCardActive ? 60 : 1,
+                boxSizing: 'border-box'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '8px' }}>
-                <span style={{ fontWeight: 800, fontSize: '1rem', color: team.color, letterSpacing: '0.5px' }}>{team.label}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    {team.players.length}/6
-                  </span>
-                  {team.players.length < 6 && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Falta {6 - team.players.length}
-                    </span>
-                  )}
-                </div>
+              {/* Linhas superiores neon brilhantes nos dois lados do escudo */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  left: '20px',
+                  right: 'calc(50% + 28px)',
+                  height: '2px',
+                  background: `linear-gradient(to right, transparent, ${team.neonColor} 80%, #ffffff 100%)`,
+                  boxShadow: `0 0 10px ${team.neonColor}`,
+                  pointerEvents: 'none'
+                }} 
+              />
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  left: 'calc(50% + 28px)',
+                  right: '20px',
+                  height: '2px',
+                  background: `linear-gradient(to left, transparent, ${team.neonColor} 80%, #ffffff 100%)`,
+                  boxShadow: `0 0 10px ${team.neonColor}`,
+                  pointerEvents: 'none'
+                }} 
+              />
+
+              {/* Escudo oficial centralizado no topo e sobreposto à borda superior */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '-26px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10,
+                  backgroundColor: '#040812',
+                  padding: '0 6px',
+                  borderRadius: '10px'
+                }}
+              >
+                <TeamShield team={team.name} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minHeight: '60px' }}>
+              {/* Indicador de capacidade (ex: 6/6) e Formação Tática */}
+              <div 
+                style={{ 
+                  position: 'absolute',
+                  top: '12px',
+                  right: '16px',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  zIndex: 5
+                }}
+              >
+                {team.players.length === 6 && (
+                  <span 
+                    style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      color: tacticalEval.isValid ? 'rgba(255, 255, 255, 0.75)' : '#ef4444',
+                      backgroundColor: tacticalEval.isValid ? 'rgba(255, 255, 255, 0.06)' : 'rgba(239, 68, 68, 0.15)',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      border: `1px solid ${tacticalEval.isValid ? 'rgba(255, 255, 255, 0.1)' : 'rgba(239, 68, 68, 0.3)'}`
+                    }}
+                    title={tacticalEval.errors.join(' | ') || `Formação ${tacticalEval.formation}`}
+                  >
+                    {tacticalEval.atacantesCount > 2 ? '⚠️ 3 Atacantes' : (tacticalEval.atacantesCount === 0 ? '⚠️ 0 Atacantes' : tacticalEval.formation)}
+                  </span>
+                )}
+                <span 
+                  style={{ 
+                    fontSize: '0.85rem', 
+                    fontWeight: 800, 
+                    color: '#ffffff',
+                    letterSpacing: '0.5px' 
+                  }}
+                >
+                  {team.players.length}/6
+                </span>
+                {team.players.length < 6 && (
+                  <span 
+                    style={{ 
+                      fontSize: '0.72rem', 
+                      color: 'var(--text-muted)',
+                      display: 'none' // Mantido para compatibilidade sem poluir visual
+                    }}
+                  >
+                    Falta {6 - team.players.length}
+                  </span>
+                )}
+              </div>
+
+              {/* Lista de jogadores em linhas compactas com fundo escuro */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', minHeight: '60px' }}>
                 {team.players.length > 0 ? (
                   team.players.map((p, pIndex) => {
                     const isMenuOpen = activeTeamMenu?.playerId === p.id && activeTeamMenu?.teamName === team.name;
+                    const isAdaptedToDefense = tacticalEval.adaptedPlayers.some(ap => ap.playerId === p.id);
                     return (
                       <div 
                         key={p.id} 
@@ -3545,57 +3714,66 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                           display: 'flex', 
                           alignItems: 'center', 
                           justifyContent: 'space-between', 
-                          padding: '8px 10px', 
-                          borderRadius: '10px', 
-                          backgroundColor: 'rgba(255,255,255,0.015)',
-                          border: '1px solid rgba(255,255,255,0.03)',
+                          padding: '7px 10px', 
+                          borderRadius: '12px', 
+                          backgroundColor: 'rgba(255,255,255,0.025)',
+                          border: '1px solid rgba(255,255,255,0.04)',
                           zIndex: isMenuOpen ? 70 : 1
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
                           {p.photo_url ? (
                             <img 
                               src={p.photo_url} 
                               alt={p.name} 
-                              style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                              style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                             />
                           ) : (
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#262626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <User size={14} style={{ color: 'var(--text-muted)' }} />
+                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <User size={16} style={{ color: 'var(--text-muted)' }} />
                             </div>
                           )}
 
                           {p.shirt_number && (
                             <div style={{ 
-                              backgroundColor: '#fff', 
-                              color: '#000', 
-                              fontSize: '0.7rem', 
-                              fontWeight: 800, 
+                              backgroundColor: '#ffffff', 
+                              color: '#000000', 
+                              fontSize: '0.72rem', 
+                              fontWeight: 900, 
                               padding: '2px 5px', 
                               borderRadius: '4px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              minWidth: '22px'
+                              minWidth: '24px',
+                              height: '22px',
+                              flexShrink: 0
                             }}>
                               {String(p.shirt_number).padStart(2, '0')}
                             </div>
                           )}
 
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
+                              <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {p.name}
                               </span>
                               {p.category === 'Diarista' && (
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>(Diarista)</span>
+                                <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 500, flexShrink: 0 }}>(Diarista)</span>
                               )}
                             </div>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.position || 'Sem posição'}</span>
+                            <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '1px' }}>
+                              {p.position || 'Sem posição'}
+                              {isAdaptedToDefense && (
+                                <span style={{ color: '#38bdf8', fontWeight: 600, marginLeft: '5px' }}>
+                                  • Zaga
+                                </span>
+                              )}
+                            </span>
                           </div>
                         </div>
 
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
                           <button 
                             className="team-menu-trigger"
                             title="Opções do jogador"
@@ -3616,7 +3794,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                               borderRadius: '50%',
                               transition: 'var(--transition)'
                             }}
-                            onMouseEnter={(e) => { if (!saving) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
+                            onMouseEnter={(e) => { if (!saving) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
                             onMouseLeave={(e) => { if (!saving) e.currentTarget.style.backgroundColor = 'transparent'; }}
                           >
                             <MoreVertical size={16} />
@@ -3648,7 +3826,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                                     e.stopPropagation();
                                     movePlayer(p, team.name, 'brasil');
                                   }} 
-                                  style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#22c55e', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}
+                                  style={{ textAlign: 'left', padding: '8px 10px', fontSize: '0.78rem', background: 'none', border: 'none', color: '#facc15', fontWeight: 600, cursor: 'pointer', borderRadius: '6px' }}
                                 >
                                   Mover para Brasil
                                 </button>
@@ -3712,7 +3890,7 @@ export default function Partidas({ mode = 'partidas', userRole, can }: PartidasP
                     );
                   })
                 ) : (
-                  <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.78rem', border: '1px dashed rgba(255,255,255,0.04)', borderRadius: '8px' }}>
+                  <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', border: '1px dashed rgba(255,255,255,0.04)', borderRadius: '10px' }}>
                     Nenhum jogador escalado
                   </div>
                 )}

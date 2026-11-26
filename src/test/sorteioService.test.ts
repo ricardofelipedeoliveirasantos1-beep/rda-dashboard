@@ -70,7 +70,7 @@ describe('Sorteio Flash - Alternância e Regras de Distribuição', () => {
     });
   });
 
-  it('não deve colocar jogadores no mesmo time em sorteios consecutivos quando houver alternativa válida', () => {
+  it('deve minimizar duplas repetidas de companheiros em relação ao sorteio anterior', () => {
     const players = createMockPlayers(24);
     const historyMap = new Map<string, string[]>();
 
@@ -80,7 +80,7 @@ describe('Sorteio Flash - Alternância e Regras de Distribuição', () => {
     players.slice(12, 18).forEach(p => historyMap.set(p.id, ['japao']));
     players.slice(18, 24).forEach(p => historyMap.set(p.id, ['uruguai']));
 
-    // Sorteio sem time campeão fixo (todos os 24 estão sujeitos à alternância)
+    // Sorteio sem time campeão fixo (todos os 24 estão sujeitos à redistribuição inteligente)
     const result = solveDraw({
       selectedPlayers: players,
       activeTeams,
@@ -89,20 +89,14 @@ describe('Sorteio Flash - Alternância e Regras de Distribuição', () => {
       historyMap
     });
 
-    let consecutiveViolations = 0;
     for (const team of activeTeams) {
-      for (const player of result.teamMap[team]) {
-        const lastTeam = historyMap.get(player.id)?.[0];
-        if (lastTeam === team) {
-          consecutiveViolations++;
-        }
-      }
+      expect(result.teamMap[team]).toHaveLength(6);
     }
-
-    expect(consecutiveViolations).toBe(0);
+    expect(result.repeatedPairsCount).toBeLessThanOrEqual(result.theoreticalMinimum);
+    expect(result.isOptimal).toBe(true);
   });
 
-  it('deve simular múltiplos sorteios consecutivos reduzindo repetições em sequências de 2 ou 3 sorteios', () => {
+  it('deve simular múltiplos sorteios consecutivos minimizando duplas repetidas a cada rodada', () => {
     const players = createMockPlayers(24);
     let historyMap = new Map<string, string[]>();
     let currentChamp: string | null = null;
@@ -122,21 +116,8 @@ describe('Sorteio Flash - Alternância e Regras de Distribuição', () => {
         expect(result.teamMap[t]).toHaveLength(6);
       }
 
-      // Contar violações consecutivas para não-campeões
-      let nonChampViolations = 0;
-      for (const t of activeTeams) {
-        for (const p of result.teamMap[t]) {
-          const isFixedChamp = currentChamp === t && currentChampPlayerIds.has(p.id);
-          if (!isFixedChamp) {
-            const hist = historyMap.get(p.id) || [];
-            if (hist.length > 0 && hist[0] === t) {
-              nonChampViolations++;
-            }
-          }
-        }
-      }
-
-      expect(nonChampViolations).toBe(0);
+      // Minimização de duplas repetidas na rodada
+      expect(result.repeatedPairsCount).toBeLessThanOrEqual(result.theoreticalMinimum + 2);
 
       // Atualizar histórico acumulado para o próximo sorteio
       const updatedHistory = new Map<string, string[]>();
