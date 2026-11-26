@@ -9,6 +9,7 @@ const Relatorios = lazy(() => import('./components/Relatorios'));
 const Mensalidades = lazy(() => import('./components/Mensalidades'));
 import { supabase } from './lib/supabase';
 import { getCachedData, clearCache, CACHE_TTL } from './services/dataCache';
+import { ResumoTemporadaCard, FinanceiroGeralCard } from './components/DashboardPremiumCards';
 import {
   Users,
   Calendar,
@@ -23,7 +24,6 @@ import {
   AlertCircle,
   Home,
   Settings,
-  Flame,
   Star,
   Menu,
   UserRound,
@@ -33,9 +33,7 @@ import {
   Shield,
   LogOut,
   Edit,
-  CalendarDays,
   Goal,
-  Sparkles,
   CircleCheck,
   CircleAlert,
   Frown,
@@ -1459,72 +1457,15 @@ export default function App() {
               </div>
             ) : (
               <>
-                {/* CARD 01 — RESUMO DA TEMPORADA */}
-                <div className="dashboard-card dashboard-card--neon">
-                  <div className="card-header">
-                    <span className="card-title">
-                      <Award size={18} /> Resumo da Temporada
-                    </span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{
-                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.35)',
-                      borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '2px',
-                      position: 'relative', overflow: 'hidden'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#3b82f6', marginBottom: '2px', position: 'relative', zIndex: 1 }}>
-                        <Users size={16} />
-                      </div>
-                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1 }}>{totalPlayers}</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', position: 'relative', zIndex: 1 }}>Jogadores</span>
-                      <div style={{ display: 'flex', gap: '4px', fontSize: '0.65rem', fontWeight: 700, marginTop: '2px', flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
-                        <span style={{ color: '#22c55e' }}>{totalMensalistas} Mensalistas</span>
-                        <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
-                        <span style={{ color: '#f87171' }}>{totalDiaristas} Diaristas</span>
-                      </div>
-                      <Users size={36} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.15, color: '#3b82f6', zIndex: 0 }} />
-                    </div>
-
-                    <div style={{
-                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(249,115,22,0.35)',
-                      borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '2px',
-                      position: 'relative', overflow: 'hidden'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#f97316', marginBottom: '2px', position: 'relative', zIndex: 1 }}>
-                        <CalendarDays size={16} />
-                      </div>
-                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1 }}>{totalMatches}</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', position: 'relative', zIndex: 1 }}>Partidas</span>
-                      <Trophy size={36} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.15, color: '#f97316', zIndex: 0 }} />
-                    </div>
-
-                    <div style={{
-                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(34,197,94,0.35)',
-                      borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '2px',
-                      position: 'relative', overflow: 'hidden'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#22c55e', marginBottom: '2px', position: 'relative', zIndex: 1 }}>
-                        <Flame size={16} />
-                      </div>
-                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1 }}>{totalGoals}</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', position: 'relative', zIndex: 1 }}>Gols</span>
-                      <Goal size={36} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.15, color: '#22c55e', zIndex: 0 }} />
-                    </div>
-
-                    <div style={{
-                      backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(168,85,247,0.35)',
-                      borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '2px',
-                      position: 'relative', overflow: 'hidden'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-start', color: '#a855f7', marginBottom: '2px', position: 'relative', zIndex: 1 }}>
-                        <Star size={16} />
-                      </div>
-                      <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1 }}>{totalAssists}</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', position: 'relative', zIndex: 1 }}>Assistências</span>
-                      <Sparkles size={36} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.15, color: '#a855f7', zIndex: 0 }} />
-                    </div>
-                  </div>
-                </div>
+                {/* CARD 01 — RESUMO DA TEMPORADA (PREMIUM NEON) */}
+                <ResumoTemporadaCard
+                  totalPlayers={totalPlayers}
+                  totalMensalistas={totalMensalistas}
+                  totalDiaristas={totalDiaristas}
+                  totalMatches={totalMatches}
+                  totalGoals={totalGoals}
+                  totalAssists={totalAssists}
+                />
 
                 {dashboardNotices.length > 0 && (
                   <div className="dashboard-card dashboard-card--neon" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1752,91 +1693,57 @@ export default function App() {
                   </div>
                 </div>
                 ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-                  {/* CARD 02 — FINANCEIRO */}
-                                  <div className="dashboard-card dashboard-card--neon">
-                                    <div className="card-header">
-                                      <span className="card-title">
-                                        <DollarSign size={18} /> Financeiro Geral
-                                      </span>
-                                    </div>
-                                    <div className="finance-grid">
-                                      <div className="finance-item">
-                                        <span className="finance-label">Arrecadação Total</span>
-                                        <span className="finance-value positive">
-                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue)}
-                                        </span>
-                                      </div>
-                                      <div className="finance-item">
-                                        <span className="finance-label">Despesas Totais</span>
-                                        <span className="finance-value negative">
-                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalExpenses)}
-                                        </span>
-                                      </div>
-                                      <div className="finance-item">
-                                        <span className="finance-label">Recebido no mês</span>
-                                        <span className="finance-value positive">
-                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyRevenue)}
-                                        </span>
-                                      </div>
-                                      <div className="finance-item">
-                                        <span className="finance-label">Despesas (mês)</span>
-                                        <span className="finance-value negative">
-                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyExpenses)}
-                                        </span>
-                                      </div>
-                                      <div className="finance-item">
-                                        <span className="finance-label">Pendências (mês)</span>
-                                        <span className="finance-value negative">
-                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pendingAmount)}
-                                        </span>
-                                      </div>
-                                      <div className="finance-item">
-                                        <span className="finance-label">Saldo Líquido Acumulado</span>
-                                        <span className={`finance-value ${accumulatedBalance >= 0 ? 'positive' : 'negative'}`}>
-                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(accumulatedBalance)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                  {/* CARD 08 — RESUMO MENSAL */}
-                                  <div className="dashboard-card dashboard-card--neon" style={{ padding: '16px' }}>
-                                    <div className="card-header" style={{ marginBottom: '16px' }}>
-                                      <span className="card-title">
-                                        <FileText size={18} /> Resumo Mensal (Atual)
-                                      </span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                                      {/* Pagos */}
-                                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
-                                        <div style={{ color: '#22c55e', marginBottom: '2px' }}><CircleCheck size={26} strokeWidth={1.5} /></div>
-                                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#22c55e', lineHeight: 1 }}>{totalMonthlyPaid}</span>
-                                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pagos</span>
-                                      </div>
-
-                                      <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
-
-                                      {/* Pendentes */}
-                                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
-                                        <div style={{ color: '#ef4444', marginBottom: '2px' }}><CircleAlert size={26} strokeWidth={1.5} /></div>
-                                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#ef4444', lineHeight: 1 }}>{totalMonthlyPending}</span>
-                                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pendentes</span>
-                                      </div>
-
-                                      <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
-
-                                      {/* Diaristas */}
-                                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
-                                        <div style={{ color: '#f97316', marginBottom: '2px' }}><Users size={26} strokeWidth={1.5} /></div>
-                                        <span style={{ fontSize: '22px', fontWeight: 900, color: '#f97316', lineHeight: 1 }}>{lastMatchDiarists}</span>
-                                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Diaristas<br/>(Últ. Partida)</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                </div>
+                  <>
+                    {/* CARD 02 — FINANCEIRO GERAL (PREMIUM NEON) */}
+                    <FinanceiroGeralCard
+                      totalRevenue={totalRevenue}
+                      totalExpenses={totalExpenses}
+                      monthlyRevenue={monthlyRevenue}
+                      monthlyExpenses={monthlyExpenses}
+                      pendingAmount={pendingAmount}
+                      accumulatedBalance={accumulatedBalance}
+                    />
+                  </>
                 )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+                  {currentUserRole !== 'visitor' && (
+                    /* CARD 08 — RESUMO MENSAL */
+                    <div className="dashboard-card dashboard-card--neon" style={{ padding: '16px' }}>
+                      <div className="card-header" style={{ marginBottom: '16px' }}>
+                        <span className="card-title">
+                          <FileText size={18} /> Resumo Mensal (Atual)
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                        {/* Pagos */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
+                          <div style={{ color: '#22c55e', marginBottom: '2px' }}><CircleCheck size={26} strokeWidth={1.5} /></div>
+                          <span style={{ fontSize: '22px', fontWeight: 900, color: '#22c55e', lineHeight: 1 }}>{totalMonthlyPaid}</span>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pagos</span>
+                        </div>
+
+                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
+
+                        {/* Pendentes */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
+                          <div style={{ color: '#ef4444', marginBottom: '2px' }}><CircleAlert size={26} strokeWidth={1.5} /></div>
+                          <span style={{ fontSize: '22px', fontWeight: 900, color: '#ef4444', lineHeight: 1 }}>{totalMonthlyPending}</span>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pendentes</span>
+                        </div>
+
+                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
+
+                        {/* Diaristas */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
+                          <div style={{ color: '#f97316', marginBottom: '2px' }}><Users size={26} strokeWidth={1.5} /></div>
+                          <span style={{ fontSize: '22px', fontWeight: 900, color: '#f97316', lineHeight: 1 }}>{lastMatchDiarists}</span>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Diaristas<br/>(Últ. Partida)</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* CARD 03 — PRÓXIMA PARTIDA */}
                                   <div className="dashboard-card dashboard-card--neon" style={{ display: 'flex', flexDirection: 'column' }}>
                                     <div className="card-header">
