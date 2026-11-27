@@ -420,6 +420,8 @@ export default function App() {
   const [topAssists, setTopAssists] = useState<any[]>([]);
   const [topPoints, setTopPoints] = useState<any[]>([]);
   const [topRalabosta, setTopRalabosta] = useState<any[]>([]);
+  const [topChampions, setTopChampions] = useState<any[]>([]);
+  const [topVices, setTopVices] = useState<any[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
 
   const [lastMatch, setLastMatch] = useState<any>(null);
@@ -713,6 +715,17 @@ export default function App() {
       allPlayersList.forEach(ps => {
         ps.points = ps.goals + ps.assists + (ps.champion * 3) + (ps.vice * 1);
       });
+
+      const champions = [...allPlayersList].sort((a, b) =>
+        b.champion - a.champion || b.points - a.points || String(a.name).localeCompare(String(b.name))
+      ).slice(0, 3).map((p, i) => ({ ...p, rank: i + 1, count: p.champion }));
+
+      const vices = [...allPlayersList].sort((a, b) =>
+        b.vice - a.vice || b.points - a.points || String(a.name).localeCompare(String(b.name))
+      ).slice(0, 3).map((p, i) => ({ ...p, rank: i + 1, count: p.vice }));
+
+      setTopChampions(champions);
+      setTopVices(vices);
 
       const scorers = [...allPlayersList].sort((a, b) => {
         if (b.goals !== a.goals) return b.goals - a.goals;
@@ -1790,6 +1803,11 @@ export default function App() {
                   ), '#22c55e', 'gols', 'Nenhum gol registrado.')}
                   {renderPodium(topAssists, 'Top 3 Assistências', <Star size={18} />, '#3b82f6', 'asts', 'Nenhuma assistência registrada.')}
                   {renderPodium(topRalabosta, 'Top 3 Ralabostas', <Frown size={18} />, '#ef4444', 'vezes', 'Nenhum ralabosta registrado.')}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                  {renderPodium(topChampions, 'Top 3 Campeões', <span className="rda-podium-title-emoji">👑</span>, '#fbbf24', 'títulos', 'Nenhum campeão registrado.')}
+                  {renderPodium(topVices, 'Top 3 Vices', <span className="rda-podium-title-emoji">🥈</span>, '#cbd5e1', 'vices', 'Nenhum vice registrado.')}
                 </div>
 
 
