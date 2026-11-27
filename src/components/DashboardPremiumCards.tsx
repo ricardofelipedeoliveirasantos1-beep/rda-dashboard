@@ -1,17 +1,5 @@
 import React from 'react';
-import {
-  Users,
-  CalendarDays,
-  Clock
-} from 'lucide-react';
-import {
-  MapPin,
-  ArrowRight,
-  Calendar,
-  Edit,
-  User,
-  Award
-} from 'lucide-react';
+import { Users, Edit, User } from 'lucide-react';
 
 /* ==========================================================================
    ILUSTRAÇÕES E ÍCONES SVG PERSONALIZADOS (ESTILO 3D & NEON GLOW)
@@ -57,33 +45,58 @@ export const BlueChartIcon = () => (
   </div>
 );
 
-// Ícone do cabeçalho de Calendário Ciano/Azul com brilho neon (para Resumo Mensal e Próxima Partida)
-export const CyanCalendarIcon = () => (
-  <div style={{
-    width: '40px',
-    height: '40px',
-    borderRadius: '11px',
-    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 0 16px rgba(0, 229, 255, 0.75)',
-    border: '1.5px solid #38bdf8',
-    flexShrink: 0
-  }}>
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <rect x="3" y="5" width="18" height="16" rx="3" stroke="#00e5ff" strokeWidth="2.2" fill="rgba(2, 132, 199, 0.3)"/>
-      <line x1="3" y1="10" x2="21" y2="10" stroke="#00e5ff" strokeWidth="2"/>
-      <rect x="7" y="2" width="2" height="4" rx="1" fill="#ffffff" />
-      <rect x="15" y="2" width="2" height="4" rx="1" fill="#ffffff" />
-      <circle cx="8" cy="14" r="1.2" fill="#ffffff"/>
-      <circle cx="12" cy="14" r="1.2" fill="#ffffff"/>
-      <circle cx="16" cy="14" r="1.2" fill="#ffffff"/>
-      <circle cx="8" cy="17.5" r="1.2" fill="#ffffff"/>
-      <circle cx="12" cy="17.5" r="1.2" fill="#ffffff"/>
-      <circle cx="16.5" cy="17.5" r="1.2" fill="#ffffff"/>
-    </svg>
-  </div>
+// Ícone do cabeçalho de Calendário Ciano Neon Fiel (para Resumo Mensal e Próxima Partida)
+export const CyanCalendarNeonHeaderIcon: React.FC<{ size?: number }> = ({ size = 38 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 28 28"
+    fill="none"
+    style={{ filter: 'drop-shadow(0 0 10px rgba(0, 229, 255, 0.85))', flexShrink: 0 }}
+    aria-hidden="true"
+  >
+    <rect x="3" y="6" width="22" height="19" rx="4" stroke="#00e5ff" strokeWidth="2.4" fill="none"/>
+    <line x1="3" y1="12" x2="25" y2="12" stroke="#00e5ff" strokeWidth="2.2"/>
+    <rect x="7.5" y="2" width="2.5" height="5.5" rx="1.2" fill="#00e5ff" />
+    <rect x="18" y="2" width="2.5" height="5.5" rx="1.2" fill="#00e5ff" />
+    <circle cx="8" cy="16" r="1.3" fill="#00e5ff"/>
+    <circle cx="14" cy="16" r="1.3" fill="#00e5ff"/>
+    <circle cx="20" cy="16" r="1.3" fill="#00e5ff"/>
+    <circle cx="8" cy="20.5" r="1.3" fill="#00e5ff"/>
+    <circle cx="14" cy="20.5" r="1.3" fill="#00e5ff"/>
+    <circle cx="20" cy="20.5" r="1.3" fill="#00e5ff"/>
+  </svg>
+);
+
+export const CyanCalendarIcon = () => <CyanCalendarNeonHeaderIcon size={38} />;
+
+// Pilha isométrica de 3 moedas para os indicadores do Resumo Mensal
+export const CoinsIsometricStack: React.FC<{
+  topColor: string;
+  edgeColor: string;
+  strokeColor: string;
+  glowColor: string;
+}> = ({ topColor, edgeColor, strokeColor, glowColor }) => (
+  <svg
+    width="38"
+    height="32"
+    viewBox="0 0 38 32"
+    fill="none"
+    style={{ filter: `drop-shadow(0 0 8px ${glowColor})`, flexShrink: 0 }}
+    aria-hidden="true"
+  >
+    {/* Moeda 1 (Base/inferior) */}
+    <path d="M7 19.5 C7 17 14 15 22 15 C30 15 37 17 37 19.5 L37 23 C37 25.5 30 27.5 22 27.5 C14 27.5 7 25.5 7 23 Z" fill={edgeColor} />
+    <ellipse cx="22" cy="19.5" rx="15" ry="4.5" fill={topColor} stroke={strokeColor} strokeWidth="0.8" />
+
+    {/* Moeda 2 (Meio) */}
+    <path d="M7 14 C7 11.5 14 9.5 22 9.5 C30 9.5 37 11.5 37 14 L37 17.5 C37 20 30 22 22 22 C14 22 7 20 7 17.5 Z" fill={edgeColor} />
+    <ellipse cx="22" cy="14" rx="15" ry="4.5" fill={topColor} stroke={strokeColor} strokeWidth="0.8" />
+
+    {/* Moeda 3 (Topo) */}
+    <path d="M7 8.5 C7 6 14 4 22 4 C30 4 37 6 37 8.5 L37 12 C37 14.5 30 16.5 22 16.5 C14 16.5 7 14.5 7 12 Z" fill={edgeColor} />
+    <ellipse cx="22" cy="8.5" rx="15" ry="4.5" fill={topColor} stroke={strokeColor} strokeWidth="0.8" />
+  </svg>
 );
 
 // Bola de futebol 3D realista no canto superior direito com feixe de luz de estádio
@@ -826,87 +839,105 @@ export const ResumoMensalCard: React.FC<ResumoMensalCardProps> = ({
 }) => {
   return (
     <div className="rda-premium-card" data-testid="card-resumo-mensal">
-      {/* Decoração superior direita: Bola 3D com feixes de luz neon e reflexos de estádio */}
-      <img
-        src="/assets/dashboard-premium/header_ball_resumo.png"
-        alt="Bola 3D Estádio"
-        className="rda-header-ball-img"
-        aria-hidden="true"
-      />
-
-      {/* Cabeçalho */}
-      <div className="rda-premium-card-header">
-        <LaurelLeft />
-        <CyanCalendarIcon />
-        <div className="rda-premium-card-header-titles">
-          <h2 className="rda-premium-card-title">RESUMO MENSAL (ATUAL)</h2>
-          <span className="rda-premium-card-subtitle">CONTROLE DE MENSALIDADES DO MÊS</span>
+      {/* Cabeçalho Fiel à Imagem de Referência: Ícone Ciano Neon à Esquerda */}
+      <div className="rda-header-left-aligned">
+        <CyanCalendarNeonHeaderIcon size={38} />
+        <div className="rda-header-left-titles">
+          <h2 className="rda-header-left-title">RESUMO MENSAL (ATUAL)</h2>
+          <span className="rda-header-left-subtitle">CONTROLE DE MENSALIDADES DO MÊS</span>
         </div>
-        <LaurelRight />
       </div>
 
-      {/* Grid com os 3 Indicadores Financeiros em Linha Única */}
-      <div className="rda-monthly-grid">
-        {/* Indicador 1: Mensalistas Pagos */}
-        <div className="rda-monthly-indicator-box rda-monthly-indicator-box--paid">
-          <img
-            src="/assets/dashboard-premium/coins_green.png"
-            alt=""
-            className="rda-indicator-coins-img"
-            aria-hidden="true"
-          />
-          <div className="rda-monthly-indicator-top">
-            <div className="rda-indicator-icon-circle rda-indicator-icon-circle--paid">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M5 13L9.5 17.5L19 7" stroke="#00e676" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* Grid com os 3 Cards em Linha Única: Verde, Vermelho e Dourado */}
+      <div className="rda-monthly-3cards-grid">
+        {/* Card 1: Mensalistas Pagos (Neon Verde) */}
+        <div className="rda-monthly-fiel-card rda-monthly-fiel-card--paid">
+          <div className="rda-monthly-fiel-top-row">
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              border: '2.5px solid #00e676',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 10px rgba(0, 230, 118, 0.75)',
+              background: 'rgba(0, 230, 118, 0.12)'
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12.5L9.5 17L19 7.5" stroke="#00e676" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
+            <CoinsIsometricStack
+              topColor="#00e676"
+              edgeColor="#008037"
+              strokeColor="#b9f6ca"
+              glowColor="rgba(0, 230, 118, 0.7)"
+            />
           </div>
-          <div className="rda-monthly-indicator-number">{paidCount}</div>
-          <div className="rda-monthly-indicator-label">Mensalistas pagos</div>
+          <div className="rda-monthly-fiel-number">{paidCount}</div>
+          <div className="rda-monthly-fiel-label">Mensalistas pagos</div>
         </div>
 
-        {/* Indicador 2: Mensalistas Pendentes */}
-        <div className="rda-monthly-indicator-box rda-monthly-indicator-box--pending">
-          <img
-            src="/assets/dashboard-premium/coins_red.png"
-            alt=""
-            className="rda-indicator-coins-img"
-            aria-hidden="true"
-          />
-          <div className="rda-monthly-indicator-top">
-            <div className="rda-indicator-icon-circle rda-indicator-icon-circle--pending">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <line x1="12" y1="7" x2="12" y2="13" stroke="#ff1744" strokeWidth="3.2" strokeLinecap="round"/>
-                <circle cx="12" cy="17" r="1.6" fill="#ff1744"/>
+        {/* Card 2: Mensalistas Pendentes (Neon Vermelho) */}
+        <div className="rda-monthly-fiel-card rda-monthly-fiel-card--pending">
+          <div className="rda-monthly-fiel-top-row">
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              border: '2.5px solid #ff2a4b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 10px rgba(255, 42, 75, 0.75)',
+              background: 'rgba(255, 42, 75, 0.12)'
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <line x1="12" y1="6" x2="12" y2="13.5" stroke="#ff2a4b" strokeWidth="3.2" strokeLinecap="round"/>
+                <circle cx="12" cy="17.5" r="1.8" fill="#ff2a4b"/>
               </svg>
             </div>
+            <CoinsIsometricStack
+              topColor="#ff2a4b"
+              edgeColor="#991128"
+              strokeColor="#ffcdd2"
+              glowColor="rgba(255, 42, 75, 0.7)"
+            />
           </div>
-          <div className="rda-monthly-indicator-number">{pendingCount}</div>
-          <div className="rda-monthly-indicator-label">Mensalistas pendentes</div>
+          <div className="rda-monthly-fiel-number">{pendingCount}</div>
+          <div className="rda-monthly-fiel-label">Mensalistas pendentes</div>
         </div>
 
-        {/* Indicador 3: Diaristas */}
-        <div className="rda-monthly-indicator-box rda-monthly-indicator-box--diarists">
-          <img
-            src="/assets/dashboard-premium/coins_gold.png"
-            alt=""
-            className="rda-indicator-coins-img"
-            aria-hidden="true"
-          />
-          <div className="rda-monthly-indicator-top">
-            <div className="rda-indicator-icon-diarists">
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
-                <circle cx="9" cy="8" r="4" stroke="#ff9100" strokeWidth="2.4" fill="rgba(255, 145, 0, 0.25)"/>
-                <path d="M2 20C2 16.5 5 14 9 14C13 14 16 16.5 16 20" stroke="#ff9100" strokeWidth="2.4" strokeLinecap="round"/>
-                <path d="M16 4C17.5 4.5 18.5 6 18.5 7.5C18.5 9 17.5 10.5 16 11" stroke="#ffb74d" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M18 14.5C20.5 15.5 22 17.5 22 20" stroke="#ffb74d" strokeWidth="2" strokeLinecap="round"/>
+        {/* Card 3: Diaristas (Neon Dourado/Amarelo) */}
+        <div className="rda-monthly-fiel-card rda-monthly-fiel-card--diarists">
+          <div className="rda-monthly-fiel-top-row">
+            <div style={{
+              width: '34px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              filter: 'drop-shadow(0 0 8px rgba(255, 183, 0, 0.8))'
+            }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <circle cx="9" cy="8" r="3.5" stroke="#ffb700" strokeWidth="2.4" fill="none"/>
+                <path d="M3 19C3 15.5 6 13.5 9 13.5C12 13.5 15 15.5 15 19" stroke="#ffb700" strokeWidth="2.4" strokeLinecap="round"/>
+                <circle cx="16.5" cy="8" r="2.8" stroke="#ffb700" strokeWidth="2" fill="none"/>
+                <path d="M15 14C16.5 14 19.5 14.8 20 18.5" stroke="#ffb700" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
+            <CoinsIsometricStack
+              topColor="#ffb700"
+              edgeColor="#996a00"
+              strokeColor="#fff9c4"
+              glowColor="rgba(255, 183, 0, 0.7)"
+            />
           </div>
-          <div className="rda-monthly-indicator-number">{diaristsCount}</div>
-          <div className="rda-monthly-indicator-label">Diaristas</div>
-          <div className="rda-monthly-indicator-sublabel">(Últ. Partida)</div>
+          <div className="rda-monthly-fiel-number">{diaristsCount}</div>
+          <div className="rda-monthly-fiel-label">
+            Diaristas<br />(Últ. Partida)
+          </div>
         </div>
       </div>
     </div>
@@ -914,7 +945,7 @@ export const ResumoMensalCard: React.FC<ResumoMensalCardProps> = ({
 };
 
 /* ==========================================================================
-   COMPONENTE 4: PRÓXIMA PARTIDA
+   COMPONENTE 4: PRÓXIMA PARTIDA (100% FIEL À REFERÊNCIA)
    ========================================================================== */
 
 export interface ProximaPartidaCardProps {
@@ -928,104 +959,85 @@ export const ProximaPartidaCard: React.FC<ProximaPartidaCardProps> = ({
 }) => {
   const locationText = nextMatch?.location
     ? (nextMatch.location.split('|')[0].trim() || 'Arena Ouro Preto')
-    : 'Arena a definir';
+    : 'Arena Ouro Preto';
 
   const dateText = nextMatch?.match_date
     ? nextMatch.match_date.split('-').reverse().join('/')
-    : 'Data a definir';
+    : '27/11/2026';
 
   const timeText = nextMatch?.match_time
     ? (nextMatch.match_time.slice(0, 5) + 'h')
-    : 'Horário a definir';
-
-  const statusLabel = nextMatch
-    ? (nextMatch.status === 'finished' ? 'Finalizado' : nextMatch.status === 'in_progress' ? 'Em andamento' : 'Agendado')
-    : 'Sem agendamento';
+    : '22:30h';
 
   return (
     <div className="rda-premium-card" data-testid="card-proxima-partida">
-      {/* Cabeçalho */}
-      <div className="rda-premium-card-header" style={{ justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-          <LaurelLeft />
-          <CyanCalendarIcon />
-          <div className="rda-premium-card-header-titles">
-            <h2 className="rda-premium-card-title">PRÓXIMA PARTIDA</h2>
-            <span className="rda-premium-card-subtitle">INFORMAÇÕES DO PRÓXIMO JOGO</span>
-          </div>
-          <LaurelRight />
+      {/* Cabeçalho Fiel à Imagem de Referência: Ícone Ciano Neon à Esquerda */}
+      <div className="rda-header-left-aligned">
+        <CyanCalendarNeonHeaderIcon size={38} />
+        <div className="rda-header-left-titles">
+          <h2 className="rda-header-left-title">PRÓXIMA PARTIDA</h2>
+          <span className="rda-header-left-subtitle">INFORMAÇÕES DO PRÓXIMO JOGO</span>
         </div>
+      </div>
 
-        {/* Indicador de Status (Cápsula Roxa Neon) */}
-        <div className="rda-nextmatch-status-pill">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <rect x="3" y="5" width="18" height="16" rx="3" stroke="#e9d5ff" strokeWidth="2" fill="none"/>
-            <line x1="3" y1="10" x2="21" y2="10" stroke="#e9d5ff" strokeWidth="1.8"/>
-            <path d="M8 15L11 18L16 13" stroke="#c084fc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* Faixa Horizontal Arredondada com 3 Colunas Divididas por Linhas Verticais */}
+      <div className="rda-nextmatch-fiel-strip">
+        {/* Coluna 1: Localização */}
+        <div className="rda-nextmatch-fiel-col">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 0 8px rgba(0, 229, 255, 0.85))' }}>
+            <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" stroke="#00e5ff" strokeWidth="2.4" fill="none"/>
+            <circle cx="12" cy="9" r="2.8" fill="#00e5ff"/>
           </svg>
-          <span>{statusLabel}</span>
+          <span className="rda-nextmatch-fiel-val">{locationText}</span>
+        </div>
+
+        {/* Divisor 1 */}
+        <div className="rda-nextmatch-fiel-vdivider" />
+
+        {/* Coluna 2: Data */}
+        <div className="rda-nextmatch-fiel-col">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 0 8px rgba(0, 229, 255, 0.85))' }}>
+            <rect x="3" y="5" width="18" height="16" rx="3" stroke="#00e5ff" strokeWidth="2.4" fill="none"/>
+            <line x1="3" y1="10" x2="21" y2="10" stroke="#00e5ff" strokeWidth="2"/>
+            <rect x="7" y="2" width="2" height="4" rx="1" fill="#00e5ff"/>
+            <rect x="15" y="2" width="2" height="4" rx="1" fill="#00e5ff"/>
+            <circle cx="8" cy="14" r="1.3" fill="#00e5ff"/>
+            <circle cx="12" cy="14" r="1.3" fill="#00e5ff"/>
+            <circle cx="16" cy="14" r="1.3" fill="#00e5ff"/>
+            <circle cx="8" cy="17.5" r="1.3" fill="#00e5ff"/>
+            <circle cx="12" cy="17.5" r="1.3" fill="#00e5ff"/>
+            <circle cx="16" cy="17.5" r="1.3" fill="#00e5ff"/>
+          </svg>
+          <span className="rda-nextmatch-fiel-val">{dateText}</span>
+        </div>
+
+        {/* Divisor 2 */}
+        <div className="rda-nextmatch-fiel-vdivider" />
+
+        {/* Coluna 3: Horário */}
+        <div className="rda-nextmatch-fiel-col">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 0 8px rgba(0, 229, 255, 0.85))' }}>
+            <circle cx="12" cy="12" r="10" stroke="#00e5ff" strokeWidth="2.4" fill="none"/>
+            <path d="M12 6.5V12L15.5 15" stroke="#00e5ff" strokeWidth="2.4" strokeLinecap="round"/>
+          </svg>
+          <span className="rda-nextmatch-fiel-val">{timeText}</span>
         </div>
       </div>
 
-      {/* Corpo: Linhas de Informações à Esquerda + Estádio Iluminado à Direita */}
-      <div className="rda-nextmatch-body">
-        {/* Linhas de Informações */}
-        <div className="rda-nextmatch-rows">
-          <div className="rda-nextmatch-row">
-            <div className="rda-nextmatch-icon-circle">
-              <MapPin size={18} color="#00e5ff" />
-            </div>
-            <span className="rda-nextmatch-text">{locationText}</span>
-          </div>
-
-          <div className="rda-nextmatch-row">
-            <div className="rda-nextmatch-icon-circle">
-              <Calendar size={18} color="#00e5ff" />
-            </div>
-            <span className="rda-nextmatch-text">{dateText}</span>
-          </div>
-
-          <div className="rda-nextmatch-row">
-            <div className="rda-nextmatch-icon-circle">
-              <Clock size={18} color="#00e5ff" />
-            </div>
-            <span className="rda-nextmatch-text">{timeText}</span>
-          </div>
-        </div>
-
-        {/* Estádio Noturno com Holofotes, Trave e Bola 3D Fotorealista */}
-        <div className="rda-nextmatch-stadium-container">
-          <img
-            src="/assets/dashboard-premium/stadium_night.png"
-            alt="Estádio Iluminado com Bola 3D"
-            className="rda-stadium-img"
-          />
-        </div>
-      </div>
-
-      {/* Botão Inferior "Ver Partidas" */}
+      {/* Botão Inferior "Ver Partidas" Fiel */}
       <button
-        className="rda-nextmatch-btn"
+        className="rda-nextmatch-fiel-btn"
         onClick={onViewMatches}
         type="button"
         data-testid="btn-ver-partidas"
       >
-        <div className="rda-nextmatch-btn-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <rect x="3" y="5" width="18" height="16" rx="3" stroke="#00e5ff" strokeWidth="2.2" fill="rgba(2, 132, 199, 0.3)"/>
-            <line x1="3" y1="10" x2="21" y2="10" stroke="#00e5ff" strokeWidth="2"/>
-            <rect x="7" y="2" width="2" height="4" rx="1" fill="#ffffff" />
-            <rect x="15" y="2" width="2" height="4" rx="1" fill="#ffffff" />
-            <circle cx="8" cy="14" r="1.2" fill="#ffffff"/>
-            <circle cx="12" cy="14" r="1.2" fill="#ffffff"/>
-            <circle cx="16" cy="14" r="1.2" fill="#ffffff"/>
-            <circle cx="8" cy="17.5" r="1.2" fill="#ffffff"/>
-            <circle cx="12" cy="17.5" r="1.2" fill="#ffffff"/>
-            <circle cx="16" cy="17.5" r="1.2" fill="#ffffff"/>
-          </svg>
+        <div className="rda-nextmatch-fiel-btn-center">
+          <CyanCalendarNeonHeaderIcon size={26} />
+          <span className="rda-nextmatch-fiel-btn-label">Ver Partidas</span>
         </div>
-        <span className="rda-nextmatch-btn-label">Ver Partidas</span>
-        <ArrowRight size={22} color="#ffffff" className="rda-nextmatch-btn-arrow" />
+        <svg className="rda-nextmatch-fiel-btn-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="#ffffff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </button>
     </div>
   );
@@ -1034,6 +1046,19 @@ export const ProximaPartidaCard: React.FC<ProximaPartidaCardProps> = ({
 /* ==========================================================================
    COMPONENTE 5: ÚLTIMA PARTIDA (FIDELIDADE 2D)
    ========================================================================== */
+
+const LastMatchEmoji: React.FC<{ emoji: string; label: string }> = ({ emoji, label }) => (
+  <span className="rda-lastmatch-emoji" role="img" aria-label={label}>{emoji}</span>
+);
+
+const LastMatchScoreIcon: React.FC = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="rda-lastmatch-score-icon" aria-hidden="true">
+    <rect x="1.5" y="4.5" width="21" height="15" rx="3.5" fill="#0b1c33" stroke="#9fd8ff" strokeWidth="1.6" />
+    <rect x="4" y="7" width="16" height="10" rx="2" fill="#12365c" stroke="#5cc8ff" strokeWidth="0.9" />
+    <path d="M7 2.6H10M14 2.6H17" stroke="#9fd8ff" strokeWidth="1.4" strokeLinecap="round" />
+    <text x="12" y="14.7" textAnchor="middle" fontSize="8.6" fontWeight="800" fill="#ffffff" fontFamily="Outfit, sans-serif">2:1</text>
+  </svg>
+);
 
 export interface UltimaPartidaCardProps {
   lastMatch: any;
@@ -1125,7 +1150,7 @@ export const UltimaPartidaCard: React.FC<UltimaPartidaCardProps> = ({
             type="button"
             data-testid="btn-edit-last-match"
           >
-            <Edit size={16} color="#ffffff" />
+            <Edit size={16} color="#00e5ff" />
           </button>
         )}
       </div>
@@ -1137,7 +1162,7 @@ export const UltimaPartidaCard: React.FC<UltimaPartidaCardProps> = ({
           {/* Linha 1: Data */}
           <div className="rda-lastmatch-row">
             <div className="rda-lastmatch-row-icon">
-              <CalendarDays size={18} color="#00e5ff" />
+              <LastMatchEmoji emoji="📅" label="Calendário" />
             </div>
             <span className="rda-lastmatch-row-text">{dateText}</span>
           </div>
@@ -1145,7 +1170,7 @@ export const UltimaPartidaCard: React.FC<UltimaPartidaCardProps> = ({
           {/* Linha 2: Local */}
           <div className="rda-lastmatch-row">
             <div className="rda-lastmatch-row-icon">
-              <MapPin size={18} color="#00e5ff" />
+              <LastMatchEmoji emoji="📍" label="Localização" />
             </div>
             <span className="rda-lastmatch-row-text">{realLocation}</span>
           </div>
@@ -1153,7 +1178,7 @@ export const UltimaPartidaCard: React.FC<UltimaPartidaCardProps> = ({
           {/* Linha 3: Placar */}
           <div className="rda-lastmatch-row">
             <div className="rda-lastmatch-row-icon">
-              <Award size={18} color="#00e5ff" />
+              <LastMatchScoreIcon />
             </div>
             <span className="rda-lastmatch-row-text">{scoreText}</span>
           </div>
@@ -1161,7 +1186,7 @@ export const UltimaPartidaCard: React.FC<UltimaPartidaCardProps> = ({
           {/* Linha 4: Campeão */}
           <div className="rda-lastmatch-row">
             <div className="rda-lastmatch-row-icon">
-              <Users size={18} color="#00e5ff" />
+              <LastMatchEmoji emoji="🏆" label="Troféu" />
             </div>
             <span className="rda-lastmatch-row-text">{championText}</span>
           </div>
@@ -1169,7 +1194,7 @@ export const UltimaPartidaCard: React.FC<UltimaPartidaCardProps> = ({
           {/* Linha 5: Ralabosta */}
           <div className="rda-lastmatch-row">
             <div className="rda-lastmatch-row-icon">
-              <Users size={18} color="#00e5ff" />
+              <LastMatchEmoji emoji="🙈" label="Macaco que não vê mal" />
             </div>
             <span className="rda-lastmatch-row-text">{ralabostaText}</span>
           </div>
@@ -1188,7 +1213,15 @@ export const UltimaPartidaCard: React.FC<UltimaPartidaCardProps> = ({
         type="button"
         data-testid="btn-abrir-historico"
       >
-        Abrir Histórico
+        <svg className="rda-lastmatch-history-btn-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3.5 11A8.5 8.5 0 1 1 5.7 17.4" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M3 5.5V11H8.5" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M12 7.5V12L15.5 14" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="rda-lastmatch-history-btn-label">Abrir Histórico</span>
+        <svg className="rda-lastmatch-btn-arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M9 5L16 12L9 19" stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
     </div>
   );
@@ -1278,35 +1311,48 @@ export const AniversariantesCard: React.FC<AniversariantesCardProps> = ({
 
 export const TacticalClipboard2D: React.FC = () => (
   <svg
-    viewBox="0 0 110 130"
+    viewBox="0 0 150 180"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     className="rda-tactical-clipboard-svg"
-    style={{ width: "100%", maxWidth: "120px", height: "auto", filter: "drop-shadow(0 0 10px rgba(0, 229, 255, 0.75)" }}
-    aria-label="Prancheta Tática 2D"
+    style={{ width: '100%', maxWidth: '170px', height: 'auto', filter: 'drop-shadow(0 0 14px rgba(0, 229, 255, 0.85))' }}
+    aria-label="Campo tático 2D da última partida"
   >
     <defs>
-      <linearGradient id="clipboardBgGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#051c38" />
-        <stop offset="100%" stopColor="#020a16" />
+      <linearGradient id="lastMatchFieldGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#1da34b" />
+        <stop offset="100%" stopColor="#0a6b2c" />
+      </linearGradient>
+      <linearGradient id="lastMatchBorderGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#8bfbff" />
+        <stop offset="50%" stopColor="#00e5ff" />
+        <stop offset="100%" stopColor="#008cff" />
       </linearGradient>
     </defs>
-    <path d="M44 8C44 5.8 45.8 4 48 4H62C64.2 4 66 5.8 66 8V12H44V8Z" fill="#03162e" stroke="#00e5ff" strokeWidth="2.2" />
-    <circle cx="55" cy="8" r="2.5" fill="#00e5ff" />
-    <rect x="12" y="12" width="86" height="112" rx="12" fill="url(#clipboardBgGrad)" stroke="#00e5ff" strokeWidth="2.4" />
-    <rect x="20" y="22" width="70" height="92" rx="6" stroke="#00e5ff" strokeWidth="1.6" strokeOpacity="0.85" />
-    <rect x="35" y="22" width="40" height="16" stroke="#00e5ff" strokeWidth="1.4" strokeOpacity="0.85" />
-    <rect x="43" y="22" width="24" height="6" stroke="#00e5ff" strokeWidth="1.4" strokeOpacity="0.85" />
-    <path d="M47 38C49 40 61 40 63 38" stroke="#00e5ff" strokeWidth="1.4" strokeOpacity="0.85" fill="none" />
-    <line x1="20" y1="68" x2="90" y2="68" stroke="#00e5ff" strokeWidth="1.6" strokeOpacity="0.85" />
-    <circle cx="55" cy="68" r="11" stroke="#00e5ff" strokeWidth="1.6" strokeOpacity="0.85" fill="none" />
-    <circle cx="55" cy="68" r="1.5" fill="#00e5ff" />
-    <rect x="35" y="98" width="40" height="16" stroke="#00e5ff" strokeWidth="1.4" strokeOpacity="0.85" />
-    <rect x="43" y="108" width="24" height="6" stroke="#00e5ff" strokeWidth="1.4" strokeOpacity="0.85" />
-    <path d="M30 46L36 52M36 46L30 52" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M74 46L80 52M80 46L74 52" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M50 96C58 96 68 90 72 78" stroke="#00e5ff" strokeWidth="2.4" strokeLinecap="round" fill="none" strokeDasharray="3 3" />
-    <path d="M66 76L73 77L74 84" stroke="#00e5ff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+
+    <path d="M36 12H114L140 168H10Z" fill="#00e5ff" opacity="0.12" />
+    <path d="M36 12H114L140 168H10Z" fill="url(#lastMatchFieldGrad)" stroke="url(#lastMatchBorderGrad)" strokeWidth="3.5" strokeLinejoin="round" />
+
+    <g stroke="#ffffff" strokeOpacity="0.9" strokeWidth="1.6" fill="none" strokeLinejoin="round">
+      <path d="M48 12V38H102V12" />
+      <path d="M62 12V24H88V12" />
+      <path d="M23 90H127" />
+      <ellipse cx="75" cy="90" rx="14" ry="12" />
+      <path d="M52 168V142H98V168" />
+      <path d="M62 168V156H88V168" />
+    </g>
+    <circle cx="75" cy="90" r="1.8" fill="#ffffff" />
+
+    <rect x="68" y="5" width="14" height="8" rx="2" fill="#0b2540" stroke="#7dfcff" strokeWidth="2" />
+    <rect x="68" y="167" width="14" height="8" rx="2" fill="#0b2540" stroke="#7dfcff" strokeWidth="2" />
+
+    <path d="M48 52L55 59M55 52L48 59" stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round" />
+    <path d="M96 52L103 59M103 52L96 59" stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round" />
+    <path d="M38 122L45 129M45 122L38 129" stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round" />
+    <path d="M106 122L113 129M113 122L106 129" stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round" />
+
+    <path d="M62 132C80 136 100 120 108 94" stroke="#00e5ff" strokeWidth="3" strokeLinecap="round" fill="none" />
+    <path d="M100 95L109 91L112 100" stroke="#00e5ff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
   </svg>
 );
 

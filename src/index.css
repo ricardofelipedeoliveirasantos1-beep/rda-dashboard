@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap');
 
 :root {
   --bg-color: #0b0b0b;
@@ -1644,366 +1645,294 @@ input[type="number"] {
 }
 
 /* ==========================================================================
-   CARDS PREMIUM: RESUMO MENSAL (ATUAL) E PRÓXIMA PARTIDA (FIDELIDADE 002.png)
+   CARDS PREMIUM: RESUMO MENSAL (ATUAL) E PRÓXIMA PARTIDA (100% FIEL À REFERÊNCIA)
    ========================================================================== */
 
-/* Bola 3D com Feixes de Luz e Efeito de Estádio (Cabeçalho do Resumo Mensal) */
-.rda-header-ball-img {
-  position: absolute;
-  right: 0;
-  top: 0;
-  height: 105px;
-  max-width: 190px;
-  object-fit: contain;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.95;
-}
-
-/* Grid de 3 Indicadores em Linha Única Horizontal */
-.rda-monthly-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+/* Cabeçalho alinhado à esquerda com Ícone Ciano Neon */
+.rda-header-left-aligned {
+  display: flex;
+  align-items: center;
   gap: 14px;
-  width: 100%;
-  margin-top: 10px;
+  text-align: left;
+  margin-bottom: 18px;
   position: relative;
   z-index: 2;
 }
 
-/* Card Individual de Indicador Mensal */
-.rda-monthly-indicator-box {
+.rda-header-left-titles {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.rda-header-left-title {
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  margin: 0;
+  line-height: 1.15;
+}
+
+.rda-header-left-subtitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #00e5ff;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  margin-top: 4px;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
+  line-height: 1.15;
+}
+
+/* Grid de 3 Cards no Resumo Mensal */
+.rda-monthly-3cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
   position: relative;
-  border-radius: 18px;
-  padding: 14px 10px 14px 10px;
+  z-index: 2;
+}
+
+/* Card Individual Fiel do Resumo Mensal */
+.rda-monthly-fiel-card {
+  position: relative;
+  border-radius: 20px;
+  padding: 16px 14px 18px 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  min-height: 145px;
+  min-height: 162px;
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   text-align: center;
 }
 
-.rda-monthly-indicator-box:hover {
+.rda-monthly-fiel-card:hover {
   transform: translateY(-2px);
 }
 
 /* 1. Mensalistas Pagos (Neon Verde) */
-.rda-monthly-indicator-box--paid {
-  background: linear-gradient(180deg, rgba(14, 125, 56, 0.9) 0%, rgba(9, 95, 42, 0.93) 50%, rgba(6, 70, 31, 0.96) 100%);
+.rda-monthly-fiel-card--paid {
+  background: linear-gradient(180deg, rgba(2, 60, 25, 0.95) 0%, rgba(1, 35, 14, 0.98) 100%);
   border: 2px solid #00e676;
   box-shadow:
-    0 0 22px rgba(0, 230, 118, 0.6),
-    inset 0 0 20px rgba(0, 230, 118, 0.38);
+    0 0 24px rgba(0, 230, 118, 0.55),
+    inset 0 0 20px rgba(0, 230, 118, 0.25);
 }
 
-.rda-monthly-indicator-box--paid:hover {
+.rda-monthly-fiel-card--paid:hover {
   box-shadow:
-    0 0 30px rgba(0, 230, 118, 0.75),
-    inset 0 0 24px rgba(0, 230, 118, 0.45);
+    0 0 32px rgba(0, 230, 118, 0.75),
+    inset 0 0 24px rgba(0, 230, 118, 0.35);
 }
 
 /* 2. Mensalistas Pendentes (Neon Vermelho) */
-.rda-monthly-indicator-box--pending {
-  background: linear-gradient(180deg, rgba(165, 26, 44, 0.9) 0%, rgba(130, 18, 34, 0.93) 50%, rgba(95, 12, 24, 0.96) 100%);
-  border: 2px solid #ff1744;
+.rda-monthly-fiel-card--pending {
+  background: linear-gradient(180deg, rgba(70, 10, 22, 0.95) 0%, rgba(38, 5, 12, 0.98) 100%);
+  border: 2px solid #ff2a4b;
   box-shadow:
-    0 0 22px rgba(255, 23, 68, 0.6),
-    inset 0 0 20px rgba(255, 23, 68, 0.38);
+    0 0 24px rgba(255, 42, 75, 0.55),
+    inset 0 0 20px rgba(255, 42, 75, 0.25);
 }
 
-.rda-monthly-indicator-box--pending:hover {
+.rda-monthly-fiel-card--pending:hover {
   box-shadow:
-    0 0 30px rgba(255, 23, 68, 0.75),
-    inset 0 0 24px rgba(255, 23, 68, 0.45);
+    0 0 32px rgba(255, 42, 75, 0.75),
+    inset 0 0 24px rgba(255, 42, 75, 0.35);
 }
 
-/* 3. Diaristas (Neon Dourado/Laranja) */
-.rda-monthly-indicator-box--diarists {
-  background: linear-gradient(180deg, rgba(195, 128, 16, 0.9) 0%, rgba(165, 105, 12, 0.93) 50%, rgba(130, 80, 9, 0.96) 100%);
-  border: 2px solid #ff9100;
+/* 3. Diaristas (Neon Dourado/Amarelo) */
+.rda-monthly-fiel-card--diarists {
+  background: linear-gradient(180deg, rgba(75, 48, 5, 0.95) 0%, rgba(40, 25, 2, 0.98) 100%);
+  border: 2px solid #ffb700;
   box-shadow:
-    0 0 22px rgba(255, 145, 0, 0.6),
-    inset 0 0 20px rgba(255, 145, 0, 0.38);
+    0 0 24px rgba(255, 183, 0, 0.55),
+    inset 0 0 20px rgba(255, 183, 0, 0.25);
 }
 
-.rda-monthly-indicator-box--diarists:hover {
+.rda-monthly-fiel-card--diarists:hover {
   box-shadow:
-    0 0 30px rgba(255, 145, 0, 0.75),
-    inset 0 0 24px rgba(255, 145, 0, 0.45);
+    0 0 32px rgba(255, 183, 0, 0.75),
+    inset 0 0 24px rgba(255, 183, 0, 0.35);
 }
 
-/* Decoração Criativa (Moedas/Relógio/Cédula) — Fora do texto, canto superior direito */
-.rda-indicator-decor {
-  position: absolute;
-  right: 6px;
-  top: 6px;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.9;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
-  line-height: 0;
-}
-
-.rda-monthly-indicator-top {
+.rda-monthly-fiel-top-row {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 2;
+  justify-content: space-between;
+  padding: 0 4px;
 }
 
-/* Círculos de Ícone Superior */
-.rda-indicator-icon-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rda-indicator-icon-circle--paid {
-  border: 2px solid #00e676;
-  background: rgba(0, 230, 118, 0.15);
-  box-shadow: 0 0 12px rgba(0, 230, 118, 0.65);
-}
-
-.rda-indicator-icon-circle--pending {
-  border: 2px solid #ff1744;
-  background: rgba(255, 23, 68, 0.15);
-  box-shadow: 0 0 12px rgba(255, 23, 68, 0.65);
-}
-
-.rda-indicator-icon-diarists {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(0 0 10px rgba(255, 145, 0, 0.8));
-}
-
-/* Número Gigante Central */
-.rda-monthly-indicator-number {
-  font-size: 2.35rem;
+.rda-monthly-fiel-number {
+  font-size: 2.85rem;
   font-weight: 900;
   color: #ffffff;
   line-height: 1;
-  margin: 4px 0 2px 0;
-  width: 100%;
-  text-align: center;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-  z-index: 2;
+  margin: 6px 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
 }
 
-/* Rótulos dos Indicadores (100% centralizados) */
-.rda-monthly-indicator-label {
-  font-size: 0.82rem;
+.rda-monthly-fiel-label {
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #f1f5f9;
-  line-height: 1.15;
-  width: 100%;
+  color: #ffffff;
+  line-height: 1.25;
   text-align: center;
-  z-index: 2;
-}
-
-.rda-monthly-indicator-sublabel {
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: #fcd34d;
-  margin-top: 2px;
-  display: block;
-  width: 100%;
-  text-align: center;
-  z-index: 2;
 }
 
 /* --------------------------------------------------------------------------
-   PRÓXIMA PARTIDA
+   PRÓXIMA PARTIDA (100% FIEL À REFERÊNCIA)
    -------------------------------------------------------------------------- */
 
-/* Card Único: Painel Retangular com 3 Divisões (Localização, Data, Horário) */
-.rda-nextmatch-unified-card {
+.rda-nextmatch-fiel-strip {
   display: grid;
   grid-template-columns: 1fr auto 1fr auto 1fr;
   align-items: center;
-  background: linear-gradient(180deg, rgba(6, 26, 52, 0.88) 0%, rgba(3, 16, 35, 0.95) 100%);
-  border: 1.5px solid rgba(0, 229, 255, 0.4);
+  background: linear-gradient(180deg, rgba(4, 22, 50, 0.9) 0%, rgba(2, 12, 30, 0.96) 100%);
+  border: 2px solid #00c8ff;
   border-radius: 20px;
   box-shadow:
-    0 0 20px rgba(0, 229, 255, 0.22),
-    inset 0 0 14px rgba(0, 229, 255, 0.1);
-  padding: 22px 14px;
-  margin: 14px 0 16px 0;
+    0 0 20px rgba(0, 200, 255, 0.35),
+    inset 0 0 14px rgba(0, 200, 255, 0.12);
+  padding: 20px 14px;
+  margin: 18px 0 18px 0;
   width: 100%;
 }
 
-.rda-nextmatch-col {
+.rda-nextmatch-fiel-col {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 12px;
+  gap: 10px;
   padding: 0 8px;
 }
 
-.rda-nextmatch-col-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 229, 255, 0.12);
-  border: 1.5px solid #00e5ff;
-  box-shadow: 0 0 12px rgba(0, 229, 255, 0.65);
-}
-
-.rda-nextmatch-col-val {
+.rda-nextmatch-fiel-val {
   font-size: 1.25rem;
   font-weight: 800;
   color: #ffffff;
   line-height: 1.2;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
-  white-space: normal;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
   text-align: center;
+  max-width: 135px;
 }
 
-.rda-nextmatch-col-val--location {
-  max-width: 140px;
-}
-
-.rda-nextmatch-col-divider {
+.rda-nextmatch-fiel-vdivider {
   width: 1.5px;
-  height: 60px;
-  background: linear-gradient(180deg, rgba(0, 229, 255, 0.1) 0%, rgba(0, 229, 255, 0.5) 50%, rgba(0, 229, 255, 0.1) 100%);
-  box-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
+  height: 52px;
+  background: linear-gradient(180deg, rgba(0, 200, 255, 0.1) 0%, rgba(0, 200, 255, 0.6) 50%, rgba(0, 200, 255, 0.1) 100%);
+  box-shadow: 0 0 8px rgba(0, 200, 255, 0.4);
 }
 
-/* Botão "Ver Partidas" com Efeito Neon Glossy Azul */
-.rda-nextmatch-btn {
+/* Botão "Ver Partidas" Fiel */
+.rda-nextmatch-fiel-btn {
   width: 100%;
-  padding: 11px 20px;
-  border-radius: 16px;
+  padding: 14px 24px;
+  border-radius: 20px;
   background: linear-gradient(180deg, #0284c7 0%, #0369a1 50%, #075985 100%);
   border: 2px solid #00e5ff;
   box-shadow:
-    0 0 22px rgba(0, 229, 255, 0.65),
-    inset 0 0 14px rgba(255, 255, 255, 0.28);
+    0 0 26px rgba(0, 229, 255, 0.7),
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 0 16px rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  position: relative;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
-.rda-nextmatch-btn:hover {
+.rda-nextmatch-fiel-btn-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rda-nextmatch-fiel-btn-arrow {
+  position: absolute;
+  right: 24px;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
+  transition: transform 0.2s ease;
+}
+
+.rda-nextmatch-fiel-btn:hover .rda-nextmatch-fiel-btn-arrow {
+  transform: translateX(4px);
+}
+
+.rda-nextmatch-fiel-btn:hover {
   filter: brightness(1.1);
   box-shadow:
-    0 0 28px rgba(0, 229, 255, 0.85),
-    inset 0 0 16px rgba(255, 255, 255, 0.4);
+    0 0 32px rgba(0, 229, 255, 0.9),
+    inset 0 0 20px rgba(255, 255, 255, 0.45);
   transform: translateY(-1px);
 }
 
-.rda-nextmatch-btn:active {
+.rda-nextmatch-fiel-btn:active {
   transform: translateY(1px);
 }
 
-.rda-nextmatch-btn-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rda-nextmatch-btn-label {
-  font-size: 1.12rem;
+.rda-nextmatch-fiel-btn-label {
+  font-size: 1.25rem;
   font-weight: 800;
   color: #ffffff;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
   letter-spacing: 0.3px;
 }
 
-.rda-nextmatch-btn-arrow {
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.7));
-  transition: transform 0.2s ease;
-}
-
-.rda-nextmatch-btn:hover .rda-nextmatch-btn-arrow {
-  transform: translateX(4px);
-}
-
 /* Responsividade Mobile para Resumo Mensal e Próxima Partida */
 @media (max-width: 680px) {
-  .rda-header-ball-img {
-    height: 75px;
-    max-width: 130px;
-  }
-
-  .rda-monthly-grid {
+  .rda-monthly-3cards-grid {
     gap: 8px;
   }
 
-  .rda-monthly-indicator-box {
-    min-height: 130px;
-    padding: 10px 6px 12px 6px;
-    border-radius: 14px;
+  .rda-monthly-fiel-card {
+    min-height: 138px;
+    padding: 12px 6px 14px 6px;
+    border-radius: 16px;
   }
 
-  .rda-monthly-indicator-number {
-    font-size: 1.85rem;
+  .rda-monthly-fiel-number {
+    font-size: 2.15rem;
+    margin: 4px 0 6px 0;
   }
 
-  .rda-monthly-indicator-label {
-    font-size: 0.72rem;
+  .rda-monthly-fiel-label {
+    font-size: 0.8rem;
   }
 
-  .rda-monthly-indicator-sublabel {
-    font-size: 0.65rem;
+  .rda-header-left-title {
+    font-size: 1.18rem;
   }
 
-  .rda-indicator-decor svg {
-    width: 32px;
-    height: 32px;
+  .rda-header-left-subtitle {
+    font-size: 0.68rem;
+    letter-spacing: 1.2px;
   }
 
-  .rda-nextmatch-unified-card {
-    padding: 16px 8px;
-    margin: 10px 0 14px 0;
+  .rda-nextmatch-fiel-strip {
+    padding: 14px 6px;
+    margin: 14px 0;
   }
 
-  .rda-nextmatch-col {
-    gap: 8px;
-    padding: 0 4px;
+  .rda-nextmatch-fiel-val {
+    font-size: 0.98rem;
   }
 
-  .rda-nextmatch-col-icon {
-    width: 36px;
-    height: 36px;
+  .rda-nextmatch-fiel-btn {
+    padding: 11px 18px;
   }
 
-  .rda-nextmatch-col-val {
-    font-size: 0.95rem;
-  }
-
-  .rda-nextmatch-col-val--location {
-    max-width: 100px;
-  }
-
-  .rda-nextmatch-col-divider {
-    height: 45px;
-  }
-
-  .rda-nextmatch-btn {
-    padding: 10px 16px;
-  }
-
-  .rda-nextmatch-btn-label {
-    font-size: 1rem;
+  .rda-nextmatch-fiel-btn-label {
+    font-size: 1.05rem;
   }
 }
 
@@ -2023,7 +1952,7 @@ input[type="number"] {
   box-shadow:
     0 0 24px rgba(0, 229, 255, 0.55),
     inset 0 0 16px rgba(0, 229, 255, 0.16);
-  padding: 18px 20px;
+  padding: 14px 16px;
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -2032,7 +1961,7 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .rda-lastmatch-header-left {
@@ -2050,12 +1979,15 @@ input[type="number"] {
 }
 
 .rda-lastmatch-title {
-  font-size: 1.35rem;
-  font-weight: 800;
+  font-family: 'Oswald', 'Outfit', sans-serif;
+  font-size: 1.55rem;
+  font-weight: 700;
   color: #ffffff;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
   text-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
   margin: 0;
+  line-height: 1.1;
 }
 
 .rda-lastmatch-edit-btn {
@@ -2080,30 +2012,31 @@ input[type="number"] {
 
 .rda-lastmatch-body {
   display: grid;
-  grid-template-columns: 1fr minmax(150px, 200px);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 170px);
+  gap: 14px;
   align-items: center;
 }
 
 .rda-lastmatch-rows {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .rda-lastmatch-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
+  gap: 10px;
+  padding: 5px 14px;
   border-radius: 9999px;
-  background: linear-gradient(90deg, rgba(6, 26, 52, 0.95) 0%, rgba(3, 16, 35, 0.85) 100%);
+  background: linear-gradient(90deg, rgba(9, 32, 66, 0.95) 0%, rgba(3, 16, 35, 0.9) 100%);
   border: 1.5px solid #00c8ff;
   box-shadow:
     inset 0 0 10px rgba(0, 195, 255, 0.16),
     0 0 10px rgba(0, 200, 255, 0.28),
     0 2px 4px rgba(0, 0, 0, 0.3);
-  min-height: 46px;
+  min-height: 36px;
 }
 
 .rda-lastmatch-row-icon {
@@ -2111,7 +2044,19 @@ input[type="number"] {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.6));
+  width: 26px;
+  filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.45));
+}
+
+.rda-lastmatch-emoji {
+  font-size: 20px;
+  line-height: 1;
+  user-select: none;
+}
+
+.rda-lastmatch-score-icon {
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 5px rgba(0, 195, 255, 0.5));
 }
 
 .rda-lastmatch-row-divider {
@@ -2137,13 +2082,15 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
 }
 
 .rda-lastmatch-history-btn {
   width: 100%;
-  margin-top: 16px;
-  padding: 14px 20px;
-  border-radius: 14px;
+  min-height: 52px;
+  margin-top: 14px;
+  padding: 10px 22px;
+  border-radius: 9999px;
   background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 50%, #0369a1 100%);
   border: 2px solid #00e5ff;
   box-shadow:
@@ -2151,12 +2098,12 @@ input[type="number"] {
     inset 0 1px 1px rgba(255, 255, 255, 0.35),
     0 4px 12px rgba(0, 0, 0, 0.4);
   color: #ffffff;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 800;
   cursor: pointer;
   text-align: center;
   display: grid;
-  grid-template-columns: 24px 1fr 24px;
+  grid-template-columns: 26px 1fr 24px;
   align-items: center;
   gap: 10px;
   transition: all 0.2s ease;
@@ -2333,7 +2280,7 @@ input[type="number"] {
   }
 
   .rda-lastmatch-body {
-    grid-template-columns: 1fr minmax(115px, 150px);
+    grid-template-columns: minmax(0, 1fr) minmax(110px, 140px);
     gap: 12px;
   }
 
@@ -2343,9 +2290,17 @@ input[type="number"] {
   }
 
   .rda-lastmatch-row {
-    padding: 8px 12px;
-    min-height: 40px;
-    gap: 10px;
+    padding: 5px 12px;
+    min-height: 38px;
+    gap: 8px;
+  }
+
+  .rda-lastmatch-row-icon {
+    width: 22px;
+  }
+
+  .rda-lastmatch-emoji {
+    font-size: 18px;
   }
 
   .rda-lastmatch-row-divider {
@@ -2373,6 +2328,24 @@ input[type="number"] {
     padding: 12px 14px;
     font-size: 1rem;
     gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .rda-lastmatch-body {
+    grid-template-columns: 1fr;
+  }
+
+  .rda-lastmatch-tactic-col {
+    justify-content: flex-start;
+  }
+
+  .rda-lastmatch-tactic-col .rda-tactical-clipboard-svg {
+    max-width: 130px;
+  }
+
+  .rda-lastmatch-history-btn {
+    grid-template-columns: 22px 1fr 20px;
   }
 }
 
@@ -2858,5 +2831,249 @@ input[type="number"] {
   }
   .rda-finance-row-label {
     font-size: 0.65rem !important;
+  }
+}
+
+/* ==========================================================================
+   PÓDIOS PREMIUM: TOP 3 (REFERÊNCIA 2D)
+   ========================================================================== */
+
+.rda-podium-card {
+  position: relative;
+  background: linear-gradient(180deg, #031532 0%, #061e3d 100%);
+  border: 2px solid #00e5ff;
+  border-radius: 16px;
+  box-shadow:
+    0 0 18px rgba(0, 229, 255, 0.55),
+    inset 0 0 14px rgba(0, 229, 255, 0.16);
+  padding: 10px 14px 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rda-podium-card:hover,
+.rda-podium-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 24px rgba(0, 229, 255, 0.75),
+    inset 0 0 16px rgba(0, 229, 255, 0.2);
+  outline: none;
+}
+
+.rda-podium-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-bottom: 8px;
+}
+
+.rda-podium-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.75));
+}
+
+.rda-podium-title-emoji {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.rda-podium-header-title {
+  margin: 0;
+  font-family: 'Oswald', 'Outfit', sans-serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.8px;
+  color: #ffffff;
+  text-transform: uppercase;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.85), 0 0 10px rgba(255, 255, 255, 0.25);
+  line-height: 1.05;
+}
+
+.rda-podium-stage {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 6px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.rda-podium-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  position: relative;
+}
+
+.rda-podium-column--gold {
+  z-index: 2;
+}
+
+.rda-podium-crown {
+  font-size: 1.7rem;
+  line-height: 1;
+  margin-bottom: -6px;
+  filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.95));
+  z-index: 3;
+}
+
+.rda-podium-avatar-wrap {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  background: linear-gradient(135deg, #0b2c55, #03122c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.rda-podium-column--gold .rda-podium-avatar-wrap {
+  width: 72px;
+  height: 72px;
+  border-color: #facc15;
+  box-shadow: 0 0 16px rgba(250, 204, 21, 0.9);
+}
+
+.rda-podium-column--bronze .rda-podium-avatar-wrap {
+  border-color: #f97316;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.65);
+}
+
+.rda-podium-column--silver .rda-podium-avatar-wrap {
+  border-color: #cbd5e1;
+  box-shadow: 0 0 10px rgba(203, 213, 225, 0.55);
+}
+
+.rda-podium-avatar-fallback {
+  position: relative;
+  z-index: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.rda-podium-avatar {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rda-podium-name {
+  margin-top: 6px;
+  max-width: 100%;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #ffffff;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.rda-podium-score {
+  margin-top: 3px;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background: #04152e;
+  border: 1px solid rgba(0, 229, 255, 0.75);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rda-podium-block {
+  width: 100%;
+  height: 46px;
+  margin-top: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 8px 8px 3px 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rda-podium-column--gold .rda-podium-block {
+  height: 62px;
+}
+
+.rda-podium-block--bronze {
+  background: linear-gradient(180deg, #fb923c 0%, #ea580c 55%, #9a3412 100%);
+  border-color: #fdba74;
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.6), inset 0 2px 3px rgba(255, 255, 255, 0.35);
+}
+
+.rda-podium-block--silver {
+  background: linear-gradient(180deg, #f1f5f9 0%, #94a3b8 55%, #475569 100%);
+  border-color: #e2e8f0;
+  box-shadow: 0 0 14px rgba(203, 213, 225, 0.55), inset 0 2px 3px rgba(255, 255, 255, 0.45);
+}
+
+.rda-podium-place {
+  font-family: 'Oswald', 'Outfit', sans-serif;
+  font-size: 1.7rem;
+  font-weight: 700;
+  font-style: italic;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.65);
+}
+
+.rda-podium-column--gold .rda-podium-place {
+  font-size: 2.1rem;
+}
+
+.rda-podium-empty {
+  padding: 20px 8px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 380px) {
+  .rda-podium-header-title {
+    font-size: 1.25rem;
+  }
+
+  .rda-podium-avatar-wrap {
+    width: 48px;
+    height: 48px;
+  }
+
+  .rda-podium-column--gold .rda-podium-avatar-wrap {
+    width: 56px;
+    height: 56px;
+  }
+
+  .rda-podium-block {
+    height: 38px;
+  }
+
+  .rda-podium-column--gold .rda-podium-block {
+    height: 52px;
+  }
+
+  .rda-podium-place {
+    font-size: 1.4rem;
+  }
+
+  .rda-podium-column--gold .rda-podium-place {
+    font-size: 1.7rem;
   }
 }

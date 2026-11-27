@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ResumoTemporadaCard, FinanceiroGeralCard } from '../components/DashboardPremiumCards';
+import {
+  ResumoTemporadaCard,
+  FinanceiroGeralCard,
+  ResumoMensalCard,
+  ProximaPartidaCard
+} from '../components/DashboardPremiumCards';
 
 describe('RDA — Dashboard Premium Cards (Fidelidade Visual à Referência)', () => {
   it('deve renderizar o Card Resumo da Temporada com todos os dados dinâmicos e títulos da referência', () => {
@@ -72,5 +77,56 @@ describe('RDA — Dashboard Premium Cards (Fidelidade Visual à Referência)', (
     // Destaque do Saldo Líquido Acumulado
     expect(screen.getByText('Saldo Líquido Acumulado')).toBeInTheDocument();
     expect(screen.getByText(/374,00/)).toBeInTheDocument();
+  });
+
+  it('deve renderizar o Card Resumo Mensal com os 3 cards (verde, vermelho, dourado) fiéis à referência', () => {
+    render(
+      <ResumoMensalCard
+        paidCount={20}
+        pendingCount={2}
+        diaristsCount={6}
+      />
+    );
+
+    expect(screen.getByText('RESUMO MENSAL (ATUAL)')).toBeInTheDocument();
+    expect(screen.getByText('CONTROLE DE MENSALIDADES DO MÊS')).toBeInTheDocument();
+
+    expect(screen.getByText('20')).toBeInTheDocument();
+    expect(screen.getByText('Mensalistas pagos')).toBeInTheDocument();
+
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('Mensalistas pendentes')).toBeInTheDocument();
+
+    expect(screen.getByText('6')).toBeInTheDocument();
+    expect(screen.getByText(/Diaristas/)).toBeInTheDocument();
+    expect(screen.getByText(/\(Últ\. Partida\)/)).toBeInTheDocument();
+  });
+
+  it('deve renderizar o Card Próxima Partida com as 3 colunas e botão "Ver Partidas" fiel à referência', () => {
+    const handleViewMatches = vi.fn();
+    render(
+      <ProximaPartidaCard
+        nextMatch={{
+          location: 'Arena Ouro Preto',
+          match_date: '2026-11-27',
+          match_time: '22:30:00'
+        }}
+        onViewMatches={handleViewMatches}
+      />
+    );
+
+    expect(screen.getByText('PRÓXIMA PARTIDA')).toBeInTheDocument();
+    expect(screen.getByText('INFORMAÇÕES DO PRÓXIMO JOGO')).toBeInTheDocument();
+
+    expect(screen.getByText('Arena Ouro Preto')).toBeInTheDocument();
+    expect(screen.getByText('27/11/2026')).toBeInTheDocument();
+    expect(screen.getByText('22:30h')).toBeInTheDocument();
+
+    const btn = screen.getByTestId('btn-ver-partidas');
+    expect(btn).toBeInTheDocument();
+    expect(screen.getByText('Ver Partidas')).toBeInTheDocument();
+
+    fireEvent.click(btn);
+    expect(handleViewMatches).toHaveBeenCalledTimes(1);
   });
 });

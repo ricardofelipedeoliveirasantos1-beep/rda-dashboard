@@ -36,7 +36,6 @@ import {
   Loader2,
   Shield,
   LogOut,
-  Goal,
   CircleCheck,
   CircleAlert,
   Frown,
@@ -1112,53 +1111,71 @@ export default function App() {
     );
   }
 
-  const renderPodium = (data: any[], title: string, icon: any, color: string, suffix: string, emptyMsg: string) => (
-    <div className="dashboard-card dashboard-card--neon" style={{ cursor: 'pointer', transition: 'var(--transition)' }} onClick={() => setActiveTab('ranking')}>
-      <div className="card-header" style={{ marginBottom: '19px' }}>
-        <span className="card-title" style={{ color: color, display: 'flex', alignItems: 'center', gap: '8px', lineHeight: 1.3, transform: 'translateY(-4px)', fontSize: '0.70rem' }}>
-          {icon} {title}
-        </span>
+  const renderPodium = (data: any[], title: string, icon: any, color: string, suffix: string, emptyMsg: string) => {
+    const list = Array.isArray(data) ? data : [];
+
+    return (
+      <div
+        className="rda-podium-card"
+        data-testid={`podium-${title.toLowerCase().replace(/\s+/g, '-')}`}
+        onClick={() => setActiveTab('ranking')}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') setActiveTab('ranking');
+        }}
+        role="button"
+        tabIndex={0}
+      >
+        <div className="rda-podium-header">
+          <span className="rda-podium-header-icon">{icon}</span>
+          <h3 className="rda-podium-header-title">{title.toUpperCase()}</h3>
+        </div>
+
+        {list.length > 0 ? (
+          <div className="rda-podium-stage">
+            {[list[2], list[0], list[1]].map((player, index) => {
+              if (!player) return null;
+              const place = index === 0 ? 3 : index === 1 ? 1 : 2;
+              const firstName = String(player.name ?? '').trim().split(' ')[0] || '—';
+              const medal = place === 1 ? 'gold' : place === 2 ? 'silver' : 'bronze';
+
+              return (
+                <div className={`rda-podium-column rda-podium-column--${medal}`} key={`${place}-${index}`}>
+                  {place === 1 && <span className="rda-podium-crown" aria-hidden="true">👑</span>}
+                  <div className="rda-podium-avatar-wrap">
+                    <span className="rda-podium-avatar-fallback" aria-hidden="true">
+                      {firstName.charAt(0).toUpperCase()}
+                    </span>
+                    {player.photo && (
+                      <img
+                        src={player.photo}
+                        alt={firstName}
+                        className="rda-podium-avatar"
+                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                      />
+                    )}
+                  </div>
+                  <span className="rda-podium-name">{firstName}</span>
+                  <span className="rda-podium-score">{player.count ?? 0} {suffix}</span>
+                  <div
+                    className={`rda-podium-block rda-podium-block--${medal}`}
+                    style={place === 1 ? {
+                      background: `linear-gradient(180deg, ${color} 0%, ${color}cc 55%, ${color}88 100%)`,
+                      borderColor: '#ffffff',
+                      boxShadow: `0 0 18px ${color}aa, inset 0 2px 4px rgba(255, 255, 255, 0.45)`
+                    } : undefined}
+                  >
+                    <span className="rda-podium-place">{place}°</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rda-podium-empty">{emptyMsg}</div>
+        )}
       </div>
-      {data.length > 0 ? (
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '4px', height: '140px', paddingBottom: '16px', marginTop: '16px' }}>
-          {/* 3º Lugar */}
-          {data[2] && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, width: 0 }}>
-              <img src={data[2].photo || '/default.png'} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #cd7f32' }} />
-              <span style={{ fontSize: '0.7rem', fontWeight: 700, marginTop: '4px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{data[2].name.split(' ')[0]}</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--text-secondary)' }}>{data[2].count} {suffix}</span>
-              <div style={{ width: '100%', height: '40px', backgroundColor: 'rgba(205,127,50,0.1)', borderTop: '2px solid #cd7f32', marginTop: '4px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 800, color: '#cd7f32', borderRadius: '4px 4px 0 0' }}>3º</div>
-            </div>
-          )}
-
-          {/* 1º Lugar */}
-          {data[0] && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2, zIndex: 2, width: 0 }}>
-              <span style={{ fontSize: '1.3rem', lineHeight: 1, marginBottom: '3px', display: 'block', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }}>👑</span>
-              <img src={data[0].photo || '/default.png'} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: `3px solid ${color}` }} />
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, marginTop: '4px', textAlign: 'center', color: color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{data[0].name.split(' ')[0]}</span>
-              <span style={{ fontSize: '0.9rem', fontWeight: 900, color: '#fff' }}>{data[0].count} {suffix}</span>
-              <div style={{ width: '100%', height: '60px', backgroundColor: `${color}1A`, borderTop: `3px solid ${color}`, marginTop: '4px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 900, fontSize: '1.2rem', color: color, borderRadius: '4px 4px 0 0' }}>1º</div>
-            </div>
-          )}
-
-          {/* 2º Lugar */}
-          {data[1] && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, width: 0 }}>
-              <img src={data[1].photo || '/default.png'} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #c0c0c0' }} />
-              <span style={{ fontSize: '0.7rem', fontWeight: 700, marginTop: '4px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{data[1].name.split(' ')[0]}</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--text-secondary)' }}>{data[1].count} {suffix}</span>
-              <div style={{ width: '100%', height: '50px', backgroundColor: 'rgba(192,192,192,0.1)', borderTop: '2px solid #c0c0c0', marginTop: '4px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 800, color: '#c0c0c0', borderRadius: '4px 4px 0 0' }}>2º</div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-          {emptyMsg}
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="app-container" onClick={() => isUserMenuOpen && setIsUserMenuOpen(false)}>
@@ -1709,21 +1726,19 @@ export default function App() {
                   </>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-                  {currentUserRole !== 'visitor' && (
-                    <ResumoMensalCard
-                      paidCount={totalMonthlyPaid}
-                      pendingCount={totalMonthlyPending}
-                      diaristsCount={lastMatchDiarists}
-                    />
-                  )}
-
-                  {/* CARD 03 — PRÓXIMA PARTIDA (Premium) */}
-                  <ProximaPartidaCard
-                    nextMatch={nextMatch}
-                    onViewMatches={() => setActiveTab('partidas')}
+                {currentUserRole !== 'visitor' && (
+                  <ResumoMensalCard
+                    paidCount={totalMonthlyPaid}
+                    pendingCount={totalMonthlyPending}
+                    diaristsCount={lastMatchDiarists}
                   />
-                </div>
+                )}
+
+                {/* CARD 03 — PRÓXIMA PARTIDA (Premium) */}
+                <ProximaPartidaCard
+                  nextMatch={nextMatch}
+                  onViewMatches={() => setActiveTab('partidas')}
+                />
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
                   {/* CARD 06 — ÚLTIMA PARTIDA (Premium) */}
@@ -1764,8 +1779,15 @@ export default function App() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-                  {renderPodium(topPoints, 'Top 3 Pontuação', <Trophy size={18} />, '#fbbf24', 'pts', 'Nenhuma pontuação registrada.')}
-                  {renderPodium(topScorers, 'Top 3 Artilheiros', <Goal size={18} />, '#22c55e', 'gols', 'Nenhum gol registrado.')}
+                  {renderPodium(topPoints, 'Top 3 Pontuação', <span className="rda-podium-title-emoji">🏆</span>, '#fbbf24', 'pts', 'Nenhuma pontuação registrada.')}
+                  {renderPodium(topScorers, 'Top 3 Artilheiros', (
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ filter: 'drop-shadow(0 0 6px rgba(34, 197, 94, 0.9))' }}>
+                      <circle cx="11" cy="11" r="8" stroke="#22c55e" strokeWidth="2.4" />
+                      <circle cx="11" cy="11" r="4" stroke="#22c55e" strokeWidth="2" />
+                      <circle cx="11" cy="11" r="1.2" fill="#22c55e" />
+                      <path d="M11 11L20 4M17 4H20V7" stroke="#86efac" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ), '#22c55e', 'gols', 'Nenhum gol registrado.')}
                   {renderPodium(topAssists, 'Top 3 Assistências', <Star size={18} />, '#3b82f6', 'asts', 'Nenhuma assistência registrada.')}
                   {renderPodium(topRalabosta, 'Top 3 Ralabostas', <Frown size={18} />, '#ef4444', 'vezes', 'Nenhum ralabosta registrado.')}
                 </div>
