@@ -7,11 +7,11 @@
   --card-padding: 16px;
   --card-gap: 16px;
   --side-margin: 16px;
-  
+
   --text-primary: #ffffff;
   --text-secondary: #a3a3a3;
   --text-muted: #737373;
-  
+
   --primary: #6366f1;
   --primary-light: #818cf8;
   --primary-dark: #4f46e5;
@@ -19,7 +19,7 @@
   --danger: #ef4444;
   --warning: #f59e0b;
   --info: #38bdf8;
-  
+
   --font-family: 'Outfit', sans-serif;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-fast: all 0.15s ease;
@@ -471,7 +471,7 @@ body {
     gap: 16px;
     padding: calc(64px + env(safe-area-inset-top, 0px) + 20px) var(--side-margin) 100px var(--side-margin);
   }
-  
+
   .dashboard-card {
     height: 100%;
   }
@@ -639,8 +639,8 @@ body {
   padding: 10px 8px;
   overflow: hidden;
   border-radius: 12px;
-  background-color: rgba(34,197,94,0.02);
-  border: 1px solid rgba(34,197,94,0.1);
+  background-color: rgba(34, 197, 94, 0.02);
+  border: 1px solid rgba(34, 197, 94, 0.1);
 }
 
 .classification-grid {
@@ -714,6 +714,7 @@ body {
   .classification-title {
     font-size: 10px;
   }
+
   .classification-title.ralabosta {
     font-size: 10px;
   }
@@ -784,40 +785,99 @@ body {
 }
 
 /* Card-specific borders and text colors */
-.card-previstas { border-color: rgba(56, 189, 248, 0.2); }
-.card-previstas .finance-mini-card-value { color: #38bdf8; }
-.card-previstas svg { color: #38bdf8; }
+.card-previstas {
+  border-color: rgba(56, 189, 248, 0.2);
+}
 
-.card-recebidas { border-color: rgba(34, 197, 94, 0.2); }
-.card-recebidas .finance-mini-card-value { color: #22c55e; }
-.card-recebidas svg { color: #22c55e; }
+.card-previstas .finance-mini-card-value {
+  color: #38bdf8;
+}
 
-.card-pendentes { border-color: rgba(239, 68, 68, 0.2); }
-.card-pendentes .finance-mini-card-value { color: #ef4444; }
-.card-pendentes svg { color: #ef4444; }
+.card-previstas svg {
+  color: #38bdf8;
+}
 
-.card-diarias { border-color: rgba(251, 191, 36, 0.2); }
-.card-diarias .finance-mini-card-value { color: #fbbf24; }
-.card-diarias svg { color: #fbbf24; }
+.card-recebidas {
+  border-color: rgba(34, 197, 94, 0.2);
+}
 
-.card-entradas { border-color: rgba(168, 85, 247, 0.2); }
-.card-entradas .finance-mini-card-value { color: #a855f7; }
-.card-entradas svg { color: #a855f7; }
+.card-recebidas .finance-mini-card-value {
+  color: #22c55e;
+}
 
-.card-despesas { border-color: rgba(244, 63, 94, 0.2); }
-.card-despesas .finance-mini-card-value { color: #f43f5e; }
-.card-despesas svg { color: #f43f5e; }
+.card-recebidas svg {
+  color: #22c55e;
+}
 
-.card-saldo { border-color: rgba(14, 165, 233, 0.2); }
-.card-saldo .finance-mini-card-value { color: #0ea5e9; }
-.card-saldo svg { color: #0ea5e9; }
+.card-pendentes {
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.card-pendentes .finance-mini-card-value {
+  color: #ef4444;
+}
+
+.card-pendentes svg {
+  color: #ef4444;
+}
+
+.card-diarias {
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+.card-diarias .finance-mini-card-value {
+  color: #fbbf24;
+}
+
+.card-diarias svg {
+  color: #fbbf24;
+}
+
+.card-entradas {
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.card-entradas .finance-mini-card-value {
+  color: #a855f7;
+}
+
+.card-entradas svg {
+  color: #a855f7;
+}
+
+.card-despesas {
+  border-color: rgba(244, 63, 94, 0.2);
+}
+
+.card-despesas .finance-mini-card-value {
+  color: #f43f5e;
+}
+
+.card-despesas svg {
+  color: #f43f5e;
+}
+
+.card-saldo {
+  border-color: rgba(14, 165, 233, 0.2);
+}
+
+.card-saldo .finance-mini-card-value {
+  color: #0ea5e9;
+}
+
+.card-saldo svg {
+  color: #0ea5e9;
+}
 
 /* Avisos Styles & Animations */
 @keyframes siren-flash {
-  0%, 100% {
+
+  0%,
+  100% {
     color: #ef4444;
     filter: drop-shadow(0 0 5px rgba(239, 68, 68, 0.6));
   }
+
   50% {
     color: #3b82f6;
     filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.6));
@@ -825,10 +885,13 @@ body {
 }
 
 @keyframes border-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     border-color: rgba(239, 68, 68, 0.35);
     box-shadow: 0 0 4px rgba(239, 68, 68, 0.1);
   }
+
   50% {
     border-color: rgba(59, 130, 246, 0.35);
     box-shadow: 0 0 4px rgba(59, 130, 246, 0.1);
@@ -836,9 +899,12 @@ body {
 }
 
 @keyframes badge-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.04);
   }
@@ -862,11 +928,13 @@ body {
     color: #ef4444 !important;
     filter: none !important;
   }
+
   .card-urgent-animated {
     animation: none !important;
     border-color: rgba(239, 68, 68, 0.3) !important;
     box-shadow: none !important;
   }
+
   .badge-urgent-animated {
     animation: none !important;
     transform: none !important;
@@ -909,7 +977,9 @@ html {
 
 /* Spinner Animation */
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spinner {
@@ -918,8 +988,15 @@ html {
 
 /* Fade In Animation */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .fade-in {
@@ -928,8 +1005,15 @@ html {
 
 /* Pulse Animation for Live Indicators */
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .pulse {
@@ -948,11 +1032,15 @@ button:disabled {
 }
 
 /* Input Focus Transition */
-input, select, textarea {
+input,
+select,
+textarea {
   transition: var(--transition-fast);
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   border-color: var(--primary) !important;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
@@ -968,18 +1056,18 @@ input:focus, select:focus, textarea:focus {
     transform: none;
     box-shadow: var(--shadow-sm);
   }
-  
+
   .btn-card:hover {
     background-color: #262626;
     border-color: #3f3f46;
   }
-  
+
   .sidebar-item:hover {
     transform: none;
     background-color: rgba(255, 255, 255, 0.02);
     border-color: rgba(59, 130, 246, 0.25);
   }
-  
+
   .sidebar-item.active:hover {
     transform: none;
     background-color: rgba(59, 130, 246, 0.15);
@@ -989,12 +1077,15 @@ input:focus, select:focus, textarea:focus {
 
 /* Reduced Motion Preference */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  
+
   html {
     scroll-behavior: auto;
   }
@@ -1072,6 +1163,44 @@ input[type="number"] {
   margin-bottom: 20px;
 }
 
+/* Novo Cabeçalho Centralizado para Resumo da Temporada e Financeiro Geral */
+.rda-season-header-centered {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.rda-season-header-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.rda-season-header-title-text {
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+.rda-season-header-subtitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #00e5ff;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 5px;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
+}
+
 .rda-premium-card-title-wrap {
   display: flex;
   flex-direction: column;
@@ -1122,24 +1251,26 @@ input[type="number"] {
   filter: drop-shadow(0 0 18px rgba(0, 180, 255, 0.4));
 }
 
-/* Season Summary Grid */
+/* Season Summary Grid - SEMPRE GRADE 2x2 FIEL À IMAGEM DE REFERÊNCIA */
 .rda-season-grid {
   position: relative;
   z-index: 2;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 14px;
 }
 
 .rda-season-box {
   position: relative;
-  border-radius: 18px;
-  padding: 14px 16px;
+  border-radius: 14px;
+  padding: 10px 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-height: 120px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 86px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -1147,32 +1278,39 @@ input[type="number"] {
   transform: translateY(-2px);
 }
 
+/* Ícones compactos (36–46px nativos) para caixas retangulares como a referência */
+.rda-season-box > svg {
+  height: 34px;
+  width: auto;
+  max-width: 46px;
+}
+
 /* 1. Box Jogadores: Azul Neon */
 .rda-season-box--players {
-  background: linear-gradient(135deg, rgba(6, 28, 68, 0.82) 0%, rgba(2, 13, 34, 0.95) 100%);
-  border: 1.5px solid #0099ff;
-  box-shadow: 0 0 15px rgba(0, 153, 255, 0.35), inset 0 0 14px rgba(0, 153, 255, 0.12);
+  background: linear-gradient(180deg, rgba(6, 32, 75, 0.9) 0%, rgba(3, 16, 42, 0.96) 100%);
+  border: 1.8px solid #00c8ff;
+  box-shadow: 0 0 16px rgba(0, 200, 255, 0.4), inset 0 0 14px rgba(0, 200, 255, 0.15);
 }
 
 /* 2. Box Partidas: Dourado / Âmbar */
 .rda-season-box--matches {
-  background: linear-gradient(135deg, rgba(65, 38, 5, 0.82) 0%, rgba(30, 16, 2, 0.95) 100%);
-  border: 1.5px solid #f59e0b;
-  box-shadow: 0 0 15px rgba(245, 158, 11, 0.35), inset 0 0 14px rgba(245, 158, 11, 0.12);
+  background: linear-gradient(180deg, rgba(62, 40, 6, 0.9) 0%, rgba(32, 18, 3, 0.96) 100%);
+  border: 1.8px solid #00c8ff;
+  box-shadow: 0 0 16px rgba(0, 200, 255, 0.4), inset 0 0 14px rgba(0, 200, 255, 0.15);
 }
 
 /* 3. Box Gols: Verde Neon */
 .rda-season-box--goals {
-  background: linear-gradient(135deg, rgba(4, 52, 22, 0.82) 0%, rgba(2, 25, 10, 0.95) 100%);
-  border: 1.5px solid #22c55e;
-  box-shadow: 0 0 15px rgba(34, 197, 94, 0.35), inset 0 0 14px rgba(34, 197, 94, 0.12);
+  background: linear-gradient(180deg, rgba(4, 56, 24, 0.9) 0%, rgba(2, 28, 11, 0.96) 100%);
+  border: 1.8px solid #00c8ff;
+  box-shadow: 0 0 16px rgba(0, 200, 255, 0.4), inset 0 0 14px rgba(0, 200, 255, 0.15);
 }
 
 /* 4. Box Assistências: Roxo Neon */
 .rda-season-box--assists {
-  background: linear-gradient(135deg, rgba(48, 12, 75, 0.82) 0%, rgba(22, 5, 36, 0.95) 100%);
-  border: 1.5px solid #a855f7;
-  box-shadow: 0 0 15px rgba(168, 85, 247, 0.35), inset 0 0 14px rgba(168, 85, 247, 0.12);
+  background: linear-gradient(180deg, rgba(50, 14, 78, 0.9) 0%, rgba(24, 6, 40, 0.96) 100%);
+  border: 1.8px solid #00c8ff;
+  box-shadow: 0 0 16px rgba(0, 200, 255, 0.4), inset 0 0 14px rgba(0, 200, 255, 0.15);
 }
 
 .rda-season-box-top {
@@ -1199,50 +1337,55 @@ input[type="number"] {
 }
 
 .rda-season-box-number {
-  font-size: 2.2rem;
+  font-size: 1.75rem;
   font-weight: 900;
   color: #ffffff;
   line-height: 1;
+  margin-top: 4px;
   letter-spacing: -0.5px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
 }
 
 .rda-season-box-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #e2e8f0;
-  margin-top: 4px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-top: 2px;
+  letter-spacing: 0.2px;
 }
 
 .rda-season-box-pills {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 5px;
+  margin-top: 7px;
   position: relative;
   z-index: 2;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  justify-content: center;
+  max-width: 100%;
 }
 
 .rda-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 2px 6px;
   border-radius: 20px;
-  font-size: 0.72rem;
+  font-size: 0.6rem;
   font-weight: 700;
   color: #ffffff;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
 }
 
 .rda-pill--green {
-  background: rgba(34, 197, 94, 0.16);
-  border: 1px solid rgba(34, 197, 94, 0.45);
+  background: #003d20;
+  border: 1.2px solid #00e676;
 }
 
 .rda-pill--red {
-  background: rgba(239, 68, 68, 0.16);
-  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: #3d0c15;
+  border: 1.2px solid #ff3838;
 }
 
 .rda-box-watermark {
@@ -1255,12 +1398,12 @@ input[type="number"] {
   z-index: 1;
 }
 
-/* Financial Card Styles */
+/* Financial Card Styles - SEMPRE 2 COLUNAS FIEL À IMAGEM DE REFERÊNCIA */
 .rda-finance-grid {
   position: relative;
   z-index: 2;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 14px;
 }
 
@@ -1272,20 +1415,21 @@ input[type="number"] {
 
 .rda-finance-row-item {
   position: relative;
-  background: rgba(6, 18, 38, 0.8);
-  border: 1.2px solid rgba(0, 170, 255, 0.22);
+  background: rgba(6, 20, 44, 0.85);
+  border: 1.5px solid #00c8ff;
   border-radius: 16px;
-  padding: 12px 16px;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  gap: 16px;
+  box-shadow: 0 0 12px rgba(0, 200, 255, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4);
   transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 .rda-finance-row-item:hover {
   transform: translateY(-1px);
-  border-color: rgba(0, 195, 255, 0.4);
+  border-color: #33d6ff;
+  box-shadow: 0 0 18px rgba(0, 215, 255, 0.45), 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .rda-finance-row-icon {
@@ -1305,55 +1449,57 @@ input[type="number"] {
 }
 
 .rda-finance-row-label {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: #e2e8f0;
   white-space: nowrap;
 }
 
 .rda-finance-row-val {
-  font-size: 1.45rem;
+  font-size: 1.5rem;
   font-weight: 900;
-  line-height: 1.15;
+  line-height: 1.2;
   margin-top: 2px;
   white-space: nowrap;
 }
 
 .rda-val--green {
-  color: #22c55e;
-  text-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+  color: #00e676;
+  text-shadow: 0 0 12px rgba(0, 230, 118, 0.5);
 }
 
 .rda-val--red {
-  color: #ef4444;
-  text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+  color: #ff3838;
+  text-shadow: 0 0 12px rgba(255, 56, 56, 0.5);
 }
 
 /* Saldo Líquido Acumulado: Destaque Máximo Neon Verde */
 .rda-finance-row-item--highlight {
-  background: linear-gradient(135deg, rgba(6, 46, 20, 0.95) 0%, rgba(2, 28, 12, 0.98) 100%);
-  border: 2px solid #22c55e;
+  background: linear-gradient(135deg, rgba(3, 46, 20, 0.96) 0%, rgba(1, 26, 11, 0.98) 100%);
+  border: 2px solid #00e676;
   box-shadow:
-    0 0 25px rgba(34, 197, 94, 0.48),
-    inset 0 0 18px rgba(34, 197, 94, 0.25);
+    0 0 24px rgba(0, 230, 118, 0.45),
+    inset 0 0 16px rgba(0, 230, 118, 0.22);
 }
 
 .rda-finance-row-item--highlight:hover {
   box-shadow:
-    0 0 32px rgba(34, 197, 94, 0.65),
-    inset 0 0 22px rgba(34, 197, 94, 0.32);
+    0 0 32px rgba(0, 230, 118, 0.6),
+    inset 0 0 20px rgba(0, 230, 118, 0.28);
 }
 
 .rda-finance-row-item--highlight .rda-finance-row-label {
   color: #ffffff;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 700;
 }
 
-.rda-finance-row-item--highlight .rda-finance-row-val {
+.rda-finance-row-item--highlight .rda-finance-row-val,
+.rda-val--green-highlight {
   font-size: 1.65rem;
-  color: #22c55e;
-  text-shadow: 0 0 14px rgba(34, 197, 94, 0.65);
+  color: #00e676;
+  font-weight: 900;
+  text-shadow: 0 0 16px rgba(0, 230, 118, 0.65);
 }
 
 @media (max-width: 680px) {
@@ -1361,22 +1507,1356 @@ input[type="number"] {
     padding: 16px 14px;
     border-radius: 20px;
   }
+
   .rda-premium-card-title {
     font-size: 1.15rem;
   }
+
+  /* Fiel à referência: SEMPRE 2x2 no Resumo da Temporada e 2 colunas no Financeiro */
   .rda-season-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
+  position: relative;
+  z-index: 2;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px;
+}
+
   .rda-finance-grid {
-    grid-template-columns: 1fr;
+  position: relative;
+  z-index: 2;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px;
+}
+
+  .rda-season-box {
+    min-height: 84px;
+    padding: 10px 8px;
+  }
+
+  .rda-season-box > svg {
+    height: 32px;
+    max-width: 42px;
+  }
+
+  .rda-season-box-number {
+    font-size: 1.7rem;
+    margin-top: 4px;
+  }
+
+  .rda-season-box-label {
+    font-size: 0.98rem;
+  }
+
+  .rda-finance-row-item {
+    padding: 12px 12px;
     gap: 10px;
   }
-  .rda-finance-row-val {
-    font-size: 1.25rem;
+
+  .rda-finance-row-item svg {
+    width: 34px;
+    height: 34px;
   }
+
+  .rda-finance-row-label {
+    font-size: 0.78rem;
+  }
+
+  .rda-finance-row-val {
+    font-size: 1.15rem;
+  }
+
   .rda-finance-row-item--highlight .rda-finance-row-val {
-    font-size: 1.45rem;
+    font-size: 1.25rem;
   }
 }
 
+/* Telas muito estreitas (≤420px): mantém as 2 colunas da referência sem estouro */
+@media (max-width: 420px) {
+  .rda-season-grid,
+  .rda-finance-grid {
+  position: relative;
+  z-index: 2;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px;
+}
+
+  .rda-season-box {
+    min-height: 78px;
+    padding: 10px 6px;
+  }
+
+  .rda-season-box > svg {
+    height: 30px;
+    max-width: 40px;
+  }
+
+  .rda-season-box-number {
+    font-size: 1.55rem;
+    margin-top: 3px;
+  }
+
+  .rda-season-box-label {
+    font-size: 0.92rem;
+  }
+
+  .rda-season-box-pills {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .rda-pill {
+    font-size: 0.56rem;
+    padding: 2px 5px;
+    gap: 3px;
+  }
+
+  .rda-pill svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .rda-finance-row-item {
+    padding: 10px 8px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+
+  .rda-finance-row-item svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .rda-finance-row-label {
+    font-size: 0.72rem;
+  }
+
+  .rda-finance-row-val {
+    font-size: 1.05rem;
+  }
+
+  .rda-finance-row-item--highlight .rda-finance-row-val {
+    font-size: 1.15rem;
+  }
+}
+
+/* ==========================================================================
+   CARDS PREMIUM: RESUMO MENSAL (ATUAL) E PRÓXIMA PARTIDA (FIDELIDADE 002.png)
+   ========================================================================== */
+
+/* Bola 3D com Feixes de Luz e Efeito de Estádio (Cabeçalho do Resumo Mensal) */
+.rda-header-ball-img {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 105px;
+  max-width: 190px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.95;
+}
+
+/* Grid de 3 Indicadores em Linha Única Horizontal */
+.rda-monthly-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  margin-top: 10px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Card Individual de Indicador Mensal */
+.rda-monthly-indicator-box {
+  position: relative;
+  border-radius: 18px;
+  padding: 14px 10px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 145px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: center;
+}
+
+.rda-monthly-indicator-box:hover {
+  transform: translateY(-2px);
+}
+
+/* 1. Mensalistas Pagos (Neon Verde) */
+.rda-monthly-indicator-box--paid {
+  background: linear-gradient(180deg, rgba(14, 125, 56, 0.9) 0%, rgba(9, 95, 42, 0.93) 50%, rgba(6, 70, 31, 0.96) 100%);
+  border: 2px solid #00e676;
+  box-shadow:
+    0 0 22px rgba(0, 230, 118, 0.6),
+    inset 0 0 20px rgba(0, 230, 118, 0.38);
+}
+
+.rda-monthly-indicator-box--paid:hover {
+  box-shadow:
+    0 0 30px rgba(0, 230, 118, 0.75),
+    inset 0 0 24px rgba(0, 230, 118, 0.45);
+}
+
+/* 2. Mensalistas Pendentes (Neon Vermelho) */
+.rda-monthly-indicator-box--pending {
+  background: linear-gradient(180deg, rgba(165, 26, 44, 0.9) 0%, rgba(130, 18, 34, 0.93) 50%, rgba(95, 12, 24, 0.96) 100%);
+  border: 2px solid #ff1744;
+  box-shadow:
+    0 0 22px rgba(255, 23, 68, 0.6),
+    inset 0 0 20px rgba(255, 23, 68, 0.38);
+}
+
+.rda-monthly-indicator-box--pending:hover {
+  box-shadow:
+    0 0 30px rgba(255, 23, 68, 0.75),
+    inset 0 0 24px rgba(255, 23, 68, 0.45);
+}
+
+/* 3. Diaristas (Neon Dourado/Laranja) */
+.rda-monthly-indicator-box--diarists {
+  background: linear-gradient(180deg, rgba(195, 128, 16, 0.9) 0%, rgba(165, 105, 12, 0.93) 50%, rgba(130, 80, 9, 0.96) 100%);
+  border: 2px solid #ff9100;
+  box-shadow:
+    0 0 22px rgba(255, 145, 0, 0.6),
+    inset 0 0 20px rgba(255, 145, 0, 0.38);
+}
+
+.rda-monthly-indicator-box--diarists:hover {
+  box-shadow:
+    0 0 30px rgba(255, 145, 0, 0.75),
+    inset 0 0 24px rgba(255, 145, 0, 0.45);
+}
+
+/* Decoração Criativa (Moedas/Relógio/Cédula) — Fora do texto, canto superior direito */
+.rda-indicator-decor {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+  line-height: 0;
+}
+
+.rda-monthly-indicator-top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+/* Círculos de Ícone Superior */
+.rda-indicator-icon-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rda-indicator-icon-circle--paid {
+  border: 2px solid #00e676;
+  background: rgba(0, 230, 118, 0.15);
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.65);
+}
+
+.rda-indicator-icon-circle--pending {
+  border: 2px solid #ff1744;
+  background: rgba(255, 23, 68, 0.15);
+  box-shadow: 0 0 12px rgba(255, 23, 68, 0.65);
+}
+
+.rda-indicator-icon-diarists {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 10px rgba(255, 145, 0, 0.8));
+}
+
+/* Número Gigante Central */
+.rda-monthly-indicator-number {
+  font-size: 2.35rem;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+  margin: 4px 0 2px 0;
+  width: 100%;
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  z-index: 2;
+}
+
+/* Rótulos dos Indicadores (100% centralizados) */
+.rda-monthly-indicator-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.15;
+  width: 100%;
+  text-align: center;
+  z-index: 2;
+}
+
+.rda-monthly-indicator-sublabel {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #fcd34d;
+  margin-top: 2px;
+  display: block;
+  width: 100%;
+  text-align: center;
+  z-index: 2;
+}
+
+/* --------------------------------------------------------------------------
+   PRÓXIMA PARTIDA
+   -------------------------------------------------------------------------- */
+
+/* Card Único: Painel Retangular com 3 Divisões (Localização, Data, Horário) */
+.rda-nextmatch-unified-card {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(6, 26, 52, 0.88) 0%, rgba(3, 16, 35, 0.95) 100%);
+  border: 1.5px solid rgba(0, 229, 255, 0.4);
+  border-radius: 20px;
+  box-shadow:
+    0 0 20px rgba(0, 229, 255, 0.22),
+    inset 0 0 14px rgba(0, 229, 255, 0.1);
+  padding: 22px 14px;
+  margin: 14px 0 16px 0;
+  width: 100%;
+}
+
+.rda-nextmatch-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  padding: 0 8px;
+}
+
+.rda-nextmatch-col-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1.5px solid #00e5ff;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.65);
+}
+
+.rda-nextmatch-col-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  white-space: normal;
+  text-align: center;
+}
+
+.rda-nextmatch-col-val--location {
+  max-width: 140px;
+}
+
+.rda-nextmatch-col-divider {
+  width: 1.5px;
+  height: 60px;
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.1) 0%, rgba(0, 229, 255, 0.5) 50%, rgba(0, 229, 255, 0.1) 100%);
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
+}
+
+/* Botão "Ver Partidas" com Efeito Neon Glossy Azul */
+.rda-nextmatch-btn {
+  width: 100%;
+  padding: 11px 20px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #0284c7 0%, #0369a1 50%, #075985 100%);
+  border: 2px solid #00e5ff;
+  box-shadow:
+    0 0 22px rgba(0, 229, 255, 0.65),
+    inset 0 0 14px rgba(255, 255, 255, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.rda-nextmatch-btn:hover {
+  filter: brightness(1.1);
+  box-shadow:
+    0 0 28px rgba(0, 229, 255, 0.85),
+    inset 0 0 16px rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.rda-nextmatch-btn:active {
+  transform: translateY(1px);
+}
+
+.rda-nextmatch-btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rda-nextmatch-btn-label {
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  letter-spacing: 0.3px;
+}
+
+.rda-nextmatch-btn-arrow {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.7));
+  transition: transform 0.2s ease;
+}
+
+.rda-nextmatch-btn:hover .rda-nextmatch-btn-arrow {
+  transform: translateX(4px);
+}
+
+/* Responsividade Mobile para Resumo Mensal e Próxima Partida */
+@media (max-width: 680px) {
+  .rda-header-ball-img {
+    height: 75px;
+    max-width: 130px;
+  }
+
+  .rda-monthly-grid {
+    gap: 8px;
+  }
+
+  .rda-monthly-indicator-box {
+    min-height: 130px;
+    padding: 10px 6px 12px 6px;
+    border-radius: 14px;
+  }
+
+  .rda-monthly-indicator-number {
+    font-size: 1.85rem;
+  }
+
+  .rda-monthly-indicator-label {
+    font-size: 0.72rem;
+  }
+
+  .rda-monthly-indicator-sublabel {
+    font-size: 0.65rem;
+  }
+
+  .rda-indicator-decor svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .rda-nextmatch-unified-card {
+    padding: 16px 8px;
+    margin: 10px 0 14px 0;
+  }
+
+  .rda-nextmatch-col {
+    gap: 8px;
+    padding: 0 4px;
+  }
+
+  .rda-nextmatch-col-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .rda-nextmatch-col-val {
+    font-size: 0.95rem;
+  }
+
+  .rda-nextmatch-col-val--location {
+    max-width: 100px;
+  }
+
+  .rda-nextmatch-col-divider {
+    height: 45px;
+  }
+
+  .rda-nextmatch-btn {
+    padding: 10px 16px;
+  }
+
+  .rda-nextmatch-btn-label {
+    font-size: 1rem;
+  }
+}
+
+/* ==========================================================================
+   CARDS PREMIUM 2D: ÚLTIMA PARTIDA E ANIVERSARIANTES DO MÊS
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   ÚLTIMA PARTIDA (PAINEL 1 — REFERÊNCIA 2D)
+   -------------------------------------------------------------------------- */
+
+.rda-lastmatch-card {
+  position: relative;
+  background: linear-gradient(180deg, #020b18 0%, #03142a 100%);
+  border: 2px solid #00e5ff;
+  border-radius: 24px;
+  box-shadow:
+    0 0 24px rgba(0, 229, 255, 0.55),
+    inset 0 0 16px rgba(0, 229, 255, 0.16);
+  padding: 18px 20px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rda-lastmatch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.rda-lastmatch-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rda-header-vdivider {
+  width: 2px;
+  height: 18px;
+  background: #00e5ff;
+  box-shadow: 0 0 8px #00e5ff;
+  border-radius: 1px;
+}
+
+.rda-lastmatch-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
+  margin: 0;
+}
+
+.rda-lastmatch-edit-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(6, 26, 52, 0.95);
+  border: 1.5px solid #00e5ff;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.rda-lastmatch-edit-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.8);
+  filter: brightness(1.15);
+}
+
+.rda-lastmatch-body {
+  display: grid;
+  grid-template-columns: 1fr minmax(150px, 200px);
+  gap: 16px;
+  align-items: center;
+}
+
+.rda-lastmatch-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.rda-lastmatch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(6, 26, 52, 0.95) 0%, rgba(3, 16, 35, 0.85) 100%);
+  border: 1.5px solid #00c8ff;
+  box-shadow:
+    inset 0 0 10px rgba(0, 195, 255, 0.16),
+    0 0 10px rgba(0, 200, 255, 0.28),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+  min-height: 46px;
+}
+
+.rda-lastmatch-row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.6));
+}
+
+.rda-lastmatch-row-divider {
+  width: 2px;
+  height: 22px;
+  background: #00e5ff;
+  box-shadow: 0 0 6px #00e5ff;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.rda-lastmatch-row-text {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.rda-lastmatch-tactic-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rda-lastmatch-history-btn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px 20px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 50%, #0369a1 100%);
+  border: 2px solid #00e5ff;
+  box-shadow:
+    0 0 22px rgba(0, 229, 255, 0.55),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-align: center;
+  display: grid;
+  grid-template-columns: 24px 1fr 24px;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.rda-lastmatch-history-btn-icon {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.6));
+  justify-self: start;
+}
+
+.rda-lastmatch-history-btn-label {
+  justify-self: center;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+}
+
+.rda-lastmatch-btn-arrow {
+  justify-self: end;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.7));
+  transition: transform 0.2s ease;
+}
+
+.rda-lastmatch-history-btn:hover {
+  background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 50%, #0284c7 100%);
+  border-color: #67e8f9;
+  box-shadow:
+    0 0 28px rgba(0, 229, 255, 0.75),
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.rda-lastmatch-history-btn:hover .rda-lastmatch-btn-arrow {
+  transform: translateX(4px);
+}
+
+.rda-lastmatch-history-btn:active {
+  transform: translateY(1px);
+}
+
+/* --------------------------------------------------------------------------
+   ANIVERSARIANTES DO MÊS (PAINEL 2 — REFERÊNCIA 2D)
+   -------------------------------------------------------------------------- */
+
+.rda-birthdays-card {
+  position: relative;
+  background: linear-gradient(180deg, #020b18 0%, #03142a 100%);
+  border: 2px solid #00e5ff;
+  border-radius: 24px;
+  box-shadow:
+    0 0 24px rgba(0, 229, 255, 0.55),
+    inset 0 0 16px rgba(0, 229, 255, 0.16);
+  padding: 18px 20px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rda-birthdays-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.22);
+}
+
+.rda-birthdays-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rda-birthdays-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
+  margin: 0;
+}
+
+.rda-birthdays-body {
+  display: grid;
+  grid-template-columns: 1fr 125px;
+  gap: 16px;
+  align-items: center;
+}
+
+.rda-birthdays-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rda-birthday-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.16);
+}
+
+.rda-birthday-row:last-child {
+  border-bottom: none;
+}
+
+.rda-birthday-avatar-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #00e5ff;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.65);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #061a38;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rda-birthday-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rda-birthday-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #061a38;
+}
+
+.rda-birthday-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.rda-birthday-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.rda-birthday-desc {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.rda-birthdays-cake-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rda-birthdays-empty {
+  text-align: center;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.88rem;
+  padding: 16px 0;
+}
+
+/* Responsividade Mobile para Cards 2D */
+@media (max-width: 680px) {
+  .rda-lastmatch-card,
+  .rda-birthdays-card {
+    padding: 14px 14px;
+    border-radius: 20px;
+  }
+
+  .rda-lastmatch-body {
+    grid-template-columns: 1fr minmax(115px, 150px);
+    gap: 12px;
+  }
+
+  .rda-birthdays-body {
+    grid-template-columns: 1fr 100px;
+    gap: 12px;
+  }
+
+  .rda-lastmatch-row {
+    padding: 8px 12px;
+    min-height: 40px;
+    gap: 10px;
+  }
+
+  .rda-lastmatch-row-divider {
+    height: 18px;
+  }
+
+  .rda-lastmatch-row-text {
+    font-size: 0.88rem;
+  }
+
+  .rda-birthday-avatar-wrap {
+    width: 38px;
+    height: 38px;
+  }
+
+  .rda-birthday-name {
+    font-size: 0.88rem;
+  }
+
+  .rda-birthday-desc {
+    font-size: 0.75rem;
+  }
+
+  .rda-lastmatch-history-btn {
+    padding: 12px 14px;
+    font-size: 1rem;
+    gap: 8px;
+  }
+}
+
+/* ==========================================================================
+   CARDS PREMIUM: OS SEIS RANKINGS DO DASHBOARD (FIDELIDADE À MATRIZ VISUAL)
+   ========================================================================== */
+
+.rda-ranking-card {
+  position: relative;
+  background: radial-gradient(circle at 50% 10%, rgba(0, 180, 255, 0.12) 0%, rgba(5, 14, 30, 0.95) 55%, #020712 100%);
+  border: 2px solid #00c8ff;
+  border-radius: 26px;
+  box-shadow:
+    0 0 18px rgba(0, 200, 255, 0.45),
+    0 0 35px rgba(0, 150, 255, 0.2),
+    inset 0 0 20px rgba(0, 180, 255, 0.12);
+  padding: 20px 18px 18px 18px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.rda-ranking-card:hover {
+  box-shadow:
+    0 0 24px rgba(0, 215, 255, 0.65),
+    0 0 50px rgba(0, 160, 255, 0.35),
+    inset 0 0 25px rgba(0, 190, 255, 0.2);
+  transform: translateY(-3px);
+}
+
+.rda-ranking-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  position: relative;
+  z-index: 2;
+}
+
+.rda-ranking-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.rda-ranking-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rda-ranking-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin: 0;
+  text-shadow: 0 0 12px rgba(0, 229, 255, 0.5), 0 2px 4px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+.rda-ranking-divider {
+  width: 90%;
+  height: 2px;
+  margin: 10px auto 0 auto;
+  background: linear-gradient(90deg, transparent 0%, #00e5ff 50%, transparent 100%);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.7);
+}
+
+.rda-ranking-podium-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.rda-ranking-players-row {
+  display: grid;
+  grid-template-columns: 1fr 1.22fr 1fr;
+  align-items: flex-end;
+  width: 100%;
+  gap: 6px;
+  z-index: 2;
+  margin-bottom: -1px;
+}
+
+.rda-ranking-player-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  width: 100%;
+}
+
+.rda-ranking-player-col--center {
+  z-index: 5;
+}
+
+.rda-ranking-crown-container {
+  margin-bottom: -10px;
+  z-index: 6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 44px;
+}
+
+.rda-crown-svg {
+  width: 64px;
+  height: 44px;
+  overflow: visible;
+}
+
+/* Fotos circulares dos Atletas */
+.rda-ranking-avatar-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #030e20;
+  position: relative;
+}
+
+.rda-ranking-photo-center {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  border: 4px solid #facc15;
+  box-shadow:
+    0 0 26px rgba(250, 204, 21, 0.85),
+    0 0 10px rgba(250, 204, 21, 0.5),
+    inset 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+.rda-ranking-photo-bronze {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3.5px solid #b45309;
+  box-shadow: 0 0 16px rgba(180, 83, 9, 0.6);
+  margin-top: 26px;
+}
+
+.rda-ranking-photo-silver {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3.5px solid #cbd5e1;
+  box-shadow: 0 0 16px rgba(203, 213, 225, 0.6);
+  margin-top: 26px;
+}
+
+.rda-ranking-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.rda-ranking-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 16, 38, 0.8);
+  border-radius: 50%;
+}
+
+/* Nomes dos Jogadores */
+.rda-ranking-name-center {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #facc15;
+  margin-top: 6px;
+  margin-bottom: 4px;
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.rda-ranking-name-side {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-top: 6px;
+  margin-bottom: 4px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 95px;
+}
+
+/* Pílula / Badge com a estatística */
+.rda-ranking-pill-center {
+  background: linear-gradient(180deg, rgba(8, 26, 52, 0.95) 0%, rgba(3, 15, 32, 0.98) 100%);
+  border: 1.8px solid #facc15;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.45);
+  border-radius: 20px;
+  padding: 3px 14px;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  white-space: nowrap;
+}
+
+.rda-ranking-pill-side {
+  background: linear-gradient(180deg, rgba(6, 22, 45, 0.95) 0%, rgba(2, 12, 28, 0.98) 100%);
+  border: 1.5px solid rgba(0, 229, 255, 0.65);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+  border-radius: 20px;
+  padding: 3px 12px;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.88rem;
+  margin-bottom: 12px;
+  white-space: nowrap;
+}
+
+/* Linha do Pódio */
+.rda-ranking-podium-row {
+  display: grid;
+  grid-template-columns: 1fr 1.22fr 1fr;
+  align-items: flex-end;
+  width: 100%;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.rda-podium-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  user-select: none;
+}
+
+/* 3º Lugar - Bronze */
+.rda-podium-block--bronze {
+  height: 48px;
+  background: linear-gradient(180deg, #d97706 0%, #b45309 30%, #78350f 75%, #451a03 100%);
+  border-radius: 14px 6px 14px 14px;
+  border-top: 1.8px solid rgba(254, 240, 138, 0.6);
+  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* 2º Lugar - Prata */
+.rda-podium-block--silver {
+  height: 50px;
+  background: linear-gradient(180deg, #f8fafc 0%, #cbd5e1 25%, #94a3b8 65%, #334155 100%);
+  border-radius: 6px 14px 14px 14px;
+  border-top: 1.8px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 4px 14px rgba(148, 163, 184, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* 1º Lugar - Bloco Central Elevado (Variações por Categoria) */
+.rda-podium-block--center-gold {
+  height: 60px;
+  margin-top: -12px;
+  background: linear-gradient(180deg, #fef08a 0%, #eab308 30%, #ca8a04 70%, #713f12 100%);
+  border-radius: 16px 16px 14px 14px;
+  border-top: 2.2px solid #ffffff;
+  box-shadow: 0 6px 22px rgba(234, 179, 8, 0.7), inset 0 3px 6px rgba(255, 255, 255, 0.7);
+  font-size: 1.95rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #eab308;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(250, 204, 21, 0.8);
+}
+
+.rda-podium-block--center-green {
+  height: 60px;
+  margin-top: -12px;
+  background: linear-gradient(180deg, #86efac 0%, #22c55e 30%, #16a34a 70%, #052e16 100%);
+  border-radius: 16px 16px 14px 14px;
+  border-top: 2.2px solid #bbf7d0;
+  box-shadow: 0 6px 22px rgba(34, 197, 94, 0.7), inset 0 3px 6px rgba(255, 255, 255, 0.6);
+  font-size: 1.95rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #facc15;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(250, 204, 21, 0.8);
+}
+
+.rda-podium-block--center-blue {
+  height: 60px;
+  margin-top: -12px;
+  background: linear-gradient(180deg, #93c5fd 0%, #3b82f6 30%, #1d4ed8 70%, #172554 100%);
+  border-radius: 16px 16px 14px 14px;
+  border-top: 2.2px solid #bfdbfe;
+  box-shadow: 0 6px 22px rgba(59, 130, 246, 0.7), inset 0 3px 6px rgba(255, 255, 255, 0.6);
+  font-size: 1.95rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #facc15;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(250, 204, 21, 0.8);
+}
+
+.rda-podium-block--center-red {
+  height: 60px;
+  margin-top: -12px;
+  background: linear-gradient(180deg, #fca5a5 0%, #ef4444 30%, #b91c1c 70%, #450a0a 100%);
+  border-radius: 16px 16px 14px 14px;
+  border-top: 2.2px solid #fecaca;
+  box-shadow: 0 6px 22px rgba(239, 68, 68, 0.7), inset 0 3px 6px rgba(255, 255, 255, 0.6);
+  font-size: 1.95rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #facc15;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(250, 204, 21, 0.8);
+}
+
+.rda-podium-block--center-silver {
+  height: 60px;
+  margin-top: -12px;
+  background: linear-gradient(180deg, #f1f5f9 0%, #94a3b8 30%, #64748b 70%, #1e293b 100%);
+  border-radius: 16px 16px 14px 14px;
+  border-top: 2.2px solid #ffffff;
+  box-shadow: 0 6px 22px rgba(148, 163, 184, 0.7), inset 0 3px 6px rgba(255, 255, 255, 0.6);
+  font-size: 1.95rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #facc15;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(250, 204, 21, 0.8);
+}
+
+/* Responsividade Mobile para Rankings */
+@media (max-width: 480px) {
+  .rda-ranking-card {
+    padding: 16px 12px 14px 12px;
+    border-radius: 20px;
+  }
+
+  .rda-ranking-title {
+    font-size: 1.05rem;
+  }
+
+  .rda-ranking-photo-center {
+    width: 72px;
+    height: 72px;
+  }
+
+  .rda-ranking-photo-bronze,
+  .rda-ranking-photo-silver {
+    width: 60px;
+    height: 60px;
+    margin-top: 20px;
+  }
+
+  .rda-crown-svg {
+    width: 52px;
+    height: 36px;
+  }
+
+  .rda-ranking-crown-container {
+    margin-bottom: -8px;
+    height: 36px;
+  }
+
+  .rda-ranking-name-center {
+    font-size: 0.92rem;
+    max-width: 90px;
+  }
+
+  .rda-ranking-name-side {
+    font-size: 0.82rem;
+    max-width: 80px;
+  }
+
+  .rda-ranking-pill-center {
+    font-size: 0.85rem;
+    padding: 2px 10px;
+    margin-bottom: 8px;
+  }
+
+  .rda-ranking-pill-side {
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    margin-bottom: 8px;
+  }
+
+  .rda-podium-block--bronze,
+  .rda-podium-block--silver {
+    height: 42px;
+    font-size: 1.35rem;
+  }
+
+  .rda-podium-block--center-gold,
+  .rda-podium-block--center-green,
+  .rda-podium-block--center-blue,
+  .rda-podium-block--center-red,
+  .rda-podium-block--center-silver {
+    height: 52px;
+    font-size: 1.65rem;
+    margin-top: -10px;
+  }
+}
+ 
+/* Divisor vertical fino entre ícone e dados no Financeiro Geral */
+.rda-finance-row-divider {
+  width: 1px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+.rda-finance-row-item--highlight .rda-finance-row-divider {
+  background: rgba(0, 230, 118, 0.35);
+}
+
+/* Forçar 2 colunas travadas em todas as telas para fidelidade 100% à referência */
+@media (max-width: 680px) {
+  .rda-season-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .rda-finance-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .rda-season-box {
+    padding: 12px 8px !important;
+    min-height: 120px !important;
+  }
+  .rda-season-box-number {
+    font-size: 1.85rem !important;
+  }
+  .rda-finance-row-item {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  .rda-finance-row-val {
+    font-size: 1.15rem !important;
+  }
+  .rda-finance-row-item--highlight .rda-finance-row-val {
+    font-size: 1.25rem !important;
+  }
+}
+
+@media (max-width: 440px) {
+  .rda-season-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .rda-finance-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .rda-season-box {
+    padding: 10px 6px !important;
+  }
+  .rda-season-box-number {
+    font-size: 1.5rem !important;
+  }
+  .rda-finance-row-val {
+    font-size: 0.95rem !important;
+  }
+  .rda-finance-row-label {
+    font-size: 0.65rem !important;
+  }
+}

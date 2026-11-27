@@ -354,28 +354,28 @@ export const WatermarkPlayers = () => (
 
 /* ==========================================================================
    ÍCONES EXCLUSIVOS PARA RESUMO DA TEMPORADA E FINANCEIRO GERAL
-   (FIDELIDADE MÁXIMA À REFERÊNCIA OFICIAL)
+   (100% FIÉIS À IMAGEM DE REFERÊNCIA OFICIAL)
    ========================================================================== */
 
 export const BarChartSeasonIcon = () => (
   <svg width="34" height="34" viewBox="0 0 36 36" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(0, 229, 255, 0.7))', flexShrink: 0 }}>
     <defs>
-      <linearGradient id="barBlue" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient id="barBlueSeason" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor="#38bdf8" />
         <stop offset="100%" stopColor="#0284c7" />
       </linearGradient>
-      <linearGradient id="barYellow" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient id="barYellowSeason" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor="#fef08a" />
         <stop offset="100%" stopColor="#eab308" />
       </linearGradient>
-      <linearGradient id="barOrange" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient id="barOrangeSeason" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor="#fb923c" />
         <stop offset="100%" stopColor="#ea580c" />
       </linearGradient>
     </defs>
-    <rect x="5" y="16" width="7" height="15" rx="3" fill="url(#barBlue)" />
-    <rect x="14.5" y="7" width="7" height="24" rx="3" fill="url(#barYellow)" />
-    <rect x="24" y="13" width="7" height="18" rx="3" fill="url(#barOrange)" />
+    <rect x="5" y="16" width="7" height="15" rx="3" fill="url(#barBlueSeason)" />
+    <rect x="14.5" y="7" width="7" height="24" rx="3" fill="url(#barYellowSeason)" />
+    <rect x="24" y="13" width="7" height="18" rx="3" fill="url(#barOrangeSeason)" />
   </svg>
 );
 
@@ -397,7 +397,7 @@ export const PlayersGroupIcon = () => (
 );
 
 export const CalendarSeasonIcon = () => (
-  <svg width="42" height="42" viewBox="0 0 40 40" fill="none" style={{ filter: 'drop-shadow(0 0 12px rgba(245, 158, 11, 0.75))' }}>
+  <svg width="44" height="44" viewBox="0 0 40 40" fill="none" style={{ filter: 'drop-shadow(0 0 12px rgba(245, 158, 11, 0.75))' }}>
     <rect x="5" y="8" width="30" height="27" rx="6" fill="#f8fafc" stroke="#ffffff" strokeWidth="1" />
     <path d="M5 14 C5 10.6863 7.68629 8 11 8 H29 C32.3137 8 35 10.6863 35 14 V16 H5 V14 Z" fill="#ef4444" />
     <rect x="11" y="5" width="3" height="6" rx="1.5" fill="#fca5a5" stroke="#b91c1c" strokeWidth="0.8" />
@@ -482,64 +482,138 @@ export const GoldCoinsHeaderIcon = () => (
   </svg>
 );
 
-export const WalletMoneyIcon = () => (
-  <svg width="42" height="42" viewBox="0 0 40 40" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(245, 158, 11, 0.6))', flexShrink: 0 }}>
-    <rect x="15" y="7" width="16" height="12" rx="2" fill="#22c55e" stroke="#86efac" strokeWidth="0.8" transform="rotate(8 15 7)" />
-    <rect x="6" y="12" width="28" height="21" rx="5" fill="#d97706" stroke="#b45309" strokeWidth="1" />
-    <path d="M6 18 H34 V28 C34 30.7 31.7 33 29 33 H11 C8.3 33 6 30.7 6 28 V18 Z" fill="#b45309" opacity="0.35" />
-    <rect x="26" y="19" width="6" height="7" rx="2" fill="#fde047" stroke="#ca8a04" strokeWidth="0.8" />
-    <circle cx="29" cy="22.5" r="1.2" fill="#713f12" />
+// Ícone da Bolsa Rosa Porta-Moedas (Fiel à Imagem de Referência Oficial)
+export const PinkCoinPurseIcon = () => (
+  <svg width="44" height="40" viewBox="0 0 44 40" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(255, 105, 180, 0.7))', flexShrink: 0 }}>
+    <defs>
+      <linearGradient id="purseBodyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#ff758c" />
+        <stop offset="50%" stopColor="#ff4d79" />
+        <stop offset="100%" stopColor="#c2185b" />
+      </linearGradient>
+      <linearGradient id="goldClaspGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#fef08a" />
+        <stop offset="60%" stopColor="#eab308" />
+        <stop offset="100%" stopColor="#a16207" />
+      </linearGradient>
+    </defs>
+    <circle cx="20" cy="7" r="3" fill="url(#goldClaspGrad)" stroke="#fef08a" strokeWidth="0.8" />
+    <circle cx="25" cy="7" r="3" fill="url(#goldClaspGrad)" stroke="#fef08a" strokeWidth="0.8" />
+    <path d="M12 13 C12 10.5 16 9.5 22.5 9.5 C29 9.5 33 10.5 33 13" stroke="url(#goldClaspGrad)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+    <path d="M13 13 C9 15 5 21 6 28 C7 34 11 36 22.5 36 C34 36 38 34 39 28 C40 21 36 15 32 13 Z"
+          fill="url(#purseBodyGrad)" stroke="#ffa4b6" strokeWidth="1.2" />
+    <path d="M15 16 C12 21 11 27 12 33" stroke="#ff94a8" strokeWidth="1.2" strokeLinecap="round" opacity="0.6" fill="none" />
+    <path d="M30 16 C33 21 34 27 33 33" stroke="#b01246" strokeWidth="1.2" strokeLinecap="round" opacity="0.6" fill="none" />
+    <ellipse cx="22.5" cy="22" rx="7" ry="4" fill="#ffffff" opacity="0.25" />
   </svg>
 );
 
-export const CyanInboxDownIcon = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(0, 229, 255, 0.75))', flexShrink: 0 }}>
-    <rect x="6" y="20" width="28" height="14" rx="4" stroke="#00e5ff" strokeWidth="2.8" fill="rgba(0, 229, 255, 0.18)" />
-    <path d="M14 20 V25 H26 V20" stroke="#00e5ff" strokeWidth="2.4" fill="#06162d" />
-    <path d="M20 7 V22 M14 16 L20 22 L26 16" stroke="#00e5ff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+// Ícone Azul com Seta Branca para Baixo (Fiel à Imagem de Referência Oficial)
+export const CyanArrowDownIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(0, 180, 255, 0.75))', flexShrink: 0 }}>
+    <defs>
+      <linearGradient id="blueSquareGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#38bdf8" />
+        <stop offset="100%" stopColor="#0284c7" />
+      </linearGradient>
+    </defs>
+    <rect x="5" y="5" width="30" height="30" rx="9" fill="url(#blueSquareGrad)" stroke="#7dd3fc" strokeWidth="1.2" />
+    <path d="M20 12 V28 M14 22 L20 28 L26 22" stroke="#ffffff" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
+// Ícone do Despertador Vermelho (Fiel à Imagem de Referência Oficial)
 export const RedAlarmClockIcon = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(239, 68, 68, 0.75))', flexShrink: 0 }}>
-    <ellipse cx="12" cy="10" rx="4" ry="2.2" fill="#ef4444" stroke="#fca5a5" strokeWidth="0.8" transform="rotate(-30 12 10)" />
-    <ellipse cx="28" cy="10" rx="4" ry="2.2" fill="#ef4444" stroke="#fca5a5" strokeWidth="0.8" transform="rotate(30 28 10)" />
-    <line x1="13" y1="30" x2="9" y2="34" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
-    <line x1="27" y1="30" x2="31" y2="34" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
-    <circle cx="20" cy="21" r="12" fill="#ef4444" stroke="#fca5a5" strokeWidth="1.2" />
-    <circle cx="20" cy="21" r="9.5" fill="#ffffff" />
-    <line x1="20" y1="21" x2="20" y2="15" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" />
-    <line x1="20" y1="21" x2="24" y2="21" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" />
-    <circle cx="20" cy="21" r="1.5" fill="#ef4444" />
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(239, 68, 68, 0.8))', flexShrink: 0 }}>
+    <defs>
+      <linearGradient id="alarmGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#f87171" />
+        <stop offset="60%" stopColor="#ef4444" />
+        <stop offset="100%" stopColor="#991b1b" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="11" cy="11" rx="4.5" ry="2.6" fill="url(#alarmGrad)" stroke="#fca5a5" strokeWidth="0.8" transform="rotate(-30 11 11)" />
+    <ellipse cx="29" cy="11" rx="4.5" ry="2.6" fill="url(#alarmGrad)" stroke="#fca5a5" strokeWidth="0.8" transform="rotate(30 29 11)" />
+    <line x1="12" y1="31" x2="8" y2="36" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+    <line x1="28" y1="31" x2="32" y2="36" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+    <circle cx="20" cy="22" r="13" fill="url(#alarmGrad)" stroke="#fca5a5" strokeWidth="1.2" />
+    <circle cx="20" cy="22" r="10" fill="#ffffff" />
+    <line x1="20" y1="22" x2="20" y2="16" stroke="#0f172a" strokeWidth="2.2" strokeLinecap="round" />
+    <line x1="20" y1="22" x2="25" y2="22" stroke="#0f172a" strokeWidth="2.2" strokeLinecap="round" />
+    <circle cx="20" cy="22" r="1.6" fill="#ef4444" />
   </svg>
 );
 
+// Ícone do Cartão de Crédito Dourado (Fiel à Imagem de Referência Oficial)
 export const GoldCreditCardIcon = () => (
-  <svg width="42" height="42" viewBox="0 0 40 40" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(234, 179, 8, 0.75))', flexShrink: 0 }}>
-    <rect x="5" y="11" width="30" height="20" rx="4.5" fill="#eab308" stroke="#fef08a" strokeWidth="1.2" />
-    <rect x="5" y="16" width="30" height="4.5" fill="#713f12" />
-    <rect x="9" y="23" width="6" height="4.5" rx="1.2" fill="#fef08a" stroke="#ca8a04" strokeWidth="0.6" />
+  <svg width="42" height="40" viewBox="0 0 42 40" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(234, 179, 8, 0.75))', flexShrink: 0 }}>
+    <defs>
+      <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#fde047" />
+        <stop offset="45%" stopColor="#eab308" />
+        <stop offset="100%" stopColor="#a16207" />
+      </linearGradient>
+    </defs>
+    <rect x="5" y="10" width="32" height="22" rx="4.5" fill="url(#cardGrad)" stroke="#fef08a" strokeWidth="1.2" />
+    <rect x="5" y="15" width="32" height="5" fill="#582e0a" />
+    <rect x="9" y="23" width="7" height="5" rx="1.5" fill="#fef08a" stroke="#ca8a04" strokeWidth="0.8" />
+    <line x1="20" y1="25" x2="33" y2="25" stroke="#fef08a" strokeWidth="1.2" strokeLinecap="round" opacity="0.8" />
+    <line x1="20" y1="28" x2="28" y2="28" stroke="#fef08a" strokeWidth="1.2" strokeLinecap="round" opacity="0.8" />
   </svg>
 );
 
-export const RedBarChartIcon = () => (
+// Ícone de Gráfico de Barras Coloridas (Fiel à Imagem de Referência Oficial)
+export const MultiColorBarChartIcon = () => (
   <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={{ filter: 'drop-shadow(0 0 10px rgba(239, 68, 68, 0.75))', flexShrink: 0 }}>
-    <rect x="8" y="22" width="6" height="12" rx="2" fill="#ef4444" />
-    <rect x="17" y="15" width="6" height="19" rx="2" fill="#ef4444" />
-    <rect x="26" y="8" width="6" height="26" rx="2" fill="#ef4444" />
+    <defs>
+      <linearGradient id="bar1Grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#38bdf8" />
+        <stop offset="100%" stopColor="#0284c7" />
+      </linearGradient>
+      <linearGradient id="bar2Grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#fb923c" />
+        <stop offset="100%" stopColor="#ea580c" />
+      </linearGradient>
+      <linearGradient id="bar3Grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#f87171" />
+        <stop offset="100%" stopColor="#dc2626" />
+      </linearGradient>
+    </defs>
+    <rect x="8" y="22" width="6.5" height="13" rx="2" fill="url(#bar1Grad)" stroke="#7dd3fc" strokeWidth="0.8" />
+    <rect x="17" y="15" width="6.5" height="20" rx="2" fill="url(#bar2Grad)" stroke="#fdba74" strokeWidth="0.8" />
+    <rect x="26" y="8" width="6.5" height="27" rx="2" fill="url(#bar3Grad)" stroke="#fca5a5" strokeWidth="0.8" />
   </svg>
 );
 
+// Ícone das Moedas Douradas (Fiel à Imagem de Referência Oficial)
 export const GoldCoinsItemIcon = () => (
-  <svg width="44" height="44" viewBox="0 0 42 42" fill="none" style={{ filter: 'drop-shadow(0 0 12px rgba(253, 224, 71, 0.85))', flexShrink: 0 }}>
-    <ellipse cx="17" cy="28" rx="11" ry="5" fill="#ca8a04" />
-    <ellipse cx="17" cy="26" rx="11" ry="5" fill="#fde047" stroke="#fef08a" strokeWidth="0.8" />
-    <ellipse cx="17" cy="21" rx="11" ry="5" fill="#ca8a04" />
-    <ellipse cx="17" cy="19" rx="11" ry="5" fill="#fde047" stroke="#fef08a" strokeWidth="0.8" />
-    <ellipse cx="26" cy="32" rx="11" ry="5" fill="#ca8a04" />
-    <ellipse cx="26" cy="30" rx="11" ry="5" fill="#fde047" stroke="#fef08a" strokeWidth="0.8" />
-    <ellipse cx="26" cy="25" rx="11" ry="5" fill="#ca8a04" />
-    <ellipse cx="26" cy="23" rx="11" ry="5" fill="#fde047" stroke="#fef08a" strokeWidth="0.8" />
+  <svg width="44" height="42" viewBox="0 0 44 42" fill="none" style={{ filter: 'drop-shadow(0 0 12px rgba(253, 224, 71, 0.85))', flexShrink: 0 }}>
+    <defs>
+      <linearGradient id="goldCoinSide" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#ca8a04" />
+        <stop offset="100%" stopColor="#713f12" />
+      </linearGradient>
+      <linearGradient id="goldCoinFace" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#fef08a" />
+        <stop offset="50%" stopColor="#fde047" />
+        <stop offset="100%" stopColor="#ca8a04" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="16" cy="30" rx="10" ry="4.5" fill="url(#goldCoinSide)" />
+    <ellipse cx="16" cy="28" rx="10" ry="4.5" fill="url(#goldCoinFace)" stroke="#fef08a" strokeWidth="0.8" />
+    <ellipse cx="16" cy="23" rx="10" ry="4.5" fill="url(#goldCoinSide)" />
+    <ellipse cx="16" cy="21" rx="10" ry="4.5" fill="url(#goldCoinFace)" stroke="#fef08a" strokeWidth="0.8" />
+    <ellipse cx="16" cy="16" rx="10" ry="4.5" fill="url(#goldCoinSide)" />
+    <ellipse cx="16" cy="14" rx="10" ry="4.5" fill="url(#goldCoinFace)" stroke="#fef08a" strokeWidth="0.8" />
+    
+    <ellipse cx="27" cy="33" rx="10" ry="4.5" fill="url(#goldCoinSide)" />
+    <ellipse cx="27" cy="31" rx="10" ry="4.5" fill="url(#goldCoinFace)" stroke="#fef08a" strokeWidth="0.8" />
+    <ellipse cx="27" cy="26" rx="10" ry="4.5" fill="url(#goldCoinSide)" />
+    <ellipse cx="27" cy="24" rx="10" ry="4.5" fill="url(#goldCoinFace)" stroke="#fef08a" strokeWidth="0.8" />
+    <ellipse cx="27" cy="19" rx="10" ry="4.5" fill="url(#goldCoinSide)" />
+    <ellipse cx="27" cy="17" rx="10" ry="4.5" fill="url(#goldCoinFace)" stroke="#fef08a" strokeWidth="0.8" />
+    <ellipse cx="27" cy="12" rx="10" ry="4.5" fill="url(#goldCoinSide)" />
+    <ellipse cx="27" cy="10" rx="10" ry="4.5" fill="url(#goldCoinFace)" stroke="#fef08a" strokeWidth="0.8" />
   </svg>
 );
 
@@ -575,34 +649,38 @@ export const ResumoTemporadaCard: React.FC<ResumoTemporadaCardProps> = ({
       </div>
 
       <div className="rda-season-grid">
+        {/* 1. Jogadores */}
         <div className="rda-season-box rda-season-box--players">
           <PlayersGroupIcon />
           <span className="rda-season-box-number">{totalPlayers}</span>
           <span className="rda-season-box-label">Jogadores</span>
           <div className="rda-season-box-pills">
             <span className="rda-pill rda-pill--green">
-              <Users size={12} color="#00e676" />
+              <Users size={13} color="#00e676" />
               <span>{totalMensalistas} Mensalistas</span>
             </span>
             <span className="rda-pill rda-pill--red">
-              <Users size={12} color="#ff3838" />
+              <Users size={13} color="#ff3838" />
               <span>{totalDiaristas} Diaristas</span>
             </span>
           </div>
         </div>
 
+        {/* 2. Partidas */}
         <div className="rda-season-box rda-season-box--matches">
           <CalendarSeasonIcon />
           <span className="rda-season-box-number">{totalMatches}</span>
           <span className="rda-season-box-label">Partidas</span>
         </div>
 
+        {/* 3. Gols */}
         <div className="rda-season-box rda-season-box--goals">
           <SoccerBallSeasonIcon />
           <span className="rda-season-box-number">{totalGoals}</span>
           <span className="rda-season-box-label">Gols</span>
         </div>
 
+        {/* 4. Assistências */}
         <div className="rda-season-box rda-season-box--assists">
           <CleatSeasonIcon />
           <span className="rda-season-box-number">{totalAssists}</span>
@@ -649,9 +727,12 @@ export const FinanceiroGeralCard: React.FC<FinanceiroGeralCardProps> = ({
       </div>
 
       <div className="rda-finance-grid">
+        {/* Coluna Esquerda */}
         <div className="rda-finance-col">
+          {/* Arrecadação Total */}
           <div className="rda-finance-row-item">
-            <WalletMoneyIcon />
+            <PinkCoinPurseIcon />
+            <div className="rda-finance-row-divider" />
             <div className="rda-finance-row-content">
               <span className="rda-finance-row-label">Arrecadação Total</span>
               <span className="rda-finance-row-val rda-val--green">
@@ -660,8 +741,10 @@ export const FinanceiroGeralCard: React.FC<FinanceiroGeralCardProps> = ({
             </div>
           </div>
 
+          {/* Recebido no mês */}
           <div className="rda-finance-row-item">
-            <CyanInboxDownIcon />
+            <CyanArrowDownIcon />
+            <div className="rda-finance-row-divider" />
             <div className="rda-finance-row-content">
               <span className="rda-finance-row-label">Recebido no mês</span>
               <span className="rda-finance-row-val rda-val--green">
@@ -670,8 +753,10 @@ export const FinanceiroGeralCard: React.FC<FinanceiroGeralCardProps> = ({
             </div>
           </div>
 
+          {/* Pendências (mês) */}
           <div className="rda-finance-row-item">
             <RedAlarmClockIcon />
+            <div className="rda-finance-row-divider" />
             <div className="rda-finance-row-content">
               <span className="rda-finance-row-label">Pendências (mês)</span>
               <span className="rda-finance-row-val rda-val--red">
@@ -681,9 +766,12 @@ export const FinanceiroGeralCard: React.FC<FinanceiroGeralCardProps> = ({
           </div>
         </div>
 
+        {/* Coluna Direita */}
         <div className="rda-finance-col">
+          {/* Despesas Totais */}
           <div className="rda-finance-row-item">
             <GoldCreditCardIcon />
+            <div className="rda-finance-row-divider" />
             <div className="rda-finance-row-content">
               <span className="rda-finance-row-label">Despesas Totais</span>
               <span className="rda-finance-row-val rda-val--red">
@@ -692,8 +780,10 @@ export const FinanceiroGeralCard: React.FC<FinanceiroGeralCardProps> = ({
             </div>
           </div>
 
+          {/* Despesas (mês) */}
           <div className="rda-finance-row-item">
-            <RedBarChartIcon />
+            <MultiColorBarChartIcon />
+            <div className="rda-finance-row-divider" />
             <div className="rda-finance-row-content">
               <span className="rda-finance-row-label">Despesas (mês)</span>
               <span className="rda-finance-row-val rda-val--red">
@@ -702,8 +792,10 @@ export const FinanceiroGeralCard: React.FC<FinanceiroGeralCardProps> = ({
             </div>
           </div>
 
+          {/* Saldo Líquido Acumulado (Destaque Máximo Verde Neon) */}
           <div className="rda-finance-row-item rda-finance-row-item--highlight">
             <GoldCoinsItemIcon />
+            <div className="rda-finance-row-divider" />
             <div className="rda-finance-row-content">
               <span className="rda-finance-row-label">Saldo Líquido Acumulado</span>
               <span className="rda-finance-row-val rda-val--green-highlight">
