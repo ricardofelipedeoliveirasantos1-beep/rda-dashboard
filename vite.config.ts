@@ -62,7 +62,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 8080,
-    strictPort: true
+    strictPort: false
   },
   test: {
     globals: true,

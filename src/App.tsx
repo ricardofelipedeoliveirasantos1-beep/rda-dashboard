@@ -9,17 +9,21 @@ const Relatorios = lazy(() => import('./components/Relatorios'));
 const Mensalidades = lazy(() => import('./components/Mensalidades'));
 import { supabase } from './lib/supabase';
 import { getCachedData, clearCache, CACHE_TTL } from './services/dataCache';
-import { ResumoTemporadaCard, FinanceiroGeralCard } from './components/DashboardPremiumCards';
+import {
+  ResumoTemporadaCard,
+  FinanceiroGeralCard,
+  ResumoMensalCard,
+  ProximaPartidaCard,
+  UltimaPartidaCard,
+  AniversariantesCard
+} from './components/DashboardPremiumCards';
 import {
   Users,
-  Calendar,
   Trophy,
   DollarSign,
   Clock,
-  MapPin,
   User,
   Award,
-  Activity,
   FileText,
   AlertCircle,
   Home,
@@ -32,7 +36,6 @@ import {
   Loader2,
   Shield,
   LogOut,
-  Edit,
   Goal,
   CircleCheck,
   CircleAlert,
@@ -1708,222 +1711,56 @@ export default function App() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
                   {currentUserRole !== 'visitor' && (
-                    /* CARD 08 — RESUMO MENSAL */
-                    <div className="dashboard-card dashboard-card--neon" style={{ padding: '16px' }}>
-                      <div className="card-header" style={{ marginBottom: '16px' }}>
-                        <span className="card-title">
-                          <FileText size={18} /> Resumo Mensal (Atual)
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                        {/* Pagos */}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
-                          <div style={{ color: '#22c55e', marginBottom: '2px' }}><CircleCheck size={26} strokeWidth={1.5} /></div>
-                          <span style={{ fontSize: '22px', fontWeight: 900, color: '#22c55e', lineHeight: 1 }}>{totalMonthlyPaid}</span>
-                          <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pagos</span>
-                        </div>
-
-                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
-
-                        {/* Pendentes */}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
-                          <div style={{ color: '#ef4444', marginBottom: '2px' }}><CircleAlert size={26} strokeWidth={1.5} /></div>
-                          <span style={{ fontSize: '22px', fontWeight: 900, color: '#ef4444', lineHeight: 1 }}>{totalMonthlyPending}</span>
-                          <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Mensalistas<br/>pendentes</span>
-                        </div>
-
-                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)', height: '45px', alignSelf: 'center' }}></div>
-
-                        {/* Diaristas */}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
-                          <div style={{ color: '#f97316', marginBottom: '2px' }}><Users size={26} strokeWidth={1.5} /></div>
-                          <span style={{ fontSize: '22px', fontWeight: 900, color: '#f97316', lineHeight: 1 }}>{lastMatchDiarists}</span>
-                          <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Diaristas<br/>(Últ. Partida)</span>
-                        </div>
-                      </div>
-                    </div>
+                    <ResumoMensalCard
+                      paidCount={totalMonthlyPaid}
+                      pendingCount={totalMonthlyPending}
+                      diaristsCount={lastMatchDiarists}
+                    />
                   )}
 
-                  {/* CARD 03 — PRÓXIMA PARTIDA */}
-                                  <div className="dashboard-card dashboard-card--neon" style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <div className="card-header">
-                                      <span className="card-title">
-                                        <Calendar size={18} /> Próxima Partida
-                                      </span>
-                                      <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'rgba(99,102,241,0.2)', color: '#818cf8', fontWeight: 600 }}>
-                                        {nextMatch ? 'Agendado' : 'Sem agendamento'}
-                                      </span>
-                                    </div>
-                                    {nextMatch ? (
-                                      <div className="match-info">
-                                        <div className="match-item">
-                                          <MapPin size={16} />
-                                          <span>{nextMatch.location || 'Local a definir'}</span>
-                                        </div>
-                                        <div className="match-item">
-                                          <Calendar size={16} />
-                                          <span>{nextMatch.match_date.split('-').reverse().join('/')}</span>
-                                        </div>
-                                        <div className="match-item">
-                                          <Clock size={16} />
-                                          <span>{nextMatch.match_time.slice(0, 5)}h</span>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                        Nenhuma partida programada
-                                      </div>
-                                    )}
-                                    <button className="btn-card" style={{ marginTop: 'auto' }} onClick={() => setActiveTab('partidas')}>
-                                      Ver Partidas
-                                    </button>
-                                  </div>
-                  {/* CARD 06 — ÚLTIMA PARTIDA */}
-                                  <div className="dashboard-card dashboard-card--neon" style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                      <span className="card-title">
-                                        <Activity size={18} /> Última Partida
-                                      </span>
-                                      {lastMatch && can('edit_match') && (
-                                        <button
-                                          onClick={() => {
-                                            setEditingLastMatch(lastMatch);
-                                            let parsed = null;
-                                            const locParts = (lastMatch.location || '').split('|');
-                                            if (locParts.length > 1 && locParts[1].startsWith('{')) {
-                                              try {
-                                                const temp = JSON.parse(locParts[1]);
-                                                if (temp.isDashboardDetail) parsed = temp;
-                                              } catch(e) {}
-                                            }
-
-                                            setEditFinalTeam1(parsed?.finalTeam1 || '');
-                                            setEditFinalScore1(parsed?.finalScore1 || '');
-                                            setEditFinalTeam2(parsed?.finalTeam2 || '');
-                                            setEditFinalScore2(parsed?.finalScore2 || '');
-                                            setEditFinalPenalties(parsed?.finalPenalties || false);
-
-                                            setEditRalabostaTeam1(parsed?.ralaTeam1 || '');
-                                            setEditRalabostaScore1(parsed?.ralaScore1 || '');
-                                            setEditRalabostaTeam2(parsed?.ralaTeam2 || '');
-                                            setEditRalabostaScore2(parsed?.ralaScore2 || '');
-                                            setEditRalabostaPenalties(parsed?.ralaPenalties || false);
-                                          }}
-                                          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                        >
-                                          <Edit size={16} />
-                                        </button>
-                                      )}
-                                    </div>
-                                    {lastMatch ? (
-                                      (() => {
-                                        let detail = null;
-                                        const locParts = (lastMatch.location || '').split('|');
-                                        const realLocation = locParts[0];
-                                        if (locParts.length > 1 && locParts[1].startsWith('{')) {
-                                          try {
-                                            const parsed = JSON.parse(locParts[1]);
-                                            if (parsed.isDashboardDetail) detail = parsed;
-                                          } catch(e) {}
-                                        }
-
-                                        return (
-                                          <div className="match-info">
-                                            <div className="match-item">
-                                              <Calendar size={16} />
-                                              <span>{lastMatch.match_date.split('-').reverse().join('/')}</span>
-                                            </div>
-                                            <div className="match-item">
-                                              <MapPin size={16} />
-                                              <span>{realLocation}</span>
-                                            </div>
-                                            {detail ? (
-                                              <>
-                                                <div className="match-item" style={{ alignItems: 'flex-start' }}>
-                                                  <Award size={16} style={{ marginTop: '2px', color: '#fbbf24' }} />
-                                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontWeight: 600, color: '#fbbf24' }}>Final</span>
-                                                    <span>{detail.finalTeam1 || '?'} {detail.finalScore1} x {detail.finalScore2} {detail.finalTeam2 || '?'} {detail.finalPenalties ? '(Pênaltis)' : ''}</span>
-                                                  </div>
-                                                </div>
-                                                <div className="match-item" style={{ alignItems: 'flex-start' }}>
-                                                  <Users size={16} style={{ marginTop: '2px', color: '#94a3b8' }} />
-                                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontWeight: 600, color: '#94a3b8' }}>Ralabosta</span>
-                                                    <span>{detail.ralaTeam1 || '?'} {detail.ralaScore1} x {detail.ralaScore2} {detail.ralaTeam2 || '?'} {detail.ralaPenalties ? '(Pênaltis)' : ''}</span>
-                                                  </div>
-                                                </div>
-                                              </>
-                                            ) : (
-                                              <>
-                                                <div className="match-item">
-                                                  <Award size={16} />
-                                                  <span>Placar: {lastMatch.team_1_name || 'Colete'} {lastMatch.team_1_score !== null ? lastMatch.team_1_score : ''} x {lastMatch.team_2_score !== null ? lastMatch.team_2_score : ''} {lastMatch.team_2_name || 'S/ Colete'}</span>
-                                                </div>
-                                                <div className="match-item">
-                                                  <Users size={16} />
-                                                  <span>Campeão: {lastMatch.champion_team === 'team_1' ? (lastMatch.team_1_name || 'Colete') : lastMatch.champion_team === 'team_2' ? (lastMatch.team_2_name || 'S/ Colete') : (lastMatch.champion_team || 'Empate / N/A')}</span>
-                                                </div>
-                                                <div className="match-item">
-                                                  <Users size={16} />
-                                                  <span>Ralabosta: {(() => {
-                                                    const ralaVal = lastMatch.team_count === 4 ? lastMatch.fourth_place_team :
-                                                                    lastMatch.team_count === 3 ? lastMatch.third_place_team : null;
-
-                                                    if (!ralaVal) return 'N/A';
-                                                    if (ralaVal === 'team_1') return lastMatch.team_1_name || 'Colete';
-                                                    if (ralaVal === 'team_2') return lastMatch.team_2_name || 'S/ Colete';
-                                                    return ralaVal;
-                                                  })()}</span>
-                                                </div>
-                                              </>
-                                            )}
-                                          </div>
-                                        );
-                                      })()
-                                    ) : (
-                                      <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                        Nenhuma partida finalizada
-                                      </div>
-                                    )}
-                                    <button className="btn-card" style={{ marginTop: 'auto' }} onClick={() => setActiveTab('historico')}>
-                                      Abrir Histórico
-                                    </button>
-                                  </div>
+                  {/* CARD 03 — PRÓXIMA PARTIDA (Premium) */}
+                  <ProximaPartidaCard
+                    nextMatch={nextMatch}
+                    onViewMatches={() => setActiveTab('partidas')}
+                  />
                 </div>
 
-                {/* CARD 09 — ANIVERSARIANTES DO MÊS */}
-                <div className="dashboard-card dashboard-card--neon">
-                  <div className="card-header">
-                    <span className="card-title">
-                      <Award size={18} /> Aniversariantes do Mês
-                    </span>
-                  </div>
-                  <div className="leaderboard-list">
-                    {birthdays.length > 0 ? (
-                      birthdays.map((player, idx) => (
-                        <div className="leaderboard-item" key={idx}>
-                          <div className="player-info">
-                            {player.photo ? (
-                              <img src={player.photo} alt={player.name} className="player-img" loading="lazy" decoding="async" style={{ objectFit: 'cover' }} />
-                            ) : (
-                              <div className="player-img" style={{ backgroundColor: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <User size={16} style={{ color: '#666' }} />
-                              </div>
-                            )}
-                            <div>
-                              <div className="player-name">{player.name}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Fará {player.age} anos • {player.date}</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '10px' }}>
-                        Nenhum aniversariante neste mês.
-                      </div>
-                    )}
-                  </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+                  {/* CARD 06 — ÚLTIMA PARTIDA (Premium) */}
+                  <UltimaPartidaCard
+                    lastMatch={lastMatch}
+                    canEdit={can('edit_match')}
+                    onEdit={() => {
+                      if (!lastMatch) return;
+                      setEditingLastMatch(lastMatch);
+                      let parsed = null;
+                      const locParts = (lastMatch.location || '').split('|');
+                      if (locParts.length > 1 && locParts[1].startsWith('{')) {
+                        try {
+                          const temp = JSON.parse(locParts[1]);
+                          if (temp.isDashboardDetail) parsed = temp;
+                        } catch(e) {}
+                      }
+
+                      setEditFinalTeam1(parsed?.finalTeam1 || '');
+                      setEditFinalScore1(parsed?.finalScore1 || '');
+                      setEditFinalTeam2(parsed?.finalTeam2 || '');
+                      setEditFinalScore2(parsed?.finalScore2 || '');
+                      setEditFinalPenalties(parsed?.finalPenalties || false);
+
+                      setEditRalabostaTeam1(parsed?.ralaTeam1 || '');
+                      setEditRalabostaScore1(parsed?.ralaScore1 || '');
+                      setEditRalabostaTeam2(parsed?.ralaTeam2 || '');
+                      setEditRalabostaScore2(parsed?.ralaScore2 || '');
+                      setEditRalabostaPenalties(parsed?.ralaPenalties || false);
+                    }}
+                    onOpenHistory={() => setActiveTab('historico')}
+                  />
+
+                  {/* CARD 09 — ANIVERSARIANTES DO MÊS (Premium) */}
+                  <AniversariantesCard
+                    birthdays={birthdays}
+                  />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
