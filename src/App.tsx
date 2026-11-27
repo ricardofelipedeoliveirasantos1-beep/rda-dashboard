@@ -1753,7 +1753,7 @@ export default function App() {
                   onViewMatches={() => setActiveTab('partidas')}
                 />
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
                   {/* CARD 06 — ÚLTIMA PARTIDA (Premium) */}
                   <UltimaPartidaCard
                     lastMatch={lastMatch}

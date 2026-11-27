@@ -2011,16 +2011,19 @@ input[type="number"] {
 }
 
 .rda-lastmatch-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(130px, 170px);
-  gap: 14px;
+  display: flex !important;
+  flex-direction: row !important;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
 }
 
 .rda-lastmatch-rows {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -2082,7 +2085,15 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 0;
+  flex: 0 0 auto;
+  width: 155px;
+}
+
+.rda-lastmatch-tactic-col .rda-tactical-clipboard-svg {
+  width: 100%;
+  max-width: 155px;
+  height: auto;
+  display: block;
 }
 
 .rda-lastmatch-history-btn {
@@ -2280,8 +2291,17 @@ input[type="number"] {
   }
 
   .rda-lastmatch-body {
-    grid-template-columns: minmax(0, 1fr) minmax(110px, 140px);
+    display: flex !important;
+    flex-direction: row !important;
     gap: 12px;
+  }
+
+  .rda-lastmatch-tactic-col {
+    width: 130px;
+  }
+
+  .rda-lastmatch-tactic-col .rda-tactical-clipboard-svg {
+    max-width: 130px;
   }
 
   .rda-birthdays-body {
@@ -2333,19 +2353,63 @@ input[type="number"] {
 
 @media (max-width: 480px) {
   .rda-lastmatch-body {
-    grid-template-columns: 1fr;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 10px;
   }
 
   .rda-lastmatch-tactic-col {
-    justify-content: flex-start;
+    width: 110px;
   }
 
   .rda-lastmatch-tactic-col .rda-tactical-clipboard-svg {
-    max-width: 130px;
+    max-width: 110px;
+  }
+
+  .rda-lastmatch-row {
+    padding: 4px 10px;
+    min-height: 32px;
+    gap: 6px;
+  }
+
+  .rda-lastmatch-row-text {
+    font-size: 0.78rem;
+  }
+
+  .rda-lastmatch-emoji {
+    font-size: 16px;
   }
 
   .rda-lastmatch-history-btn {
     grid-template-columns: 22px 1fr 20px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .rda-lastmatch-body {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 6px;
+  }
+
+  .rda-lastmatch-tactic-col {
+    width: 90px;
+  }
+
+  .rda-lastmatch-tactic-col .rda-tactical-clipboard-svg {
+    max-width: 90px;
+  }
+
+  .rda-lastmatch-row {
+    padding: 3px 6px;
+    min-height: 28px;
+    gap: 5px;
+  }
+
+  .rda-lastmatch-row-text {
+    font-size: 0.72rem;
   }
 }
 

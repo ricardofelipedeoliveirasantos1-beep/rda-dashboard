@@ -1315,7 +1315,7 @@ export const TacticalClipboard2D: React.FC = () => (
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     className="rda-tactical-clipboard-svg"
-    style={{ width: '100%', maxWidth: '170px', height: 'auto', filter: 'drop-shadow(0 0 14px rgba(0, 229, 255, 0.85))' }}
+    style={{ width: '100%', height: 'auto', filter: 'drop-shadow(0 0 14px rgba(0, 229, 255, 0.85))' }}
     aria-label="Campo tático 2D da última partida"
   >
     <defs>
